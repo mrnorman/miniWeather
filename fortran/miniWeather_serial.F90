@@ -177,6 +177,7 @@ contains
       call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend )
       call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend )
     endif
+    direction_switch = .not. direction_switch
   end subroutine perform_timestep
 
 
@@ -210,9 +211,9 @@ contains
     !! TODO: THREAD ME
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !Apply the tendencies to the fluid state
-    do k = 1 , nz
-      do i = 1 , nx
-        do ll = 1 , NUM_VARS
+    do ll = 1 , NUM_VARS
+      do k = 1 , nz
+        do i = 1 , nx
           state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
         enddo
       enddo

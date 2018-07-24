@@ -110,7 +110,6 @@ void   set_halo_values_z    ( double *state );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-  int ierr;
   ///////////////////////////////////////////////////////////////////////////////////////
   // BEGIN USER-CONFIGURABLE PARAMETERS
   ///////////////////////////////////////////////////////////////////////////////////////
@@ -118,10 +117,10 @@ int main(int argc, char **argv) {
   //So, you'll want to have nx_glob be twice as large as nz_glob
   nx_glob = 200;      //Number of total cells in the x-dirction
   nz_glob = 100;      //Number of total cells in the z-dirction
-  sim_time = 600;     //How many seconds to run the simulation
+  sim_time = 1500;     //How many seconds to run the simulation
   output_freq = 10;   //How frequently to output data to file (in seconds)
   //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_DENSITY_CURRENT;
+  data_spec_int = DATA_SPEC_MOUNTAIN;
   ///////////////////////////////////////////////////////////////////////////////////////
   // END USER-CONFIGURABLE PARAMETERS
   ///////////////////////////////////////////////////////////////////////////////////////
@@ -183,6 +182,7 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
     semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
     semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
   }
+  if (direction_switch) { direction_switch = 0; } else { direction_switch = 1; }
 }
 
 
@@ -306,11 +306,11 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
       }
 
       //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      r = vals[ID_DENS] + hy_dens_int[k+hs];
+      r = vals[ID_DENS] + hy_dens_int[k];
       u = vals[ID_UMOM] / r;
       w = vals[ID_WMOM] / r;
-      t = ( vals[ID_RHOT] + hy_dens_theta_int[k+hs] ) / r;
-      p = C0*pow((r*t),gamm) - hy_pressure_int[k+hs];
+      t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
+      p = C0*pow((r*t),gamm) - hy_pressure_int[k];
 
       //Compute the flux vector with hyperviscosity
       flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
@@ -384,18 +384,18 @@ void set_halo_values_z( double *state ) {
         state[ll*(nz+2*hs)*(nx+2*hs) + (1      )*(nx+2*hs) + i] = 0.;
         state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs  )*(nx+2*hs) + i] = 0.;
         state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs+1)*(nx+2*hs) + i] = 0.;
-        // //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-        // if (data_spec_int == DATA_SPEC_MOUNTAIN) then
-        //   x = (i_beg-1+i-0.5_rp)*dx
-        //   if ( abs(x-xlen/4) < mnt_width ) then
-        //     xloc = (x-(xlen/4)) / mnt_width
-        //     //Compute the derivative of the fake mountain
-        //     mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx
-        //     //w = (dz/dx)*u
-        //     state(i,-1,ID_WMOM) = mnt_deriv*state(i,1,ID_UMOM)
-        //     state(i,0 ,ID_WMOM) = mnt_deriv*state(i,1,ID_UMOM)
-        //   endif
-        // endif
+        //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
+        if (data_spec_int == DATA_SPEC_MOUNTAIN) {
+          x = (i_beg+i-hs+0.5)*dx;
+          if ( fabs(x-xlen/4) < mnt_width ) {
+            xloc = (x-(xlen/4)) / mnt_width;
+            //Compute the derivative of the fake mountain
+            mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
+            //w = (dz/dx)*u
+            state[ID_WMOM*(nz+2*hs)*(nx+2*hs) + (0)*(nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(nz+2*hs)*(nx+2*hs) + hs*(nx+2*hs) + i];
+            state[ID_WMOM*(nz+2*hs)*(nx+2*hs) + (1)*(nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(nz+2*hs)*(nx+2*hs) + hs*(nx+2*hs) + i];
+          }
+        }
       } else {
         state[ll*(nz+2*hs)*(nx+2*hs) + (0      )*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (hs     )*(nx+2*hs) + i];
         state[ll*(nz+2*hs)*(nx+2*hs) + (1      )*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (hs     )*(nx+2*hs) + i];
@@ -487,8 +487,8 @@ void init( int *argc , char ***argv ) {
       for (kk=0; kk<nqpoints; kk++) {
         for (ii=0; ii<nqpoints; ii++) {
           //Compute the x,z location within the global domain based on cell and quadrature index
-          x = (i_beg + i+0.5)*dx + (qpoints[ii]-0.5)*dx;
-          z = (k_beg + k+0.5)*dz + (qpoints[kk]-0.5)*dz;
+          x = (i_beg + i-hs+0.5)*dx + (qpoints[ii]-0.5)*dx;
+          z = (k_beg + k-hs+0.5)*dz + (qpoints[kk]-0.5)*dz;
 
           //Set the fluid state based on the user's specification
           if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
@@ -519,7 +519,7 @@ void init( int *argc , char ***argv ) {
     hy_dens_cell      [k] = 0.;
     hy_dens_theta_cell[k] = 0.;
     for (kk=0; kk<nqpoints; kk++) {
-      z = (k_beg + k+0.5)*dz;
+      z = (k_beg + k-hs+0.5)*dz;
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
@@ -670,7 +670,7 @@ double sample_ellipse_cosine( double x , double z , double amp , double x0 , dou
   void output( double *state , double etime ) {
     int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
     int i, k, ind_r, ind_u, ind_w, ind_t;
-    MPI_Offset len, st1[1], ct1[1], st3[3], ct3[3];
+    MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
     //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
     double *dens, *uwnd, *wwnd, *theta;
     double *etimearr;
