@@ -588,7 +588,7 @@ halo
 \begin_inset Quotes erd
 \end_inset
 
- cells from the left- and right-had MPI tasks in the x-direction as well.
+ cells from the left- and right-hand MPI tasks in the x-direction as well.
  The domain is only decomposed in the 
 \begin_inset Formula $x$
 \end_inset
@@ -898,7 +898,7 @@ Colliding Thermals
 \end_layout
 
 \begin_layout Standard
-data_spec_int == DATA_SPEC_COLLISION
+data_spec_int = DATA_SPEC_COLLISION
 \begin_inset Newline newline
 \end_inset
 
@@ -916,7 +916,7 @@ Mountain Gravity Waves
 \end_layout
 
 \begin_layout Standard
-data_spec_int == DATA_SPEC_MOUNTAIN
+data_spec_int = DATA_SPEC_MOUNTAIN
 \begin_inset Newline newline
 \end_inset
 
@@ -934,7 +934,7 @@ Turbulence
 \end_layout
 
 \begin_layout Standard
-data_spec_int == DATA_SPEC_TURBULENCE
+data_spec_int = DATA_SPEC_TURBULENCE
 \begin_inset Newline newline
 \end_inset
 
@@ -955,7 +955,7 @@ Density Current
 \end_layout
 
 \begin_layout Standard
-data_spec_int == DATA_SPEC_DENSITY_CURRENT
+data_spec_int = DATA_SPEC_DENSITY_CURRENT
 \begin_inset Newline newline
 \end_inset
 
@@ -973,11 +973,20 @@ Physics, PDEs, and Numerical Approximations
 \end_layout
 
 \begin_layout Standard
-While the numerical approximations in this code are certainly cheap and
- dirty, they are probably the fastest way to get the job done at a moderate
- order of accuracy.
- For instance, on 16 K20x GPUs, you can perform a simulation with 5 million
- grid cells (3200 
+I put this section last just for the sake of completion in case you're curious
+ what's actually going on in the code.
+ While the numerical approximations in this code are certainly cheap and
+ dirty, they are a fast and easy way to get the job done in a relatively
+ small amount of code.
+ For instance, on 16 K20x GPUs, you can perform a 
+\begin_inset Quotes eld
+\end_inset
+
+colliding thermals
+\begin_inset Quotes erd
+\end_inset
+
+ simulation with 5 million grid cells (3200 
 \begin_inset Formula $\times$
 \end_inset
 
@@ -1062,7 +1071,7 @@ where
 \begin_inset Formula $P_{0}=10^{5}\,\text{Pa}$
 \end_inset
 
-, 
+ is the surface pressure, 
 \begin_inset Formula $g=9.8\text{\,\ m}\,\mbox{s}^{-2}$
 \end_inset
 
@@ -1070,7 +1079,8 @@ where
 \begin_inset Formula $p=C_{0}\left(\rho\theta\right)^{\gamma}$
 \end_inset
 
- is pressure, 
+ is the pressure as determined by an alternative form of the ideal gas equation
+ of state, 
 \begin_inset Formula $C_{0}=R_{d}^{\gamma}p_{0}^{-R_{d}/c_{v}}$
 \end_inset
 
@@ -1078,7 +1088,7 @@ where
 \begin_inset Formula $R_{d}=287\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}$
 \end_inset
 
-, 
+ is the dry gas constant, 
 \begin_inset Formula $\gamma=c_{p}/c_{v}$
 \end_inset
 
@@ -1086,15 +1096,11 @@ where
 \begin_inset Formula $c_{p}=1004\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}$
 \end_inset
 
-, 
+ is specific heat at constant pressure, and 
 \begin_inset Formula $c_{v}=717\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}$
 \end_inset
 
-, and 
-\begin_inset Formula $p_{0}=10^{5}\,\mbox{Pa}$
-\end_inset
-
-.
+ is specific heat at constant volume.
  This can be cast in a more convenient form as:
 \begin_inset Formula 
 \begin{equation}
@@ -1103,7 +1109,7 @@ where
 
 \end_inset
 
-
+where a bold font represents a vector quantity.
 \end_layout
 
 \begin_layout Subsection
@@ -1323,7 +1329,17 @@ reference "eq:fv_discretization"
 
 \end_inset
 
+When it comes to time step stability, I simply assume the maximum speed
+ of propagation is 
+\begin_inset Formula $450\,\text{m}\,\text{s}^{-1}$
+\end_inset
 
+, which basically means that the maximum wind speed is assumed to be 
+\begin_inset Formula $100\,\text{m}\,\text{s}^{-1}$
+\end_inset
+
+, which is a safe assumption.
+ I set the CFL value to 1.5 for this code.
 \end_layout
 
 \begin_layout Subsection
@@ -1379,7 +1395,19 @@ where
 
  is a user-defined parameter to control the strength of the diffusion, where
  a higher value gives more diffusion.
- 
+ The parameter 
+\begin_inset Formula $\beta$
+\end_inset
+
+ is not sensitive to the grid spacing, and it seems that 
+\begin_inset Formula $\beta=0.25$
+\end_inset
+
+ is generally enough to get rid of 
+\begin_inset Formula $2\Delta x$
+\end_inset
+
+ noise contamination.
 \end_layout
 
 \end_body
