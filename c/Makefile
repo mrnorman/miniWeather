@@ -12,14 +12,14 @@ ACCFLAGS := -ta=tesla,pinned,cc50,cuda9.0,ptxinfo -Minfo=accel
 ## END EDITING SECTION
 ##########################################################
 
-all: serial #mpi openmp openacc
+all: serial mpi #openmp openacc
 
 serial:
-	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_serial miniWeather_serial.c ${LDFLAGS}
+	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_serial miniWeather_serial.cpp ${LDFLAGS}
 
-# mpi:
-# 	${FC} ${INCLUDE} ${FFLAGS} -o miniWeather_mpi miniWeather_mpi.F90 ${LDFLAGS}
-#
+mpi:
+	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_mpi miniWeather_mpi.cpp ${LDFLAGS}
+
 # openmp:
 # 	${FC} ${INCLUDE} ${FFLAGS} ${OMPFLAGS} -o miniWeather_mpi_openmp miniWeather_mpi_openmp.F90 ${LDFLAGS}
 #

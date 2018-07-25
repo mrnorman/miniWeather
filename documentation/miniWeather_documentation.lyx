@@ -109,9 +109,9 @@ The miniWeather code mimics the basic dynamics seen in atmospheric weather
  The dynamics themselves are dry compressible, stratified, non-hydrostatic
  flows dominated by buoyant forces that are relatively small perturbations
  on a hydrostatic background state.
- The equations simulated in this code form the backbone of pretty much all
- fluid dynamics codes, and this particular flavor forms the base of all
- weather and climate modeling.
+ The equations in this code themselves form the backbone of pretty much
+ all fluid dynamics codes, and this particular flavor forms the base of
+ all weather and climate modeling.
 \end_layout
 
 \begin_layout Standard
@@ -119,12 +119,6 @@ With about 500 total lines of code (and only about 200 lines that you care
  about), it serves as an approachable place to learn parallelization and
  porting using MPI + X, where X is OpenMP, OpenACC, CUDA, or potentially
  other approaches to CPU and accelerated parallelization.
-\end_layout
-
-\begin_layout Standard
-You are encouraged to change the resolution of the model (nx_glob and nz_glob),
- especially as you add parallelism, but it is not recommended that you change
- the domain size (xlen and zlen).
  The code uses periodic boundary conditions in the 
 \begin_inset Formula $x$
 \end_inset
@@ -148,9 +142,9 @@ Required Libraries
 \begin_layout Standard
 To run everything in this code, you need MPI, parallel-netcdf, ncview, and
  an OpenACC compiler (preferably PGI 17+) to be installed.
- The serial code still uses MPI because I figured it was best to start to
+ The serial code still uses MPI because I figured it was best to start with
  parallel I/O in place so that it's ready to go when the MPI implementation
- is finished.
+ is done.
  
 \end_layout
 
@@ -174,7 +168,8 @@ https://trac.mcs.anl.gov/projects/parallel-netcdf
 \begin_inset Newline newline
 \end_inset
 
-Also, you can download a free version of PGI Community Edition from:
+Also, you can download a free version of PGI Community Edition (which has
+ OpenACC implemented) from:
 \begin_inset Newline newline
 \end_inset
 
@@ -222,7 +217,19 @@ http://meteora.ucsd.edu/~pierce/ncview_home_page.html
 \end_layout
 
 \begin_layout Subsection
-Compiling the Code
+Directories and Compiling
+\end_layout
+
+\begin_layout Standard
+There are three main directories in the mini app: (1) a Fortran source directory
+; (2) a C source directory; and (3) a documentation directory, which you
+ presumably know about because it contains this text you're reading now.
+ The C code is technically C++ code but only because I wanted to use the
+ ampersand pass by reference notation because C's endless asterisks make
+ me want to die.
+ I kept the code from C++ proper because it makes OpenACC and OpenMP 4.5
+ easier to use, though multidimensional array indexing in C is certainly
+ cumbersome.
 \end_layout
 
 \begin_layout Standard
@@ -230,7 +237,7 @@ To compile the code, first edit the Makefile and change the flags to point
  to your parallel-netcdf installation as well as change the flags based
  on which compiler you are using.
  There are four versions of the code: serial, mpi, mpi+openmp, and mpi+openacc.
- The filenames are clear which file is associated with which programming
+ The filenames make it clear which file is associated with which programming
  paradigm.
  To make all of these at once, simply type 
 \begin_inset Quotes eld
@@ -351,7 +358,16 @@ mpirun -n [# ranks] ./mini_weather_[version]
 .
  Since parameters are set in the code itself, you don't need to pass any
  parameters.
- Some machines use different tools instead of mpirun.
+ Some machines use different tools instead of mpirun (e.g., OLCF's Titan uses
+ 
+\begin_inset Quotes eld
+\end_inset
+
+aprun
+\begin_inset Quotes erd
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Subsection
@@ -371,8 +387,7 @@ https://www.unidata.ucar.edu/software/netcdf/
 \end_inset
 
 ).
- To me, the easiest way to view the data is to use a simple tool called
- 
+ To me, the easiest way to view the data is to use a tool called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -401,18 +416,29 @@ ncview output.nc
 \end_inset
 
 , making sure you have X-forwarding enabled in your ssh session.
+ Further, you can call 
+\begin_inset Quotes eld
+\end_inset
+
+ncview -frames output.nc
+\begin_inset Quotes erd
+\end_inset
+
+, and it will dump out all of your frames in the native resolution you're
+ viewing the data in, and you you can render a movie with tools like ffmpeg.
+ 
 \end_layout
 
 \begin_layout Section
-Parallelizing the Code
+Parallelization
 \end_layout
 
 \begin_layout Standard
-This was somewhat designed to parallelize MPI first and then OpenMP or OpenACC
- next, but you can always parallelize with OpenMP or OpenACC without MPI
- if you want.
+This code was designed to parallelize with MPI first and then OpenMP or
+ OpenACC next, but you can always parallelize with OpenMP or OpenACC without
+ MPI if you want.
  But it is rewarding to be able to run it on multiple nodes at higher resolution
- for sharper eddies in the dynamics.
+ for more and sharper eddies in the dynamics.
  
 \end_layout
 
@@ -431,7 +457,7 @@ Note that you only need to make changes code within the first 450 source
  Everything below that is initialization and I/O code that doesn't need
  to be parallelized (unless you want to).
  There's a note in the serial code that tells you at what point the rest
- of the code will remain the same.
+ of the code will remain the same, even after parallelization.
 \end_layout
 
 \begin_layout Subsection
@@ -439,10 +465,75 @@ Indexing
 \end_layout
 
 \begin_layout Standard
-Because in a given dimension, there is one more index for cell boundaries
- than there is for cells, the cell at index i will have cell boundaries
- of indices i and i+1 at the left and right.
- This is true for the Fortran and C/C++ codes.
+The code makes room for so-called 
+\begin_inset Quotes eld
+\end_inset
+
+halo
+\begin_inset Quotes erd
+\end_inset
+
+ cells in the fluid state.
+ This is a common practice in any algorithm that uses stencil-based reconstructi
+on to estimate variation within a domain.
+ In this code, there are 
+\begin_inset Quotes eld
+\end_inset
+
+hs
+\begin_inset Quotes erd
+\end_inset
+
+ halo cells on either side of each dimension, and I pretty much hard-code
+ hs=2.
+\end_layout
+
+\begin_layout Standard
+In the Fortran code, the x- and z-dimensions are dimensioned as multi-dimensiona
+l arrays that range from 1-hs:nx+hs.
+ In the x-direction, 1-hs:0 belong to the MPI task to the left, cells 1:nx
+ belong to the current MPI task, and nx+1:nx+hs belong to the MPI task to
+ the right.
+ In the z-dimension, 1-hs:0 are artificially set to mimic a solid wall boundary
+ condition at the bottom, and nz+1:nz+hs are the same for the top boundary.
+\end_layout
+
+\begin_layout Standard
+In the C code, the fluid state array is dimensioned to size (nz+2*hs) and
+ (nx+2*hs) in the x- and z-directions.
+ In the x-direction, cells 0 to hs-1 belong to the left MPI task, cells
+ hs to nx+hs-1 belong to the current MPI taks, and cells nx+hs to nx+2*hs-1
+ belong to the right MPI task.
+ The z-direction's halo cells are used to mimic solid wall boundaries.
+\end_layout
+
+\begin_layout Standard
+Since the code is periodic, the 
+\begin_inset Quotes eld
+\end_inset
+
+left
+\begin_inset Quotes erd
+\end_inset
+
+ MPI task will wrap around the domain if you are task zero, and the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ MPI task will wrap around the domain if you are task 
+\begin_inset Quotes eld
+\end_inset
+
+nranks-1
+\begin_inset Quotes erd
+\end_inset
+
+.
+ 
 \end_layout
 
 \begin_layout Subsection
@@ -459,7 +550,15 @@ owns
 \begin_inset Quotes erd
 \end_inset
 
- a certain set of cells in the x-direction.
+ a certain set of cells in the x-direction and contains two 
+\begin_inset Quotes eld
+\end_inset
+
+halo
+\begin_inset Quotes erd
+\end_inset
+
+ cells from the left- and right-had MPI tasks in the x-direction as well.
  The domain is only decomposed in the 
 \begin_inset Formula $x$
 \end_inset
@@ -469,36 +568,6 @@ owns
 \end_inset
 
 -direction.
- You'll notice that the data structure, 
-\begin_inset Quotes eld
-\end_inset
-
-state
-\begin_inset Quotes erd
-\end_inset
-
- has made room for a number of 
-\begin_inset Quotes eld
-\end_inset
-
-halo
-\begin_inset Quotes erd
-\end_inset
-
- cells.
- The Fortran code has the fluid state dimensioned from 1-hs:nx+hs in the
- 
-\begin_inset Formula $x$
-\end_inset
-
--direction, for instance.
- This means that the cells from 1:nx are owned by that MPI rank.
- But the cells from 1-hs:0 are owned by the left-neighboring MPI rank, and
- nx+1:nx+hs are owned by the right-neighboring MPI rank.
- For the C / C++ code, cells of index 0 to hs-1 will be left halo cells,
- cells of index hs to nx+hs-1 will be the cells owned by an mpi rank, and
- cells of index nx+hs to nx+2*hs-1 will be right halo cells.
- 
 \end_layout
 
 \begin_layout Standard
@@ -551,14 +620,15 @@ right_rank
 \end_inset
 
 .
+ These are clearly marked in the serial source code.
  You can set more variables, but these are used elsewhere in the code (particula
-rly in the parallel file I/O).
+rly in the parallel file I/O), so they must be set.
 \end_layout
 
 \begin_layout Standard
 To parallelize with MPI, there are only two places in the code that need
  to be altered.
- The first is the initialization (subroutine named 
+ The first is the initialization, a subroutine / function named 
 \begin_inset Quotes eld
 \end_inset
 
@@ -566,10 +636,10 @@ init
 \begin_inset Quotes erd
 \end_inset
 
-), where you must determine the number of ranks, you process's rank, the
+, where you must determine the number of ranks, you process's rank, the
  beginning index of your rank's first cell in the x-direction, the number
- of x-direction cells your rank will own, and the rank IDs that are to your
- left and your right.
+ of x-direction cells your rank will own, and the MPI rank IDs that are
+ to your left and your right.
  Because the code is periodic in the 
 \begin_inset Formula $x$
 \end_inset
@@ -588,9 +658,9 @@ The second place is in the routine that sets the halo values in the
 \end_layout
 
 \begin_layout Enumerate
-Create MPI data buffers to hold the data that needs to be sent and received,
- allocate them in the init() routine, and deallocate them in the finalize()
- routine.
+Create MPI data buffers (at the same place the other arrays are declared)
+ to hold the data that needs to be sent and received, allocate them in the
+ init() routine, and deallocate them in the finalize() routine.
 \end_layout
 
 \begin_layout Enumerate
@@ -630,7 +700,22 @@ OpenMP
 \end_layout
 
 \begin_layout Standard
-For the OpenMP code, you basically need to decorate the loops with OpenMP
+For the OpenMP code, you basically need to decorate the loops with 
+\begin_inset Quotes eld
+\end_inset
+
+omp parallel do
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+omp parallel for
+\begin_inset Quotes erd
+\end_inset
+
  and pay attention to any variables you need to make 
 \begin_inset Quotes eld
 \end_inset
@@ -640,9 +725,6 @@ private
 \end_inset
 
  so that each thread has its own copy.
- There are no race conditions in this particular code, so there is no need
- for critical regions, though that is something you often need in an OpenMP
- code.
  Keep in mind that OpenMP works best on 
 \begin_inset Quotes eld
 \end_inset
@@ -669,7 +751,8 @@ collapse
 \begin_inset Quotes erd
 \end_inset
 
- clause because the outermost loop is not very large.
+ clause because the outermost loop is not large enough to support the number
+ of threads most CPUs have.
 \end_layout
 
 \begin_layout Subsection
@@ -700,31 +783,15 @@ The OpenACC parallelization is a bit more involved when it comes to performance.
 
 \begin_layout Standard
 Once you're getting the right answer with the kernels on the GPU, you can
- look at optimizing data movement.
- I recommend putting data statements for the five main arrays as well as
+ look at optimizing data movement by putting in data statements.
+ I recommend putting data statements for the state, tend, flux, hy_*, and
  the MPI buffers around the main time stepping loop.
- Then, you simply need to move the data to the host before sending MPI data,
- back to the device once you receive MPI data, and to the host before file
- I/O.
-\end_layout
-
-\begin_layout Standard
-You might also find some benefit from using the async() clause to reduce
- kernel launch overheads.
- This will only matter if you have relatively little data per node.
- 
+ Then, you need to move the data to the host before sending MPI data, back
+ to the device once you receive MPI data, and to the host before file I/O.
 \end_layout
 
 \begin_layout Subsubsection
 C/C++
-\end_layout
-
-\begin_layout Standard
-To be written.
-\end_layout
-
-\begin_layout Subsection
-CUDA
 \end_layout
 
 \begin_layout Standard
