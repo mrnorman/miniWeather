@@ -21,28 +21,20 @@
 
 \section{Introduction}
 
-The miniWeather code is a self-contained compressible fluid code that
-mimics the basic dynamics seen in atmospheric weather and climate.
-The dynamics themselves are dry compressible, stratified, non-hydrostatic
-flows dominated by buoyant forces that are relatively small perturbations
-on a hydrostatic background state. The equations simulated in this
-code form the backbone of pretty much all fluid dynamics codes, and
-this particular flavor forms the base of all weather and climate modeling.
+The miniWeather code mimics the basic dynamics seen in atmospheric
+weather and climate. The dynamics themselves are dry compressible,
+stratified, non-hydrostatic flows dominated by buoyant forces that
+are relatively small perturbations on a hydrostatic background state.
+The equations in this code themselves form the backbone of pretty
+much all fluid dynamics codes, and this particular flavor forms the
+base of all weather and climate modeling.
 
-With only about 500 total lines of code (and only about 200 lines
-that you care about), it serves as an approachable place to learn
-parallelization and porting using MPI + X, where X is OpenMP, OpenACC,
-CUDA, or potentially other approaches to CPU and accelerated parallelization.
-
-The code defaults to a domain of 20km $\times$ 10km in the $x$-
-and $z$-directions, but you can feel free to change that if you wish.
-Beware, though, that the vertical length can only get so large before
-the hydrostatic initialization gives invalid values. Also, the troposphere
-doesn't extend much beyond 10km. So it's probably best to leave the
-domain as it is.
-
-The code uses periodic boundary conditions in the $x$-direction and
-solid wall boundary conditions in the $z$-direction. 
+With about 500 total lines of code (and only about 200 lines that
+you care about), it serves as an approachable place to learn parallelization
+and porting using MPI + X, where X is OpenMP, OpenACC, CUDA, or potentially
+other approaches to CPU and accelerated parallelization. The code
+uses periodic boundary conditions in the $x$-direction and solid
+wall boundary conditions in the $z$-direction. 
 
 \section{Compiling and Running the Code}
 
@@ -51,24 +43,35 @@ solid wall boundary conditions in the $z$-direction.
 To run everything in this code, you need MPI, parallel-netcdf, ncview,
 and an OpenACC compiler (preferably PGI 17+) to be installed. The
 serial code still uses MPI because I figured it was best to start
-to parallel I/O in place so that it's ready to go when the MPI implementation
-is finished. 
+with parallel I/O in place so that it's ready to go when the MPI implementation
+is done. 
 
 You can download parallel-netcdf from:\\
 \url{https://trac.mcs.anl.gov/projects/parallel-netcdf}\\
-Also, you can download a free version of PGI Community Edition from:\\
+Also, you can download a free version of PGI Community Edition (which
+has OpenACC implemented) from:\\
 \url{https://www.pgroup.com/products/community.htm}\\
 You'll probably also want to have ``ncview'' installed so you can
-easily view your NetCDF files:\\
+easily view the NetCDF files. Ncview also makes it easy to see a movie
+of the solution as it evolves in time:\\
 \url{http://meteora.ucsd.edu/~pierce/ncview_home_page.html}
 
-\subsection{Compiling the Code}
+\subsection{Directories and Compiling}
+
+There are three main directories in the mini app: (1) a Fortran source
+directory; (2) a C source directory; and (3) a documentation directory,
+which you presumably know about because it contains this text you're
+reading now. The C code is technically C++ code but only because I
+wanted to use the ampersand pass by reference notation because C's
+endless asterisks make me want to die. I kept the code from C++ proper
+because it makes OpenACC and OpenMP 4.5 easier to use, though multidimensional
+array indexing in C is cumbersome, to say the least.
 
 To compile the code, first edit the Makefile and change the flags
 to point to your parallel-netcdf installation as well as change the
 flags based on which compiler you are using. There are four versions
 of the code: serial, mpi, mpi+openmp, and mpi+openacc. The filenames
-are clear which file is associated with which programming paradigm.
+make it clear which file is associated with which programming paradigm.
 To make all of these at once, simply type ``make''. To make them
 individually, you can type ``make serial'', ``make mpi'', ``make
 openmp'', and ``make openacc''.
@@ -77,31 +80,36 @@ openmp'', and ``make openacc''.
 
 There are four aspects of the configuration you can edit easily, and
 they are clearly labeled in the code as ``USER-CONFIGURABLE PARAMETERS''.
-These include: (1) the number of cells to use ``nx\_glob'' and ``nz\_glob'';
-(2) the amount of time to simulation ``sim\_time''; (3) the frequency
-to output data to file ``output\_freq''; and (4) the initial data
-to use ``data\_spec\_int''. 
+These include: (1) the number of cells to use {[}``nx\_glob'' and
+``nz\_glob''{]}; (2) the amount of time to simulation {[}``sim\_time''{]};
+(3) the frequency to output data to file {[}``output\_freq''{]};
+and (4) the initial data to use {[}``data\_spec\_int''{]}. 
 
 \subsection{Running the Code}
 
 To run the code, simply call ``mpirun -n {[}\# ranks{]} ./mini\_weather\_{[}version{]}''.
 Since parameters are set in the code itself, you don't need to pass
-any parameters. Some machines use different tools instead of mpirun.
+any parameters. Some machines use different tools instead of mpirun
+(e.g., OLCF's Titan uses ``aprun'').
 
 \subsection{Viewing the Output}
 
 The file I/O is done in the netCDF format: (\url{https://www.unidata.ucar.edu/software/netcdf/}).
-To me, the easiest way to view the data is to use a simple tool called
-``ncview'' (\url{http://meteora.ucsd.edu/~pierce/ncview_home_page.html}).
-To use it, you can simply type ``ncview output.nc'', making sure
-you have X-forwarding enabled in your ssh session.
+To me, the easiest way to view the data is to use a tool called ``ncview''
+(\url{http://meteora.ucsd.edu/~pierce/ncview_home_page.html}). To
+use it, you can simply type ``ncview output.nc'', making sure you
+have X-forwarding enabled in your ssh session. Further, you can call
+``ncview -frames output.nc'', and it will dump out all of your frames
+in the native resolution you're viewing the data in, and you you can
+render a movie with tools like ffmpeg. 
 
-\section{Parallelizing the Code}
+\section{Parallelization}
 
-This was somewhat designed to parallelize MPI first and then OpenMP
+This code was designed to parallelize with MPI first and then OpenMP
 or OpenACC next, but you can always parallelize with OpenMP or OpenACC
 without MPI if you want. But it is rewarding to be able to run it
-on multiple nodes at higher resolution for sharper eddies in the dynamics. 
+on multiple nodes at higher resolution for more and sharper eddies
+in the dynamics. 
 
 As you port the code, you'll want to change relatively little code
 at a time, re-compile, re-run, and look at the output to see that
@@ -109,43 +117,68 @@ you're still getting the right answer. There are advantages to using
 a visual tool to check the answer, as it can sometimes give you clues
 as to why you're not getting the right answer. 
 
-Note that you only need to make changes to the first 450 lines of
-code. Everything below that is simply initialization and I/O code
+Note that you only need to make changes code within the first 450
+source lines. Everything below that is initialization and I/O code
 that doesn't need to be parallelized (unless you want to). There's
 a note in the serial code that tells you at what point the rest of
-the code will remain the same.
+the code will remain the same, even after parallelization.
+
+\subsection{Indexing}
+
+The code makes room for so-called ``halo'' cells in the fluid state.
+This is a common practice in any algorithm that uses stencil-based
+reconstruction to estimate variation within a domain. In this code,
+there are ``hs'' halo cells on either side of each dimension, and
+I pretty much hard-code hs=2.
+
+In the Fortran code, the x- and z-dimensions are dimensioned as multi-dimensional
+arrays that range from 1-hs:nx+hs. In the x-direction, 1-hs:0 belong
+to the MPI task to the left, cells 1:nx belong to the current MPI
+task, and nx+1:nx+hs belong to the MPI task to the right. In the z-dimension,
+1-hs:0 are artificially set to mimic a solid wall boundary condition
+at the bottom, and nz+1:nz+hs are the same for the top boundary.
+
+In the C code, the fluid state array is dimensioned to size (nz+2{*}hs)
+and (nx+2{*}hs) in the x- and z-directions. In the x-direction, cells
+0 to hs-1 belong to the left MPI task, cells hs to nx+hs-1 belong
+to the current MPI taks, and cells nx+hs to nx+2{*}hs-1 belong to
+the right MPI task. The z-direction's halo cells are used to mimic
+solid wall boundaries.
+
+Since the code is periodic, the ``left'' MPI task will wrap around
+the domain if you are task zero, and the ``right'' MPI task will
+wrap around the domain if you are task ``nranks-1''. 
 
 \subsection{MPI}
 
 This code was designed to use domain decomposition, where each MPI
-rank ``owns'' a certain set of cells. You'll notice that the data
-structure, ``state'' has made room for a number of ``halo''. The
-Fortran code has the fluid state dimensioned from 1-hs:nx+hs in the
-$x$-direction, for instance. This means that the cells from 1:nx
-are owned by that MPI rank. But the cells from 1-hs:0 are owned by
-the left-neighboring MPI rank, and nx+1:nx+hs are owned by the right-neighboring
-MPI rank. The domain is only decomposed in the $x$-direction and
-not the $z$-direction. IMPORTANT: Please be sure to set ``nranks'',
-``myrank'', ``nx'', ``i\_beg'', ``left\_rank'', and ``right\_rank''.
-You can set more variables, but these are used elsewhere in the code
-(particularly in the parallel file I/O).
+rank ``owns'' a certain set of cells in the x-direction and contains
+two ``halo'' cells from the left- and right-had MPI tasks in the
+x-direction as well. The domain is only decomposed in the $x$-direction
+and not the $z$-direction.
+
+IMPORTANT: Please be sure to set ``nranks'', ``myrank'', ``nx'',
+``i\_beg'', ``left\_rank'', and ``right\_rank''. These are clearly
+marked in the serial source code. You can set more variables, but
+these are used elsewhere in the code (particularly in the parallel
+file I/O), so they must be set.
 
 To parallelize with MPI, there are only two places in the code that
-need to be altered. The first is the initialization (subroutine named
-``init''), where you must determine the number of ranks, you process's
-rank, the beginning index of your rank's first cell in the x-direction,
-the number of x-direction cells your rank will own, and the rank IDs
-that are to your left and your right. Because the code is periodic
-in the $x$-direction, your left and right neighboring ranks will
-wrap around. For instance, if your are rank zero, your left-most rank
-will be nranks-1.
+need to be altered. The first is the initialization, a subroutine
+/ function named ``init'', where you must determine the number of
+ranks, you process's rank, the beginning index of your rank's first
+cell in the x-direction, the number of x-direction cells your rank
+will own, and the MPI rank IDs that are to your left and your right.
+Because the code is periodic in the $x$-direction, your left and
+right neighboring ranks will wrap around. For instance, if your are
+rank zero, your left-most rank will be nranks-1.
 
 The second place is in the routine that sets the halo values in the
 $x$-direction. In this routine, you need to:
 \begin{enumerate}
-\item Create MPI data buffers to hold the data that needs to be sent and
-received, allocate them in the init() routine, and deallocate them
-in the finalize() routine.
+\item Create MPI data buffers (at the same place the other arrays are declared)
+to hold the data that needs to be sent and received, allocate them
+in the init() routine, and deallocate them in the finalize() routine.
 \item Pack the data you need to send to your left and right MPI neighbors
 \item Send the data to your left and right MPI neighbors
 \item Receive the data from your left and right MPI neighbors
@@ -160,14 +193,13 @@ routine as well.
 \subsection{OpenMP}
 
 For the OpenMP code, you basically need to decorate the loops with
-OpenMP and pay attention to any variables you need to make ``private''
-so that each thread has its own copy. There are no race conditions
-in this particular code, so there is no need for critical regions,
-though that is something you often need in an OpenMP code. Keep in
-mind that OpenMP works best on ``outer'' loops rather than ``inner''
-loops. Also, for sake of performance, there are a couple of instances
-where it is wise to use the ``collapse'' clause because the outermost
-loop is not very large.
+``omp parallel do'' or ``omp parallel for'' and pay attention
+to any variables you need to make ``private'' so that each thread
+has its own copy. Keep in mind that OpenMP works best on ``outer''
+loops rather than ``inner'' loops. Also, for sake of performance,
+there are a couple of instances where it is wise to use the ``collapse''
+clause because the outermost loop is not large enough to support the
+number of threads most CPUs have.
 
 \subsection{OpenACC}
 
@@ -187,23 +219,21 @@ for you on a per-kernel basis. You need to pay attention to private
 variables here as well.
 
 Once you're getting the right answer with the kernels on the GPU,
-you can look at optimizing data movement. I recommend putting data
-statements for the five main arrays as well as the MPI buffers around
-the main time stepping loop. Then, you simply need to move the data
-to the host before sending MPI data, back to the device once you receive
-MPI data, and to the host before file I/O.
+you can look at optimizing data movement by putting in data statements.
+I recommend putting data statements for the state, tend, flux, hy\_{*},
+and the MPI buffers around the main time stepping loop. Then, you
+need to move the data to the host before sending MPI data, back to
+the device once you receive MPI data, and to the host before file
+I/O.
 
-You might also find some benefit from using the async() clause to
-reduce kernel launch overheads. This will only matter if you have
-relatively little data per node. 
+\subsubsection{C Code}
 
-\subsubsection{C/C++}
-
-To be written.
-
-\subsection{CUDA}
-
-To be written.
+In the C code, you'll want to put your data statements first for state,
+tend, flux, hy\_{*}, and the MPI buffers. Then, as you port kernel
+by kernel, be sure to transfer the requisite data back and forth with
+``acc update'' statements or ``copy, copyin, and copyout'' statements
+on the kernels themselves. Other than this, the approach is the same
+as with the Fortran case. 
 
 \section{Numerical Experiments}
 
@@ -216,8 +246,7 @@ variable.
 data\_spec\_int = DATA\_SPEC\_THERMAL\\
 sim\_time = 1000\\
 This simulates a rising thermal in a neutral atmosphere, which will
-look something like a ``mushroom'' cloud (without all of the subsequent
-violence).
+look something like a ``mushroom'' cloud (without all of the violence).
 
 \subsection{Colliding Thermals}
 
@@ -252,12 +281,13 @@ This test case creates a neutrally stratified atmosphere with a strong
 cold bubble in the middle of the domain that crashes into the ground
 to give the feel of a weather front (more of a downburst, really).
 
-\section{Physics and Numerical Approximation}
+\section{Physics, PDEs, and Numerical Approximations}
 
-While these numerics are certainly cheap and dirty, they are probably
-the fastest way to get the job done at a moderate order of accuracy.
-For instance, on 16 K20x GPUs, you can perform a simulation with 5
-million grid cells (3200 $\times$ 1600) in just a few minutes.
+While the numerical approximations in this code are certainly cheap
+and dirty, they are probably the fastest way to get the job done at
+a moderate order of accuracy. For instance, on 16 K20x GPUs, you can
+perform a simulation with 5 million grid cells (3200 $\times$ 1600)
+in just a few minutes.
 
 \subsection{The 2-D Euler Equations}
 

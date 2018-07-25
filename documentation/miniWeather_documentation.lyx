@@ -228,8 +228,8 @@ There are three main directories in the mini app: (1) a Fortran source directory
  ampersand pass by reference notation because C's endless asterisks make
  me want to die.
  I kept the code from C++ proper because it makes OpenACC and OpenMP 4.5
- easier to use, though multidimensional array indexing in C is certainly
- cumbersome.
+ easier to use, though multidimensional array indexing in C is cumbersome,
+ to say the least.
 \end_layout
 
 \begin_layout Standard
@@ -791,11 +791,32 @@ Once you're getting the right answer with the kernels on the GPU, you can
 \end_layout
 
 \begin_layout Subsubsection
-C/C++
+C Code
 \end_layout
 
 \begin_layout Standard
-To be written.
+In the C code, you'll want to put your data statements first for state,
+ tend, flux, hy_*, and the MPI buffers.
+ Then, as you port kernel by kernel, be sure to transfer the requisite data
+ back and forth with 
+\begin_inset Quotes eld
+\end_inset
+
+acc update
+\begin_inset Quotes erd
+\end_inset
+
+ statements or 
+\begin_inset Quotes eld
+\end_inset
+
+copy, copyin, and copyout
+\begin_inset Quotes erd
+\end_inset
+
+ statements on the kernels themselves.
+ Other than this, the approach is the same as with the Fortran case.
+ 
 \end_layout
 
 \begin_layout Section
@@ -839,7 +860,7 @@ mushroom
 \begin_inset Quotes erd
 \end_inset
 
- cloud (without all of the subsequent violence).
+ cloud (without all of the violence).
 \end_layout
 
 \begin_layout Subsection
@@ -918,12 +939,13 @@ This test case creates a neutrally stratified atmosphere with a strong cold
 \end_layout
 
 \begin_layout Section
-Physics and Numerical Approximation
+Physics, PDEs, and Numerical Approximations
 \end_layout
 
 \begin_layout Standard
-While these numerics are certainly cheap and dirty, they are probably the
- fastest way to get the job done at a moderate order of accuracy.
+While the numerical approximations in this code are certainly cheap and
+ dirty, they are probably the fastest way to get the job done at a moderate
+ order of accuracy.
  For instance, on 16 K20x GPUs, you can perform a simulation with 5 million
  grid cells (3200 
 \begin_inset Formula $\times$
