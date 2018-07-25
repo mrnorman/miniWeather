@@ -62,10 +62,7 @@ There are three main directories in the mini app: (1) a Fortran source
 directory; (2) a C source directory; and (3) a documentation directory,
 which you presumably know about because it contains this text you're
 reading now. The C code is technically C++ code but only because I
-wanted to use the ampersand pass by reference notation because C's
-endless asterisks make me want to die. I kept the code from C++ proper
-because it makes OpenACC and OpenMP 4.5 easier to use, though multidimensional
-array indexing in C is cumbersome, to say the least.
+wanted to use the ampersand pass by reference notation.
 
 To compile the code, first edit the Makefile and change the flags
 to point to your parallel-netcdf installation as well as change the
@@ -245,8 +242,12 @@ In the C code, you'll want to put your data statements first for state,
 tend, flux, hy\_{*}, and the MPI buffers. Then, as you port kernel
 by kernel, be sure to transfer the requisite data back and forth with
 ``acc update'' statements or ``copy, copyin, and copyout'' statements
-on the kernels themselves. Other than this, the approach is the same
-as with the Fortran case. 
+on the kernels themselves. For your OpenACC parallel loop constructs,
+you must either explicitly write your own copy, copyin, and copyout
+clauses for all arrays used in the kernel, or you must write ``default(present)''
+to tell the compiler not to worry about the data. Otherwise, it will
+complain that it doesn't know how big the arrays are. Other than this,
+the approach is the same as with the Fortran case. 
 
 \section{Numerical Experiments}
 

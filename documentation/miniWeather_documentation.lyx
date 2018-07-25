@@ -225,11 +225,7 @@ There are three main directories in the mini app: (1) a Fortran source directory
 ; (2) a C source directory; and (3) a documentation directory, which you
  presumably know about because it contains this text you're reading now.
  The C code is technically C++ code but only because I wanted to use the
- ampersand pass by reference notation because C's endless asterisks make
- me want to die.
- I kept the code from C++ proper because it makes OpenACC and OpenMP 4.5
- easier to use, though multidimensional array indexing in C is cumbersome,
- to say the least.
+ ampersand pass by reference notation.
 \end_layout
 
 \begin_layout Standard
@@ -845,6 +841,18 @@ copy, copyin, and copyout
 \end_inset
 
  statements on the kernels themselves.
+ For your OpenACC parallel loop constructs, you must either explicitly write
+ your own copy, copyin, and copyout clauses for all arrays used in the kernel,
+ or you must write 
+\begin_inset Quotes eld
+\end_inset
+
+default(present)
+\begin_inset Quotes erd
+\end_inset
+
+ to tell the compiler not to worry about the data.
+ Otherwise, it will complain that it doesn't know how big the arrays are.
  Other than this, the approach is the same as with the Fortran case.
  
 \end_layout
