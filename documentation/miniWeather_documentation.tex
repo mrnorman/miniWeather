@@ -81,7 +81,7 @@ openmp'', and ``make openacc''.
 There are four aspects of the configuration you can edit easily, and
 they are clearly labeled in the code as ``USER-CONFIGURABLE PARAMETERS''.
 These include: (1) the number of cells to use {[}``nx\_glob'' and
-``nz\_glob''{]}; (2) the amount of time to simulation {[}``sim\_time''{]};
+``nz\_glob''{]}; (2) the amount of time to simulate {[}``sim\_time''{]};
 (3) the frequency to output data to file {[}``output\_freq''{]};
 and (4) the initial data to use {[}``data\_spec\_int''{]}. 
 
@@ -131,23 +131,36 @@ reconstruction to estimate variation within a domain. In this code,
 there are ``hs'' halo cells on either side of each dimension, and
 I pretty much hard-code hs=2.
 
-In the Fortran code, the x- and z-dimensions are dimensioned as multi-dimensional
-arrays that range from 1-hs:nx+hs. In the x-direction, 1-hs:0 belong
-to the MPI task to the left, cells 1:nx belong to the current MPI
-task, and nx+1:nx+hs belong to the MPI task to the right. In the z-dimension,
-1-hs:0 are artificially set to mimic a solid wall boundary condition
-at the bottom, and nz+1:nz+hs are the same for the top boundary.
+\subsubsection{Fortran}
+
+In the Fortran code's fluid state (``state''), the x- and z-dimensions
+are dimensioned as multi-dimensional arrays that range from 1-hs:nx+hs.
+In the x-direction, 1-hs:0 belong to the MPI task to the left, cells
+1:nx belong to the current MPI task, and nx+1:nx+hs belong to the
+MPI task to the right. In the z-dimension, 1-hs:0 are artificially
+set to mimic a solid wall boundary condition at the bottom, and nz+1:nz+hs
+are the same for the top boundary. The cell-interface fluxes (``flux'')
+are dimensioned as 1:nx+1 and 1:nz+1 in the x- and z-directions, and
+the cell average tendencies (``tend'') are dimensioned 1:nx and
+1:nz in the x- and z-directions. The cell of index i will have left-
+and right-hand interface fluxes of index i and i+1, respectively,
+and it will be evolved by the tendency at index i. The analog of this
+is also true in the z-direction.
+
+\subsubsection{C}
 
 In the C code, the fluid state array is dimensioned to size (nz+2{*}hs)
 and (nx+2{*}hs) in the x- and z-directions. In the x-direction, cells
 0 to hs-1 belong to the left MPI task, cells hs to nx+hs-1 belong
 to the current MPI taks, and cells nx+hs to nx+2{*}hs-1 belong to
 the right MPI task. The z-direction's halo cells are used to mimic
-solid wall boundaries.
-
-Since the code is periodic, the ``left'' MPI task will wrap around
-the domain if you are task zero, and the ``right'' MPI task will
-wrap around the domain if you are task ``nranks-1''. 
+solid wall boundaries. The cell-interface fluxes (``flux'') are
+dimensioned as nx+1 and nz+1 in the x- and z-directions, and the cell
+average tendencies (``tend'') are dimensioned nx and nz in the x-
+and z-directions. The cell of index i+hs will have left- and right-hand
+interface fluxes of index i and i+1, respectively, and it will be
+evolved by the tendency at index i.The analog of this is also true
+in the z-direction.
 
 \subsection{MPI}
 
