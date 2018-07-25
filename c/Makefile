@@ -6,13 +6,13 @@ CC := mpiCC
 CFLAGS := -O3
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf -L${LAPACK_PATH}/lib
-OMPFLAGS := -mp
+OMPFLAGS := -fopenmp
 ACCFLAGS := -ta=tesla,pinned,cc50,cuda9.0,ptxinfo -Minfo=accel
 ##########################################################
 ## END EDITING SECTION
 ##########################################################
 
-all: serial mpi #openmp openacc
+all: serial mpi openmp #openacc
 
 serial:
 	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_serial miniWeather_serial.cpp ${LDFLAGS}
@@ -20,11 +20,11 @@ serial:
 mpi:
 	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_mpi miniWeather_mpi.cpp ${LDFLAGS}
 
-# openmp:
-# 	${FC} ${INCLUDE} ${FFLAGS} ${OMPFLAGS} -o miniWeather_mpi_openmp miniWeather_mpi_openmp.F90 ${LDFLAGS}
-#
+openmp:
+	${CC} ${INCLUDE} ${CFLAGS} ${OMPFLAGS} -o miniWeather_mpi_openmp miniWeather_mpi_openmp.cpp ${LDFLAGS}
+
 # openacc:
-# 	${FC} ${INCLUDE} ${FFLAGS} ${ACCFLAGS} -o miniWeather_mpi_openacc miniWeather_mpi_openacc.F90 ${LDFLAGS}
+# 	${CC} ${INCLUDE} ${CFLAGS} ${ACCFLAGS} -o miniWeather_mpi_openacc miniWeather_mpi_openacc.cpp ${LDFLAGS}
 
 clean:
 	rm -f *.o *.mod miniWeather_serial #miniWeather_mpi miniWeather_mpi_openmp miniWeather_mpi_openacc
