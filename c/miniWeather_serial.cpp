@@ -74,10 +74,10 @@ double *hy_pressure_int;      //hydrostatic press (vert cell interf).   Dimensio
 double etime;                 //Elapsed model time
 double output_counter;        //Helps determine when it's time to do output
 //Runtime variable arrays
-double * state;                //Fluid state.             Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
-double * state_tmp;            //Fluid state.             Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
-double * flux;                 //Cell interface fluxes.   Dimensions: (nx+1,nz+1,NUM_VARS)
-double * tend;                 //Fluid state tendencies.  Dimensions: (nx,nz,NUM_VARS)
+double *state;                //Fluid state.             Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
+double *state_tmp;            //Fluid state.             Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
+double *flux;                 //Cell interface fluxes.   Dimensions: (nx+1,nz+1,NUM_VARS)
+double *tend;                 //Fluid state tendencies.  Dimensions: (nx,nz,NUM_VARS)
 int    num_out = 0;           //The number of outputs performed so far
 int    direction_switch = 1;
 
@@ -207,9 +207,9 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   // TODO: THREAD ME
   /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
-      for (ll=0; ll<NUM_VARS; ll++) {
+  for (ll=0; ll<NUM_VARS; ll++) {
+    for (k=0; k<nz; k++) {
+      for (i=0; i<nx; i++) {
         inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
         indt = ll*nz*nx + k*nx + i;
         state_out[inds] = state_init[inds] + dt * tend[indt];

@@ -215,9 +215,9 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 
   //Apply the tendencies to the fluid state
 #pragma acc parallel loop collapse(3) private(inds,indt) default(present)
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
-      for (ll=0; ll<NUM_VARS; ll++) {
+  for (ll=0; ll<NUM_VARS; ll++) {
+    for (k=0; k<nz; k++) {
+      for (i=0; i<nx; i++) {
         inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
         indt = ll*nz*nx + k*nx + i;
         state_out[inds] = state_init[inds] + dt * tend[indt];
@@ -434,14 +434,6 @@ void init( int *argc , char ***argv ) {
   dx = xlen / nx_glob;
   dz = zlen / nz_glob;
 
-  /////////////////////////////////////////////////////////////
-  // BEGIN MPI DUMMY SECTION
-  // TODO: (1) GET NUMBER OF MPI RANKS
-  //       (2) GET MY MPI RANK ID (RANKS ARE ZERO-BASED INDEX)
-  //       (3) COMPUTE MY BEGINNING "I" INDEX (1-based index)
-  //       (4) COMPUTE HOW MANY X-DIRECTION CELLS MY RANK HAS
-  //       (5) FIND MY LEFT AND RIGHT NEIGHBORING RANK IDs
-  /////////////////////////////////////////////////////////////
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
   nper = ( (double) nx_glob ) / nranks;
@@ -452,9 +444,6 @@ void init( int *argc , char ***argv ) {
   if (left_rank == -1) left_rank = nranks-1;
   right_rank = myrank + 1;
   if (right_rank == nranks) right_rank = 0;
-  //////////////////////////////////////////////
-  // END MPI DUMMY SECTION
-  //////////////////////////////////////////////
 
 
   ////////////////////////////////////////////////////////////////////////////////
