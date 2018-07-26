@@ -821,40 +821,14 @@ C Code
 \end_layout
 
 \begin_layout Standard
-In the C code, you'll want to put your data statements first for state,
- tend, flux, hy_*, and the MPI buffers.
- Then, as you port kernel by kernel, be sure to transfer the requisite data
- back and forth with 
-\begin_inset Quotes eld
-\end_inset
-
-acc update
-\begin_inset Quotes erd
-\end_inset
-
- statements or 
-\begin_inset Quotes eld
-\end_inset
-
-copy, copyin, and copyout
-\begin_inset Quotes erd
-\end_inset
-
- statements on the kernels themselves.
- For your OpenACC parallel loop constructs, you must either explicitly write
- your own copy, copyin, and copyout clauses for all arrays used in the kernel,
- or you must write 
-\begin_inset Quotes eld
-\end_inset
-
-default(present)
-\begin_inset Quotes erd
-\end_inset
-
- to tell the compiler not to worry about the data.
- Otherwise, it will complain that it doesn't know how big the arrays are.
+In the C code, you'll need to put in manual copy, copyin, and copyout statements
+ on a per-kernel basis, and you'll need to explicitly declare the size of
+ each array as well.
  Other than this, the approach is the same as with the Fortran case.
- 
+ Once you have your kernels ported, you can optimize the data movement by
+ wrapping the main time stepping loop in data statements, making sure the
+ host has the data for I/O and sending MPI buffers and the device has the
+ data after receiving MPI buffers.
 \end_layout
 
 \begin_layout Section

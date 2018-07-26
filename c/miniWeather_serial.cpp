@@ -43,6 +43,7 @@ const int DATA_SPEC_THERMAL         = 2;
 const int DATA_SPEC_MOUNTAIN        = 3;
 const int DATA_SPEC_TURBULENCE      = 4;
 const int DATA_SPEC_DENSITY_CURRENT = 5;
+const int DATA_SPEC_INJECTION       = 6;
 
 const int nqpoints = 3;
 double qpoints [] = { 0.112701665379258311482073460022E0 , 0.500000000000000000000000000000E0 , 0.887298334620741688517926539980E0 };
@@ -88,6 +89,7 @@ double dmin( double a , double b ) { if (a<b) {return a;} else {return b;} };
 //Declaring the functions defined after "main"
 void   init                 ( int *argc , char ***argv );
 void   finalize             ( );
+void   injection            ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   density_current      ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   turbulence           ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   mountain_waves       ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
@@ -120,7 +122,7 @@ int main(int argc, char **argv) {
   sim_time = 1500;     //How many seconds to run the simulation
   output_freq = 10;   //How frequently to output data to file (in seconds)
   //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_MOUNTAIN;
+  data_spec_int = DATA_SPEC_INJECTION;
   ///////////////////////////////////////////////////////////////////////////////////////
   // END USER-CONFIGURABLE PARAMETERS
   ///////////////////////////////////////////////////////////////////////////////////////
@@ -344,7 +346,8 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
 void set_halo_values_x( double *state ) {
-  int k, ll;
+  int k, ll, ind_r, ind_u, ind_t, i;
+  double z;
   ////////////////////////////////////////////////////////////////////////
   // TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
   // (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
@@ -365,6 +368,23 @@ void set_halo_values_x( double *state ) {
     }
   }
   ////////////////////////////////////////////////////
+
+  if (data_spec_int == DATA_SPEC_INJECTION) {
+    if (myrank == 0) {
+      for (k=0; k<nz; k++) {
+        for (i=0; i<hs; i++) {
+          z = (k_beg + k+0.5)*dz;
+          if (abs(z-3*zlen/4) <= zlen/16) {
+            ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
+            ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
+            ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
+            state[ind_u] = (state[ind_r]+hy_dens_cell[k+hs]) * 50.;
+            state[ind_t] = (state[ind_r]+hy_dens_cell[k+hs]) * 298. - hy_dens_theta_cell[k+hs];
+          }
+        }
+      }
+    }
+  }
 }
 
 
@@ -496,6 +516,7 @@ void init( int *argc , char ***argv ) {
           if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
+          if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
 
           //Store into the fluid state array
           inds = ID_DENS*(nz+2*hs)*(nx+2*hs) + k*(nx+2*hs) + i;
@@ -526,6 +547,7 @@ void init( int *argc , char ***argv ) {
       if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
+      if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
       hy_dens_cell      [k] = hy_dens_cell      [k] + hr    * qweights[kk];
       hy_dens_theta_cell[k] = hy_dens_theta_cell[k] + hr*ht * qweights[kk];
     }
@@ -538,10 +560,24 @@ void init( int *argc , char ***argv ) {
     if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
+    if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
     hy_dens_int      [k] = hr;
     hy_dens_theta_int[k] = hr*ht;
     hy_pressure_int  [k] = C0*pow((hr*ht),gamm);
   }
+}
+
+
+//This test case is initially balanced but injects fast, cold air from the left boundary near the model top
+//x and z are input coordinates at which to sample
+//r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
+//hr and ht are output background hydrostatic density and potential temperature at that location
+void injection( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht ) {
+  hydro_const_theta(z,hr,ht);
+  r = 0.;
+  t = 0.;
+  u = 0.;
+  w = 0.;
 }
 
 

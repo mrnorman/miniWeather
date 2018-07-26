@@ -43,6 +43,7 @@ program miniweather
   integer , parameter :: DATA_SPEC_MOUNTAIN        = 3
   integer , parameter :: DATA_SPEC_TURBULENCE      = 4
   integer , parameter :: DATA_SPEC_DENSITY_CURRENT = 5
+  integer , parameter :: DATA_SPEC_INJECTION       = 6
 
   !Gauss-Legendre quadrature points and weights on the domain [0:1]
   integer , parameter :: nqpoints = 3
@@ -92,10 +93,10 @@ program miniweather
   !So, you'll want to have nx_glob be twice as large as nz_glob
   nx_glob = 200      !Number of total cells in the x-dirction
   nz_glob = 100      !Number of total cells in the z-dirction
-  sim_time = 2000    !How many seconds to run the simulation
+  sim_time = 1500    !How many seconds to run the simulation
   output_freq = 10   !How frequently to output data to file (in seconds)
   !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_MOUNTAIN
+  data_spec_int = DATA_SPEC_INJECTION
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! END USER-CONFIGURABLE PARAMETERS
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -347,6 +348,7 @@ contains
     implicit none
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer :: k, ll
+    real(rp) :: z
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
     !! (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
@@ -367,6 +369,18 @@ contains
       enddo
     enddo
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    if (data_spec_int == DATA_SPEC_INJECTION) then
+      if (myrank == 0) then
+        do k = 1 , nz
+          z = (k_beg-1 + k-0.5_rp)*dz
+          if (abs(z-3*zlen/4) <= zlen/16) then
+            state(-1:0,k,ID_UMOM) = (state(-1:0,k,ID_DENS)+hy_dens_cell(k)) * 50._rp
+            state(-1:0,k,ID_RHOT) = (state(-1:0,k,ID_DENS)+hy_dens_cell(k)) * 298._rp - hy_dens_theta_cell(k)
+          endif
+        enddo
+      endif
+    endif
   end subroutine set_halo_values_x
 
 
@@ -498,6 +512,7 @@ contains
             if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(x,z,r,u,w,t,hr,ht)
+            if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (x,z,r,u,w,t,hr,ht)
 
             !Store into the fluid state array
             state(i,k,ID_DENS) = state(i,k,ID_DENS) + r                         * qweights(ii)*qweights(kk)
@@ -523,6 +538,7 @@ contains
         if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
+        if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
         hy_dens_cell(k)       = hy_dens_cell(k)       + hr    * qweights(kk)
         hy_dens_theta_cell(k) = hy_dens_theta_cell(k) + hr*ht * qweights(kk)
       enddo
@@ -535,11 +551,26 @@ contains
       if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
+      if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
       hy_dens_int      (k) = hr
       hy_dens_theta_int(k) = hr*ht
       hy_pressure_int  (k) = C0*(hr*ht)**gamma
     enddo
   end subroutine init
+
+
+  !This test case is initially balanced but injects fast, cold air from the left boundary near the model top
+  subroutine injection(x,z,r,u,w,t,hr,ht)
+    implicit none
+    real(rp), intent(in   ) :: x, z        !x- and z- location of the point being sampled
+    real(rp), intent(  out) :: r, u, w, t  !Density, uwind, wwind, and potential temperature
+    real(rp), intent(  out) :: hr, ht      !Hydrostatic density and potential temperature
+    call hydro_const_theta(z,hr,ht)
+    r = 0
+    t = 0
+    u = 0
+    w = 0
+  end subroutine injection
 
 
   subroutine density_current(x,z,r,u,w,t,hr,ht)
