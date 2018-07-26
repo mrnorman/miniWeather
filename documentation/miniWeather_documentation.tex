@@ -5,8 +5,17 @@
 \usepackage[latin9]{inputenc}
 \usepackage[letterpaper]{geometry}
 \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+\usepackage{float}
 \usepackage{url}
 \usepackage{amstext}
+\usepackage{graphicx}
+
+\makeatletter
+\@ifundefined{showcaptionsetup}{}{%
+ \PassOptionsToPackage{caption=false}{subfig}}
+\usepackage{subfig}
+\makeatother
+
 \usepackage{babel}
 \begin{document}
 
@@ -260,13 +269,48 @@ sim\_time = 1000\\
 This simulates a rising thermal in a neutral atmosphere, which will
 look something like a ``mushroom'' cloud (without all of the violence).
 
+\begin{figure}[H]
+\begin{centering}
+\subfloat[500s]{\begin{centering}
+\includegraphics[width=3in]{images/thermal_pt_0500}
+\par\end{centering}
+}\subfloat[1,000s]{\begin{centering}
+\includegraphics[width=3in]{images/thermal_pt_1000}
+\par\end{centering}
+}
+\par\end{centering}
+\caption{Rising Thermal test case: Potential Temperature perturbation with
+1600x800 cells.}
+\end{figure}
+
 \subsection{Colliding Thermals}
 
 data\_spec\_int = DATA\_SPEC\_COLLISION\\
 sim\_time = 600\\
 This is similar to the rising thermal test case except with a cold
 bubble at the model top colliding with a warm bubble at the model
-bottom to produce some cool looking eddies.
+bottom to produce some cool looking eddies. This test case is mainly
+for looks, not physics.
+
+\begin{figure}[H]
+\begin{centering}
+\subfloat[200s]{\begin{centering}
+\includegraphics[width=3in]{images/collision_pt_0200}
+\par\end{centering}
+}\subfloat[400s]{\begin{centering}
+\includegraphics[width=3in]{images/collision_pt_0400}
+\par\end{centering}
+}
+\par\end{centering}
+\begin{centering}
+\subfloat[700s]{\begin{centering}
+\includegraphics[width=3in]{images/collision_pt_0700}
+\par\end{centering}
+}
+\par\end{centering}
+\caption{Colliding Thermals test case: Potential Temperature perturbation with
+1600x800 cells.}
+\end{figure}
 
 \subsection{Mountain Gravity Waves}
 
@@ -276,14 +320,19 @@ This test cases passes a horizontal wind over a faked mountain at
 the model bottom in a stable atmosphere to generate a train of stationary
 gravity waves across the model domain.
 
-\subsection{Turbulence}
-
-data\_spec\_int = DATA\_SPEC\_TURBULENCE\\
-sim\_time = 1000\\
-This test case creates a neutrally stratified atmosphere with randomly
-initialize winds. After a few time steps, the random noise is locally
-averaged out to lower values. Keep in mind that this is not classic
-turbulence in any sense because it's only 2-D, and it's stratified.
+\begin{figure}[H]
+\begin{centering}
+\subfloat[400s]{\begin{centering}
+\includegraphics[width=3in]{images/mountain_pt_0400}
+\par\end{centering}
+}\subfloat[1,300s]{\begin{centering}
+\includegraphics[width=3in]{images/mountain_pt_1300}
+\par\end{centering}
+}
+\par\end{centering}
+\caption{Mountain Gravity Waves test case: Potential Temperature perturbation
+with 1600x800 cells.}
+\end{figure}
 
 \subsection{Density Current}
 
@@ -292,6 +341,43 @@ sim\_time = 600\\
 This test case creates a neutrally stratified atmosphere with a strong
 cold bubble in the middle of the domain that crashes into the ground
 to give the feel of a weather front (more of a downburst, really).
+
+\begin{figure}[H]
+\begin{centering}
+\subfloat[200s]{\begin{centering}
+\includegraphics[width=3in]{images/density_current_pt_0200}
+\par\end{centering}
+}\subfloat[600s]{\begin{centering}
+\includegraphics[width=3in]{images/density_current_pt_0600}
+\par\end{centering}
+}
+\par\end{centering}
+\caption{Density Current test case: Potential Temperature perturbation with
+1600x800 cells.}
+\end{figure}
+
+\subsection{Injection}
+
+data\_spec\_int = DATA\_SPEC\_INJECTION\\
+sim\_time = 1200\\
+A narrow jet of fast and slightly cold wind is injected into a balanced,
+neutral atmosphere at rest from the left domain near the model top.
+This has nothing to do with atmospheric flows. It's just here for
+looks. 
+
+\begin{figure}[H]
+\begin{centering}
+\subfloat[300s]{\begin{centering}
+\includegraphics[width=3in]{images/injection_pt_0300}
+\par\end{centering}
+}\subfloat[1,000s]{\begin{centering}
+\includegraphics[width=3in]{images/injection_pt_1000}
+\par\end{centering}
+}
+\par\end{centering}
+\caption{Injection test case: Potential Temperature perturbation with 1600x800
+cells.}
+\end{figure}
 
 \section{Physics, PDEs, and Numerical Approximations}
 
