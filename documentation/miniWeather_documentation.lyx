@@ -1139,7 +1139,7 @@ This test cases passes a horizontal wind over a faked mountain at the model
 placement H
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -1214,7 +1214,7 @@ status open
 
 \begin_layout Plain Layout
 Mountain Gravity Waves test case: Potential Temperature perturbation with
- 1600x800 cells.
+ 400x200 cells.
 \end_layout
 
 \end_inset
