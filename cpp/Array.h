@@ -84,8 +84,6 @@ protected :
   long  ubounds [8];
   ulong dimSizes[8];
   long  offsets [8];
-  ulong totElems;
-  T     *data;
 
   //Don't let the user have access to this. They might nullify an existing Array data, which
   //would make the pointer no longer accessible and thus create a memory leak.
@@ -102,6 +100,9 @@ protected :
   }
 
 public :
+
+  ulong totElems;
+  T     *data;
 
   /* CONSTRUCTORS
      You can declare the array empty or with many dimensions

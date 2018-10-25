@@ -231,19 +231,13 @@ void semi_discrete_step( Array<F> const &state_init , Array<F> &state_forcing , 
 void compute_tendencies_x( Array<F> const &state , Array<F> &flux , Array<F> &tend ) {
   int i,k,ll,s;
   F   r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  F   *state_d, *flux_d;
-  int state_n, flux_n;
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   /////////////////////////////////////////////////
   // TODO: THREAD ME
   /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
-  state_d = state.get_data();
-  state_n = state.get_totElems();
-  flux_d = state.get_data();
-  flux_n = state.get_totElems();
-  #pragma data copyin(state_d[0:state_n]) copyout(flux_d[0:flux_n])
+  #pragma acc data copyin(state.data[0:state.totElems]) copyout(flux.data[0:flux.totElems])
   {
   #pragma acc parallel loop gang vector collapse(2) private(vals,d3_vals,stencil) default(present)
   for (k=0; k<nz; k++) {
