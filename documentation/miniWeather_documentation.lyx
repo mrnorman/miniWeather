@@ -131,6 +131,372 @@ With about 500 total lines of code (and only about 200 lines that you care
  
 \end_layout
 
+\begin_layout Subsection
+Brief Description of the Code
+\end_layout
+
+\begin_layout Subsubsection
+Domain Parameters
+\end_layout
+
+\begin_layout Standard
+A fuller description of the science, math, and dynamics are play are in
+ Section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Physics,-PDEs,-and"
+
+\end_inset
+
+, but this section is reserved to describing some of the main variables
+ and flow in the code.
+ The code is decomposed in two spatial dimensions, 
+\begin_inset Formula $x$
+\end_inset
+
+ and 
+\begin_inset Formula $z$
+\end_inset
+
+, with 
+\family typewriter
+nx_glob
+\family default
+ and 
+\family typewriter
+nz_glob
+\family default
+ cells in the global domain and 
+\family typewriter
+nx
+\family default
+ and 
+\family typewriter
+nz
+\family default
+ cells in the local domain, using straightforward domain decomposition for
+ MPI-level parallelization.
+ The global domain is of size 
+\family typewriter
+xlen
+\family default
+ and 
+\family typewriter
+zlen
+\family default
+ meters, and 
+\family typewriter
+hs
+\family default
+ 
+\begin_inset Quotes eld
+\end_inset
+
+halo
+\begin_inset Quotes erd
+\end_inset
+
+ cells are appended to both sides of each dimension for convenience in forming
+ stencils of cells for reconstruction.
+\end_layout
+
+\begin_layout Subsubsection
+Fluid State Variables
+\end_layout
+
+\begin_layout Standard
+There are four main arrays used in this code: 
+\family typewriter
+state
+\family default
+, 
+\family typewriter
+state_tmp
+\family default
+, 
+\family typewriter
+flux
+\family default
+, and 
+\family typewriter
+tend
+\family default
+, and the dimensions for each are given in the code upon declaration in
+ the comments.
+ Each of these arrays is described briefly below:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+state
+\family default
+: This is the fluid state at the current time step, and it is the only array
+ that persists from one time step to the next.
+ The other four are only used within the calculations to advance the model
+ to the next time step.
+ The fluid state describes the 
+\emph on
+average
+\emph default
+ state over each cell area in the spatial domain.
+ This variable contains four fluid states, which are the traditional mass,
+ momenta, and thermodynamic quantities of most fluid models:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Density (
+\family typewriter
+ID_DENS
+\family default
+): The 2-D density of the fluid in 
+\begin_inset Formula $\text{kg}\,\text{m}^{-2}$
+\end_inset
+
+ (note this is normally 
+\begin_inset Formula $\text{kg}\,\text{m}^{-3}$
+\end_inset
+
+, but this is a 2-D model, not 3-D)
+\end_layout
+
+\begin_layout Enumerate
+U-momentum (
+\family typewriter
+ID_UMOM
+\family default
+): The momentum per unit area of the fluid in the 
+\begin_inset Formula $x$
+\end_inset
+
+-direction calculated as 
+\begin_inset Formula $\rho u$
+\end_inset
+
+, where 
+\begin_inset Formula $u$
+\end_inset
+
+ is the 
+\begin_inset Formula $x$
+\end_inset
+
+-direction wind velocity.
+ The units are 
+\begin_inset Formula $\text{kg}\,\text{m}^{-1}\,\text{s}^{-1}$
+\end_inset
+
+.
+ Note that to get true momentum, you must integrate over the cell.
+\end_layout
+
+\begin_layout Enumerate
+W-momentum (
+\family typewriter
+ID_WMOM
+\family default
+): The momentum per unit area of the fluid in the 
+\begin_inset Formula $z$
+\end_inset
+
+-direction calculated as 
+\begin_inset Formula $\rho w$
+\end_inset
+
+, where 
+\begin_inset Formula $w$
+\end_inset
+
+ is the 
+\begin_inset Formula $w$
+\end_inset
+
+-direction wind velocity.
+ The units are 
+\begin_inset Formula $\text{kg}\,\text{m}^{-1}\,\text{s}^{-1}$
+\end_inset
+
+.
+ Note that to get true momentum, you must integrate over the cell.
+\end_layout
+
+\begin_layout Enumerate
+Potential Temperature (
+\family typewriter
+ID_RHOT
+\family default
+): The product of density and potential temperature, 
+\begin_inset Formula $\rho\theta$
+\end_inset
+
+, where 
+\begin_inset Formula $\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}$
+\end_inset
+
+, 
+\begin_inset Formula $P_{0}=10^{5}\,\text{Pa}$
+\end_inset
+
+, 
+\begin_inset Formula $T$
+\end_inset
+
+ is the true temperature, and 
+\begin_inset Formula $R_{d}$
+\end_inset
+
+ and 
+\begin_inset Formula $c_{p}$
+\end_inset
+
+ are the dry air constant and specific heat at constant pressure for dry
+ air, respectively.
+ The units of this quantity are 
+\begin_inset Formula $\text{K}\,\text{kg}\,\text{m}^{-2}$
+\end_inset
+
+.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+
+\family typewriter
+state_tmp
+\family default
+: This is a temporary copy of the fluid state used in the Runge-Kutta integratio
+n to keep from overwriting the state at the beginning of the time step,
+ and it has the same units and meaning.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+flux
+\family default
+: This is fluid state at cell boundaries in the 
+\begin_inset Formula $x$
+\end_inset
+
+- and 
+\begin_inset Formula $z$
+\end_inset
+
+-directions, and the units and meanings are the same as for 
+\family typewriter
+state
+\family default
+ and 
+\family typewriter
+state_tmp
+\family default
+.
+ In the 
+\begin_inset Formula $x$
+\end_inset
+
+-direction update, the values of 
+\family typewriter
+flux
+\family default
+ at indices 
+\family typewriter
+i
+\family default
+ and 
+\family typewriter
+i+1
+\family default
+ represents the fluid state at the left- and right-hand boundaries of cell
+ 
+\family typewriter
+i
+\family default
+.
+ The indexing is analagous in the 
+\begin_inset Formula $z$
+\end_inset
+
+-direction.
+ The fluxes are used to exchange fluid properties with neighboring cells.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+tend
+\family default
+: This is the time tendency of the fluid state 
+\begin_inset Formula $\partial\mathbf{q}/\partial t$
+\end_inset
+
+, where 
+\begin_inset Formula $\mathbf{q}$
+\end_inset
+
+ is the the 
+\family typewriter
+state
+\family default
+ vector, and as the name suggests, it has the same meaning and units as
+ 
+\family typewriter
+state
+\family default
+, except per unit time (appending 
+\begin_inset Formula $\text{s}^{-1}$
+\end_inset
+
+ to the units).
+ In the Finite-Volume method, the time tendency of a cell is equivalent
+ to the divergence of the flux across a cell.
+\end_layout
+
+\begin_layout Subsubsection
+Overal Model Flow
+\end_layout
+
+\begin_layout Standard
+This code follows a traditional Finite-Volume control flow.
+\end_layout
+
+\begin_layout Standard
+To compute the time tendency, given an initial state at the beginning of
+ a time step that contains cell-averages of the fluid state, the value of
+ the state at cell boundaries is reconstructed using a stencil.
+ Then, a viscous term is added to the fluid state at the cell boundaries
+ to improve stability.
+ Next, the tendencies are computed as the divergence of the flux across
+ the cell.
+ Finally, the tendencies are applied to the fluid state.
+\end_layout
+
+\begin_layout Standard
+Once the time tendency is computed, the fluid PDEs are essentially now cast
+ as a set of ODEs varying only in time, and this is called the 
+\begin_inset Quotes eld
+\end_inset
+
+semi-discretized
+\begin_inset Quotes erd
+\end_inset
+
+ form of the equations.
+ To solve the equations in time, an ODE solver is used, in this case, a
+ Runge-Kutta method.
+ Finally, at the highest level, the equations are split into separate solves
+ in each dimension, 
+\begin_inset Formula $x$
+\end_inset
+
+ and 
+\begin_inset Formula $z$
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Section
 Compiling and Running the Code
 \end_layout
@@ -880,7 +1246,7 @@ mushroom
 placement H
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -992,7 +1358,7 @@ This is similar to the rising thermal test case except with a cold bubble
 placement H
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -1250,14 +1616,14 @@ This test case creates a neutrally stratified atmosphere with a strong cold
 placement H
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
 \begin_inset Float figure
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -1289,7 +1655,7 @@ status collapsed
 \begin_inset Float figure
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -1363,7 +1729,7 @@ A narrow jet of fast and slightly cold wind is injected into a balanced,
 placement H
 wide false
 sideways false
-status collapsed
+status open
 
 \begin_layout Plain Layout
 \align center
@@ -1452,6 +1818,13 @@ Injection test case: Potential Temperature perturbation with 1600x800 cells.
 
 \begin_layout Section
 Physics, PDEs, and Numerical Approximations
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Physics,-PDEs,-and"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard

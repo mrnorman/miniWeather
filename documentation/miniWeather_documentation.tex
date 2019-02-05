@@ -45,6 +45,92 @@ other approaches to CPU and accelerated parallelization. The code
 uses periodic boundary conditions in the $x$-direction and solid
 wall boundary conditions in the $z$-direction. 
 
+\subsection{Brief Description of the Code}
+
+\subsubsection{Domain Parameters}
+
+A fuller description of the science, math, and dynamics are play are
+in Section \ref{sec:Physics,-PDEs,-and}, but this section is reserved
+to describing some of the main variables and flow in the code. The
+code is decomposed in two spatial dimensions, $x$ and $z$, with
+\texttt{nx\_glob} and \texttt{nz\_glob} cells in the global domain
+and \texttt{nx} and \texttt{nz} cells in the local domain, using straightforward
+domain decomposition for MPI-level parallelization. The global domain
+is of size \texttt{xlen} and \texttt{zlen} meters, and \texttt{hs}
+``halo'' cells are appended to both sides of each dimension for
+convenience in forming stencils of cells for reconstruction.
+
+\subsubsection{Fluid State Variables}
+
+There are four main arrays used in this code: \texttt{state}, \texttt{state\_tmp},
+\texttt{flux}, and \texttt{tend}, and the dimensions for each are
+given in the code upon declaration in the comments. Each of these
+arrays is described briefly below:
+\begin{itemize}
+\item \texttt{state}: This is the fluid state at the current time step,
+and it is the only array that persists from one time step to the next.
+The other four are only used within the calculations to advance the
+model to the next time step. The fluid state describes the \emph{average}
+state over each cell area in the spatial domain. This variable contains
+four fluid states, which are the traditional mass, momenta, and thermodynamic
+quantities of most fluid models:
+\begin{enumerate}
+\item Density (\texttt{ID\_DENS}): The 2-D density of the fluid in $\text{kg}\,\text{m}^{-2}$
+(note this is normally $\text{kg}\,\text{m}^{-3}$, but this is a
+2-D model, not 3-D)
+\item U-momentum (\texttt{ID\_UMOM}): The momentum per unit area of the
+fluid in the $x$-direction calculated as $\rho u$, where $u$ is
+the $x$-direction wind velocity. The units are $\text{kg}\,\text{m}^{-1}\,\text{s}^{-1}$.
+Note that to get true momentum, you must integrate over the cell.
+\item W-momentum (\texttt{ID\_WMOM}): The momentum per unit area of the
+fluid in the $z$-direction calculated as $\rho w$, where $w$ is
+the $w$-direction wind velocity. The units are $\text{kg}\,\text{m}^{-1}\,\text{s}^{-1}$.
+Note that to get true momentum, you must integrate over the cell.
+\item Potential Temperature (\texttt{ID\_RHOT}): The product of density
+and potential temperature, $\rho\theta$, where $\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}$,
+$P_{0}=10^{5}\,\text{Pa}$, $T$ is the true temperature, and $R_{d}$
+and $c_{p}$ are the dry air constant and specific heat at constant
+pressure for dry air, respectively. The units of this quantity are
+$\text{K}\,\text{kg}\,\text{m}^{-2}$.
+\end{enumerate}
+\item \texttt{state\_tmp}: This is a temporary copy of the fluid state used
+in the Runge-Kutta integration to keep from overwriting the state
+at the beginning of the time step, and it has the same units and meaning.
+\item \texttt{flux}: This is fluid state at cell boundaries in the $x$-
+and $z$-directions, and the units and meanings are the same as for
+\texttt{state} and \texttt{state\_tmp}. In the $x$-direction update,
+the values of \texttt{flux} at indices \texttt{i} and \texttt{i+1}
+represents the fluid state at the left- and right-hand boundaries
+of cell \texttt{i}. The indexing is analagous in the $z$-direction.
+The fluxes are used to exchange fluid properties with neighboring
+cells.
+\item \texttt{tend}: This is the time tendency of the fluid state $\partial\mathbf{q}/\partial t$,
+where $\mathbf{q}$ is the the \texttt{state} vector, and as the name
+suggests, it has the same meaning and units as \texttt{state}, except
+per unit time (appending $\text{s}^{-1}$ to the units). In the Finite-Volume
+method, the time tendency of a cell is equivalent to the divergence
+of the flux across a cell.
+\end{itemize}
+
+\subsubsection{Overal Model Flow}
+
+This code follows a traditional Finite-Volume control flow.
+
+To compute the time tendency, given an initial state at the beginning
+of a time step that contains cell-averages of the fluid state, the
+value of the state at cell boundaries is reconstructed using a stencil.
+Then, a viscous term is added to the fluid state at the cell boundaries
+to improve stability. Next, the tendencies are computed as the divergence
+of the flux across the cell. Finally, the tendencies are applied to
+the fluid state.
+
+Once the time tendency is computed, the fluid PDEs are essentially
+now cast as a set of ODEs varying only in time, and this is called
+the ``semi-discretized'' form of the equations. To solve the equations
+in time, an ODE solver is used, in this case, a Runge-Kutta method.
+Finally, at the highest level, the equations are split into separate
+solves in each dimension, $x$ and $z$.
+
 \section{Compiling and Running the Code}
 
 \subsection{Required Libraries}
@@ -379,7 +465,7 @@ looks.
 cells.}
 \end{figure}
 
-\section{Physics, PDEs, and Numerical Approximations}
+\section{Physics, PDEs, and Numerical Approximations\label{sec:Physics,-PDEs,-and}}
 
 I put this section last just for the sake of completion in case you're
 curious what's actually going on in the code. While the numerical
