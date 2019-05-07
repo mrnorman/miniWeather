@@ -7,7 +7,7 @@ FFLAGS := -O3 -Mextend
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf -L${LAPACK_PATH}/lib
 OMPFLAGS := -mp
-ACCFLAGS := -ta=nvidia,managed,cc70,ptxinfo -Minfo=accel
+ACCFLAGS := -ta=nvidia,pinned,cc70,ptxinfo -Minfo=accel
 ##########################################################
 ## END EDITING SECTION
 ##########################################################
