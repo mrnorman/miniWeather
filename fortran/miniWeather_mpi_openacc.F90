@@ -95,10 +95,10 @@ program miniweather
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !The x-direction length is twice as long as the z-direction length
   !So, you'll want to have nx_glob be twice as large as nz_glob
-  nx_glob = 400      !Number of total cells in the x-dirction
-  nz_glob = 200      !Number of total cells in the z-dirction
+  nx_glob = 800      !Number of total cells in the x-dirction
+  nz_glob = 400      !Number of total cells in the z-dirction
   sim_time = 1500      !How many seconds to run the simulation
-  output_freq = 10   !How frequently to output data to file (in seconds)
+  output_freq = 500  !How frequently to output data to file (in seconds)
   !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
   data_spec_int = DATA_SPEC_INJECTION
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -123,7 +123,7 @@ program miniweather
     !Perform a single time step
     call perform_timestep(state,state_tmp,flux,tend,dt)
     !Inform the user
-    if (masterproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
+    ! if (masterproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
     !Update the elapsed time and output counter
     etime = etime + dt
     output_counter = output_counter + dt
