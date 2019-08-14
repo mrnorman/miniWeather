@@ -22,7 +22,7 @@ This code can be used to learn three different parallel programming aspects:
 2. OpenMP loop-level parallelism
 3. OpenACC accelerator parallelism
 
-For this particular context, we are focussing on the OpenACC parallelism, so the goal is to add your own OpenACC directives to `miniWeather_mpi.F90`. Given the extremely short time frame, though, for this exercise, it might be more appropriate to simply look at how `miniWeather_mpi.F90` and `miniWeather_mpi_openacc.F90` differ, where the OpenACC directives have already been introduced. There is some information in the Petascale Institute presentation as well as the documentation.pdf file in this repo regarding how to add OpenACC directives.
+For this particular context, we are focusing on the OpenACC parallelism, so the goal is to add your own OpenACC directives to `miniWeather_mpi.F90`. Given the extremely short time frame, though, for this exercise, it might be more appropriate to simply look at how `miniWeather_mpi.F90` and `miniWeather_mpi_openacc.F90` differ, where the OpenACC directives have already been introduced. There is some information in the Petascale Institute presentation as well as the documentation.pdf file in this repo regarding how to add OpenACC directives.
 
 ## Compiling the Code
 
@@ -73,7 +73,7 @@ View the results
 ncview output.nc
 ```
 
-**IMPORTANT!**: Do not run `./miniweather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anythign computationally intensive.
+**IMPORTANT!**: Do not run `./miniweather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anything computationally intensive.
 
 ## Playing with the code
 
