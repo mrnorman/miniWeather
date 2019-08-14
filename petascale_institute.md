@@ -73,6 +73,8 @@ View the results
 ncview output.nc
 ```
 
+> **IMPORTANT!**: Do not run `./miniweather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anythign computationally intensive.
+
 ## Playing with the code
 
 Find the `BEGIN USER-CONFIGURABLE PARAMETERS` in the source file, and change the number of grid points and the data specification according to the options in `documentation.pdf` in this repo. One interesting thing you can do is see how the OpenACC GPU efficiency changes as you change the problem size in terms of number of grid cells. The smaller the workload becomes, the worse the GPU performance should get because you begin to have too few threads to keep the device busy.
