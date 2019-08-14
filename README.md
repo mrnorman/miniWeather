@@ -3,6 +3,14 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 
 For detailed documentation, please see the [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf) file
 
+## Software Dependencies
+* Parallel-netcdf: https://trac.mcs.anl.gov/projects/parallel-netcdf
+  * This is a dependency for two reasons: (1) NetCDF files are easy to visualize and convenient to work with; (2) The users of this code shouldn't have to write their own parallel I/O.
+* Ncview: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
+  * This is the easiest way to visualize NetCDF files.
+* MPI
+* An OpenACC-capable compiler (PGI, Cray, GNU)
+
 ## MiniWeather Model Scaling Details
 If you wnat to do scaling studies with miniWeather, this section will be important to make sure you're doing an apples-to-apples comparison. 
 
