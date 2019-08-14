@@ -15,7 +15,7 @@ cd miniWeather
 ```
 
 Choose either the `c` or `fortran` directories to work with, depending on your language preference.
-All documentation is in `documentation/miniWeather_documentation.pdf`.
+All documentation is in [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf).
 
 This code can be used to learn three different parallel programming aspects:
 1. MPI task-level parallelism
