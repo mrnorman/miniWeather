@@ -1,5 +1,7 @@
 # Instructions for Petascale Institute on Blue Waters
 
+Author: [Matt Norman](https://mrnorman.github.io)
+
 ## Getting Started
 First, log in with:
 
