@@ -36,6 +36,7 @@ module load cudatoolkit cray-parallel-netcdf
 Use the `Makefile.bw` to compile the code:
 
 ```
+cd miniWeather/[c | fortran]
 make -f Makefile.bw
 ```
 
