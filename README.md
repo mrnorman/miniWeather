@@ -1,6 +1,8 @@
 # miniWeather
 A mini app simulating weather-like flows for training in parallelizing accelerated HPC architectures
 
+Author: [Matt Norman](https://mrnorman.github.io)
+
 For detailed documentation, please see the [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf) file
 
 ## Software Dependencies
