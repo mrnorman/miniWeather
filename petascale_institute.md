@@ -90,19 +90,19 @@ Find the `BEGIN USER-CONFIGURABLE PARAMETERS` in the source file, and change the
 You can profile the code with:
 
 ```
-aprun -n 1 nvprof -o prof.nvvp ./miniWeather_mpi_openacc
+aprun -n 1 nvprof --profile-child-processes -o %h.%p.nvvp ./miniWeather_mpi_openacc
 ```
 
-and view the profile with
+and view the profile with:
 
 ```
-nvvp prof.nvvp
+nvvp [filename].nvvp
 ```
 
 You will need X11 forwarding for this, though. To view a reduced text-only profile, use:
 
 ```
-aprun -n 1 nvprof --print-gpu-summary ./miniWeather_mpi_openacc
+aprun -n 1 nvprof --profile-child-processes --print-gpu-summary ./miniWeather_mpi_openacc
 ```
 
 ### Using Managed Memory
@@ -121,5 +121,28 @@ The PGI compiler also has a neat tool called PCAST, which automatically compares
 ACCFLAGS := -ta=tesla,pinned,cc35,autocompare,ptxinfo -Minfo=accel 
 ```
 
-For more options regarding the PCAST tool, see: https://www.pgroup.com/blogs/posts/pcast.htm
+And recompile the code. For more options regarding the PCAST tool, see: https://www.pgroup.com/blogs/posts/pcast.htm
 
+### Debugging with `cuda-memcheck`
+
+Nvidia has a `valgrind`-esque tool called `cuda-memcheck`, which checks for invalid memory address errors in your GPU code, and can be quite handy in finding bugs. To use it, use the original `ACCFLAGS` specified in the repo's version of `Makefile.bw`, compile the code, and run:
+
+```
+aprun -n 1 cuda-memcheck ./miniWeather_mpi_openacc
+```
+
+### Debugging with `valgrind`
+
+`valgrind` is a very useful CPU memory tool that checks for memory leaks and invalid accesses (among other things). To debug with valgrind on Blue Waters, you'll need to first load the module:
+
+```
+module load valgrind
+```
+
+Then, add the `-g` option to the `CFLAGS` in `Makefile.bw` so that valgrind can see the symbols and give you useful output. Then, simply run:
+
+```
+aprun -n 1 valgrind ./miniweather_mpi
+```
+
+to see if you're committing any memory sins in your code. Keep in mind, this is for CPU code, not GPU code. In fact, with PGI 18.7, you'll find what appears to be a compiler bug in the C version, where valgrind complains about invalid reads in the main time stepping loop with the PGI compiler but does not with the GNU compiler. 
