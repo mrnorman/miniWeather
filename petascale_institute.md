@@ -32,6 +32,7 @@ To compile the code, you first need to create the correct environment with:
 
 ```
 module swap PrgEnv-cray PrgEnv-pgi
+module swap pgi pgi/18.7.0
 module load cudatoolkit cray-parallel-netcdf
 ```
 
@@ -54,6 +55,7 @@ Setup the correct environment:
 
 ```
 module swap PrgEnv-cray PrgEnv-pgi
+module swap pgi pgi/18.7.0
 module load cudatoolkit cray-parallel-netcdf ncview
 ```
 
@@ -79,7 +81,11 @@ ncview output.nc
 
 ## Playing with the code
 
+### Changing the Problem Size
+
 Find the `BEGIN USER-CONFIGURABLE PARAMETERS` in the source file, and change the number of grid points and the data specification according to the options in `documentation.pdf` in this repo. One interesting thing you can do is see how the OpenACC GPU efficiency changes as you change the problem size in terms of number of grid cells. The smaller the workload becomes, the worse the GPU performance should get because you begin to have too few threads to keep the device busy.
+
+### Profiling
 
 You can profile the code with:
 
@@ -98,3 +104,22 @@ You will need X11 forwarding for this, though. To view a reduced text-only profi
 ```
 aprun -n 1 nvprof --print-gpu-summary ./miniWeather_mpi_openacc
 ```
+
+### Using Managed Memory
+
+The PGI compiler allows you to use Managed Memory instead of explicit data statements via the `-ta=nvidia,managed` flag. Try editing the Makefile to use Managed Memory, and see how the performance of the code changes. To do this, change the `ACCFLAGS` in `Makefile.bw` to:
+
+```
+ACCFLAGS := -ta=tesla,pinned,cc35,managed,ptxinfo -Minfo=accel 
+```
+
+### Debugging with PGI's PCAST
+
+The PGI compiler also has a neat tool called PCAST, which automatically compares variables from redundatly executed CPU and GPU versions of the OpenACC code every time you move data from GPU memory to CPU memory (e.g., `update host(...)` or `copyout(...)` or the end of a block that has `copy(...)`). You can also control the size of the absolute or relative differences that will trigger terminal output. Change your `ACCFLAGS` in `Makefile.bw` to:
+
+```
+ACCFLAGS := -ta=tesla,pinned,cc35,autocompare,ptxinfo -Minfo=accel 
+```
+
+For more options regarding the PCAST tool, see: https://www.pgroup.com/blogs/posts/pcast.htm
+
