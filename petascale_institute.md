@@ -47,7 +47,7 @@ make -f Makefile.bw
 To start an interactive 1-node job for an hour that contains a K20x GPU, use:
 
 ```
-qsub -I -A [projectid] -lwalltime=5:00,nodes=1:ppn=16:xk
+qsub -I -A [projectid] -lwalltime=01:00:00,nodes=1:ppn=16:xk
 ```
 
 Setup the correct environment:
