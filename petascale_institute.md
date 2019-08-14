@@ -48,10 +48,12 @@ make -f Makefile.bw
 To start an interactive 1-node job for an hour that contains a K20x GPU, use:
 
 ```
-qsub -I -A [projectid] -lwalltime=01:00:00,nodes=1:ppn=16:xk
+qsub -I -X -A [projectid] -lwalltime=01:00:00,nodes=1:ppn=16:xk
 ```
 
-Setup the correct environment:
+The `-X` flag is important if you want to view the NetCDF output file or profiler output from the Nvidia profile (see further down) because it enables X11 forwarding for the interactive job.
+
+Next, setup the correct environment:
 
 ```
 module swap PrgEnv-cray PrgEnv-pgi
