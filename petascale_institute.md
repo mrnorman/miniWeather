@@ -9,6 +9,12 @@ First, log in with:
 ssh -Y [username]@bwbay.ncsa.illinois.edu
 ```
 
+### ORNL Participants
+
+ORNL by default blocks outgoing SSH, including to Blue Waters. To get around this, you have two options:
+(1) Use "corkscrew" (apt-get intsall corkscrew on Ubuntu), and use the ssh command `ssh -o ProxyCommand="corkscrew snowman.ornl.gov 3128 %h %p" -Y [username]@bwbay.ncsa.illinois.edu`
+(2) ssh into `home.ccs.ornl.gov` using 2-factor authentication first, and then use the normal ssh command above.
+
 Then clone this repo
 
 ```
