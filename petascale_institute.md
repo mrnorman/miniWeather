@@ -13,7 +13,7 @@ ssh -Y [username]@bwbay.ncsa.illinois.edu
 
 ORNL by default blocks outgoing SSH, including to Blue Waters. To get around this, you have two options:
 
-1. Use "corkscrew" (apt-get intsall corkscrew on Ubuntu), and use the ssh command
+1. Use "corkscrew" (`apt-get intsall corkscrew` on Ubuntu), and use the ssh command
 
 ```
 ssh -o ProxyCommand="corkscrew snowman.ornl.gov 3128 %h %p" -Y [username]@bwbay.ncsa.illinois.edu
