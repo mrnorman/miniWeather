@@ -79,12 +79,12 @@ To start an interactive 1-node job for an hour that contains a K20x GPU:
 
 ### On Tuesday afternoon, Use:
 ```
-qsub -I -X -A bayr -lwalltime=01:00:00,nodes=1:ppn=16:xk,advres=bayr3.2507
+qsub -I -X -A bayr -lwalltime=01:00:00,nodes=1:ppn=16:xk
 ```
 
 ### On Wednesday, Use:
 ```
-qsub -I -X -A bayr -lwalltime=01:00:00,nodes=1:ppn=16:xk,advres=bayr4.2508
+qsub -I -X -A bayr -lwalltime=01:00:00,nodes=1:ppn=16:xk
 ```
 
 The `-X` flag is important if you want to view the NetCDF output file or profiler output from the Nvidia profile (see further down) because it enables X11 forwarding for the interactive job.
