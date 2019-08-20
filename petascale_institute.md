@@ -36,7 +36,7 @@ This code can be used to learn three different parallel programming aspects:
 2. OpenMP loop-level parallelism
 3. OpenACC accelerator parallelism
 
-For this particular context, we are focusing on the OpenACC parallelism, so the goal is to add your own OpenACC directives to `miniWeather_mpi.F90`. Given the extremely short time frame, though, for this exercise, it might be more appropriate to simply look at how `miniWeather_mpi.F90` and `miniWeather_mpi_openacc.F90` differ, where the OpenACC directives have already been introduced. There is some information in the Petascale Institute presentation as well as the documentation.pdf file in this repo regarding how to add OpenACC directives.
+For this particular context, we are focusing on the OpenACC parallelism, so the goal is to add your own OpenACC directives to `miniWeather_mpi.F90` or `miniWeather_mpi.cpp`. There are exmaples of how to do this with a loop from the code below in C and Fortran. You'll see there already exists a `miniWeather_mpi_openacc.F90` file, where the OpenACC directives have already been introduced. Please use it as a resource, but be aware that the data movement in that file has already been optimized, so the individual kernels no longer have data statements. Your code will probably look different as you add OpenACC directives yourself.
 
 ## Compiling the Code
 
@@ -98,6 +98,90 @@ ncview output.nc
 ```
 
 **IMPORTANT!**: Do not run `./miniweather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anything computationally intensive.
+
+## Adding OpenACC
+
+Again, for a fuller description, please see the [OpenACC presentation](https://github.com/mrnorman/miniWeather/blob/master/documentation/intro_to_openacc.pdf) and the [miniWeather documentation](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf). The code guides you where to put OpenACC directives with the following comment headers in `miniWeather_mpi.[F90 | cpp]`.
+
+Fortran:
+
+```
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! TODO: THREAD ME
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+```
+
+C:
+
+```
+/////////////////////////////////////////////////
+// TODO: THREAD ME
+/////////////////////////////////////////////////
+```
+
+### OpenACC Example
+
+Here is an example of how to add directives to a loop with data statements.
+
+#### Fortran:
+
+```
+do ll = 1 , NUM_VARS
+  do k = 1 , nz
+    do i = 1 , nx
+      tend(i,k,ll) = -( flux(i+1,k,ll) - flux(i,k,ll) ) / dx
+    enddo
+  enddo
+enddo
+```
+
+Becomes
+
+```
+!$acc parallel loop collapse(3) copyin(flux) copyout(tend)
+do ll = 1 , NUM_VARS
+  do k = 1 , nz
+    do i = 1 , nx
+      tend(i,k,ll) = -( flux(i+1,k,ll) - flux(i,k,ll) ) / dx
+    enddo
+  enddo
+enddo
+```
+
+C:
+
+```
+for (ll=0; ll<NUM_VARS; ll++) {
+  for (k=0; k<nz; k++) {
+    for (i=0; i<nx; i++) {
+      indt  = ll* nz   * nx    + k* nx    + i  ;
+      indf1 = ll*(nz+1)*(nx+1) + k*(nx+1) + i  ;
+      indf2 = ll*(nz+1)*(nx+1) + k*(nx+1) + i+1;
+      tend[indt] = -( flux[indf2] - flux[indf1] ) / dx;
+    }
+  }
+}
+```
+
+Becomes
+
+```
+#pragma acc parallel loop collapse(3) copyin(flux[NUM_VARS*(nz+1)*(nx+1)]) copyout(tend[NUM_VARS*nz*nx])
+for (ll=0; ll<NUM_VARS; ll++) {
+  for (k=0; k<nz; k++) {
+    for (i=0; i<nx; i++) {
+      indt  = ll* nz   * nx    + k* nx    + i  ;
+      indf1 = ll*(nz+1)*(nx+1) + k*(nx+1) + i  ;
+      indf2 = ll*(nz+1)*(nx+1) + k*(nx+1) + i+1;
+      tend[indt] = -( flux[indf2] - flux[indf1] ) / dx;
+    }
+  }
+}
+```
+
+## Making the OpenACC easier
+
+If you want to make things easier on yourself, especially in C, where the compiler does not generate data statements for you, I recommend using the PGI compiler with Managed Memory. The reason is that you no longer need to add your own data statements because the CUDA runtime will move the data back and forth between CPU and GPU memory for you transparently under the hood. See the [Managed Memory](#using-managed-memory) section for more information on this.
 
 ## Playing with the code
 
