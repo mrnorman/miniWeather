@@ -115,7 +115,7 @@ View the results
 ncview output.nc
 ```
 
-**IMPORTANT!**: Do not run `./miniweather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anything computationally intensive.
+**IMPORTANT!**: Do not run `./miniWeather*` without `aprun`, as this will run it either on the login node or a service node. Those nodes are shared resources with limited resources, and you risk keeping others from compiling their code or even potentially killing other peoples' jobs if you cause an OOM on a service node. So please, be a good neighbor, and always use `aprun` for anything computationally intensive.
 
 ## Adding OpenACC
 
@@ -266,7 +266,7 @@ module load valgrind
 Then, add the `-g` option to the `CFLAGS` in `Makefile.bw` so that valgrind can see the symbols and give you useful output. Then, simply run:
 
 ```
-aprun -n 1 valgrind ./miniweather_mpi
+aprun -n 1 valgrind ./miniWeather_mpi
 ```
 
 to see if you're committing any memory sins in your code. Keep in mind, this is for CPU code, not GPU code. In fact, with PGI 18.7, you'll find what appears to be a compiler bug in the C version, where valgrind complains about invalid reads in the main time stepping loop with the PGI compiler but does not with the GNU compiler. 
