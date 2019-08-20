@@ -18,6 +18,7 @@ Author: [Matt Norman](https://mrnorman.github.io)
    + [Debugging with PGI's PCAST](#debugging-with-pgis-pcast)
    + [Debugging with cuda-memcheck](#debugging-with-cuda-memcheck)
    + [Debugging with valgrind](#debugging-with-valgrind)
+ * [Other Resources](#other-resources)
 
 ## Getting Started
 First, log in with:
@@ -269,3 +270,10 @@ aprun -n 1 valgrind ./miniweather_mpi
 ```
 
 to see if you're committing any memory sins in your code. Keep in mind, this is for CPU code, not GPU code. In fact, with PGI 18.7, you'll find what appears to be a compiler bug in the C version, where valgrind complains about invalid reads in the main time stepping loop with the PGI compiler but does not with the GNU compiler. 
+
+## Other Resources
+
+I have a fairly involved document about the process you should expect when porting a new code to OpenACC from scratch. It's geared toward climate models, but I think you'll find it helpful even if you're in a different domain:
+
+https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate
+
