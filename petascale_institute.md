@@ -1,12 +1,7 @@
-:toc: macro
-:toc-title:
-:toclevels: 99
 
 # Instructions for Petascale Institute on Blue Waters
 
 Author: [Matt Norman](https://mrnorman.github.io)
-
-toc::[]
 
 ## Getting Started
 First, log in with:
