@@ -100,13 +100,13 @@ module load cudatoolkit cray-parallel-netcdf ncview
 Run the code:
 
 ```
-aprun -n 1 ./miniweather_mpi_openacc
+aprun -n 1 ./miniWeather_mpi_openacc
 ```
 
 OR
 
 ```
-aprun -n 1 ./miniweather_mpi
+aprun -n 1 ./miniWeather_mpi
 ```
 
 View the results
