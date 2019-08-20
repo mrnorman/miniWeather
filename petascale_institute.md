@@ -3,6 +3,23 @@
 
 Author: [Matt Norman](https://mrnorman.github.io)
 
+**Table of Contents**
+- [Instructions for Petascale Institute on Blue Waters](#instructions-for-petascale-institute-on-blue-waters)
+  * [Getting Started](#getting-started)
+    + [ORNL Participants](#ornl-participants)
+  * [Compiling the Code](#compiling-the-code)
+  * [Running the Code and Viewing the Results](#running-the-code-and-viewing-the-results)
+  * [Adding OpenACC](#adding-openacc)
+    + [OpenACC Example](#openacc-example)
+    + [Making the OpenACC Exercise Easier](#making-the-openacc-exercise-easier)
+  * [Playing with the code](#playing-with-the-code)
+    + [Changing the Problem Size](#changing-the-problem-size)
+    + [Profiling](#profiling)
+    + [Using Managed Memory](#using-managed-memory)
+    + [Debugging with PGI's PCAST](#debugging-with-pgis-pcast)
+    + [Debugging with cuda-memcheck](#debugging-with-cuda-memcheck)
+    + [Debugging with valgrind](#debugging-with-valgrind)
+
 ## Getting Started
 First, log in with:
 
@@ -180,7 +197,7 @@ for (ll=0; ll<NUM_VARS; ll++) {
 }
 ```
 
-## Making the OpenACC Exercise Easier
+### Making the OpenACC Exercise Easier
 
 If you want to make things easier on yourself, especially in C, where the compiler does not generate data statements for you, I recommend using the PGI compiler with Managed Memory. The reason is that you no longer need to add your own data statements because the CUDA runtime will move the data back and forth between CPU and GPU memory for you transparently under the hood. This means you can just focus on the `parallel loop` directive.
 
