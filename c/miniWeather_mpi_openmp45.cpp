@@ -133,9 +133,9 @@ int main(int argc, char **argv) {
 
   init( &argc , &argv );
 
-#pragma omp target data map(in:state_tmp[(nz+2*hs)*(nx+2*hs)*NUM_VARS],hy_dens_cell[nz+2*hs],hy_dens_theta_cell[nz+2*hs],hy_dens_int[nz+1],hy_dens_theta_int[nz+1],hy_pressure_int[nz+1]) \
+#pragma omp target data map(to:state_tmp[(nz+2*hs)*(nx+2*hs)*NUM_VARS],hy_dens_cell[nz+2*hs],hy_dens_theta_cell[nz+2*hs],hy_dens_int[nz+1],hy_dens_theta_int[nz+1],hy_pressure_int[nz+1]) \
         map(alloc:flux[(nz+1)*(nx+1)*NUM_VARS],tend[nz*nx*NUM_VARS],sendbuf_l[hs*nz*NUM_VARS],sendbuf_r[hs*nz*NUM_VARS],recvbuf_l[hs*nz*NUM_VARS],recvbuf_r[hs*nz*NUM_VARS]) \
-        map(inout:state[(nz+2*hs)*(nx+2*hs)*NUM_VARS])
+        map(tofrom:state[(nz+2*hs)*(nx+2*hs)*NUM_VARS])
 {
 
   //Output the initial state
