@@ -133,9 +133,9 @@ int main(int argc, char **argv) {
 
   init( &argc , &argv );
 
-#pragma omp target data map(to:state_tmp[(nz+2*hs)*(nx+2*hs)*NUM_VARS],hy_dens_cell[nz+2*hs],hy_dens_theta_cell[nz+2*hs],hy_dens_int[nz+1],hy_dens_theta_int[nz+1],hy_pressure_int[nz+1]) \
-        map(alloc:flux[(nz+1)*(nx+1)*NUM_VARS],tend[nz*nx*NUM_VARS],sendbuf_l[hs*nz*NUM_VARS],sendbuf_r[hs*nz*NUM_VARS],recvbuf_l[hs*nz*NUM_VARS],recvbuf_r[hs*nz*NUM_VARS]) \
-        map(tofrom:state[(nz+2*hs)*(nx+2*hs)*NUM_VARS])
+#pragma omp target data map(to:state_tmp[:(nz+2*hs)*(nx+2*hs)*NUM_VARS],hy_dens_cell[:nz+2*hs],hy_dens_theta_cell[:nz+2*hs],hy_dens_int[:nz+1],hy_dens_theta_int[:nz+1],hy_pressure_int[:nz+1]) \
+        map(alloc:flux[:(nz+1)*(nx+1)*NUM_VARS],tend[:nz*nx*NUM_VARS],sendbuf_l[:hs*nz*NUM_VARS],sendbuf_r[:hs*nz*NUM_VARS],recvbuf_l[:hs*nz*NUM_VARS],recvbuf_r[:hs*nz*NUM_VARS]) \
+        map(tofrom:state[:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
 {
 
   //Output the initial state
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
     //If it's time for output, reset the counter, and do output
     if (output_counter >= output_freq) {
       output_counter = output_counter - output_freq;
-#pragma omp target update from(state[(nz+2*hs)*(nx+2*hs)*NUM_VARS])
+#pragma omp target update from(state[:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
       output(state,etime);
     }
   }
@@ -364,7 +364,7 @@ void set_halo_values_x( double *state ) {
     }
   }
 
-#pragma omp target update from(sendbuf_l[nz*hs*NUM_VARS],sendbuf_r[nz*hs*NUM_VARS])
+#pragma omp target update from(sendbuf_l[:nz*hs*NUM_VARS],sendbuf_r[:nz*hs*NUM_VARS])
 
   //Fire off the sends
   ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
@@ -373,7 +373,7 @@ void set_halo_values_x( double *state ) {
   //Wait for receives to finish
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
-#pragma omp target update to(recvbuf_l[nz*hs*NUM_VARS],recvbuf_r[nz*hs*NUM_VARS])
+#pragma omp target update to(recvbuf_l[:nz*hs*NUM_VARS],recvbuf_r[:nz*hs*NUM_VARS])
 
   //Unpack the receive buffers
 #pragma omp target teams distribute parallel for collapse(3)
