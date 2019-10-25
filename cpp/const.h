@@ -12,6 +12,7 @@
 #endif
 
 #include "SArray.h"
+#include "Array.h"
 
 typedef float real;
 
@@ -20,19 +21,9 @@ inline real operator"" _fp( long double x ) {
 }
 
 #ifdef __NVCC__
-  typedef Kokkos::View<real*     ,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real1d;
-  typedef Kokkos::View<real**    ,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real2d;
-  typedef Kokkos::View<real***   ,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real3d;
-  typedef Kokkos::View<real****  ,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real4d;
-  typedef Kokkos::View<real***** ,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real5d;
-  typedef Kokkos::View<real******,Kokkos::LayoutRight,Kokkos::Device<Kokkos::Cuda,Kokkos::CudaUVMSpace>> real6d;
+  typedef yakl::Array<real,yakl::memDevice> realArr;
 #else
-  typedef Kokkos::View<real*     ,Kokkos::LayoutRight> real1d;
-  typedef Kokkos::View<real**    ,Kokkos::LayoutRight> real2d;
-  typedef Kokkos::View<real***   ,Kokkos::LayoutRight> real3d;
-  typedef Kokkos::View<real****  ,Kokkos::LayoutRight> real4d;
-  typedef Kokkos::View<real***** ,Kokkos::LayoutRight> real5d;
-  typedef Kokkos::View<real******,Kokkos::LayoutRight> real6d;
+  typedef yakl::Array<real,yakl::memHost> realArr;
 #endif
 
 const real pi        = 3.14159265358979323846264338327;   //Pi
