@@ -1,5 +1,10 @@
 # miniWeather
-A mini app simulating weather-like flows for training in parallelizing accelerated HPC architectures
+A mini app simulating weather-like flows for training in parallelizing accelerated HPC architectures. Currently includes:
+* MPI (C, Fortran, and C++)
+* OpenACC Offload (C and Fortran)
+* OpenMP Threading (C and Fortran)
+* OpenMP Offload (C and Fortran)
+* Kokkos (C++)
 
 Author: [Matt Norman](https://mrnorman.github.io)
 
@@ -11,7 +16,8 @@ For detailed documentation, please see the [documentation/miniWeather_documentat
 * Ncview: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
   * This is the easiest way to visualize NetCDF files.
 * MPI
-* An OpenACC-capable compiler (PGI, Cray, GNU)
+* For OpenACC: An OpenACC-capable compiler (PGI, Cray, GNU)
+* For OpenMP: An OpenMP offload capable compiler (Cray, XL)
 
 ## MiniWeather Model Scaling Details
 If you wnat to do scaling studies with miniWeather, this section will be important to make sure you're doing an apples-to-apples comparison. 
