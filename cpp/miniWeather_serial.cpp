@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     //So, you'll want to have nx_glob be twice as large as nz_glob
     nx_glob = 200;      //Number of total cells in the x-dirction
     nz_glob = 100;      //Number of total cells in the z-dirction
-    sim_time = 1500;     //How many seconds to run the simulation
+    sim_time = 100;     //How many seconds to run the simulation
     output_freq = 10;   //How frequently to output data to file (in seconds)
     //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
     data_spec_int = DATA_SPEC_THERMAL;
@@ -761,13 +761,13 @@ void ncwrap( int ierr , int line ) {
 void finalize() {
   int ierr;
   ierr = MPI_Finalize();
-  real1d hy_dens_cell         = real1d();
-  real1d hy_dens_theta_cell   = real1d();
-  real1d hy_dens_int          = real1d();
-  real1d hy_dens_theta_int    = real1d();
-  real1d hy_pressure_int      = real1d();
-  real3d state                = real3d();
-  real3d state_tmp            = real3d();
-  real3d flux                 = real3d();
-  real3d tend                 = real3d();
+  hy_dens_cell         = real1d();
+  hy_dens_theta_cell   = real1d();
+  hy_dens_int          = real1d();
+  hy_dens_theta_int    = real1d();
+  hy_pressure_int      = real1d();
+  state                = real3d();
+  state_tmp            = real3d();
+  flux                 = real3d();
+  tend                 = real3d();
 }
