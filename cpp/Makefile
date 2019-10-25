@@ -20,11 +20,14 @@ KOKKOS_DEVICES = "Serial"
 
 include ${KOKKOS_PATH}/Makefile.kokkos
 
-main: serial
+main: serial mpi
 
 serial: miniWeather_serial.cpp *.h $(KOKKOS_CPP_DEPENDS) $(KOKKOS_LINK_DEPENDS)
 	$(CXX) $(INCLUDE) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(KOKKOS_LDFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_serial.cpp $(KOKKOS_LIBS) $(LIB) -o miniWeather_serial $(LDFLAGS)
 
+mpi: miniWeather_mpi.cpp *.h $(KOKKOS_CPP_DEPENDS) $(KOKKOS_LINK_DEPENDS)
+	$(CXX) $(INCLUDE) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(KOKKOS_LDFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi.cpp $(KOKKOS_LIBS) $(LIB) -o miniWeather_mpi $(LDFLAGS)
+
 clean:
-	rm -f *.gch *.o *.dat miniWeather_serial KokkosCore_config.h KokkosCore_config.tmp libkokkos.a
+	rm -f *.gch *.o *.dat miniWeather_mpi miniWeather_serial KokkosCore_config.h KokkosCore_config.tmp libkokkos.a
 
