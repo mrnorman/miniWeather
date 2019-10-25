@@ -159,7 +159,6 @@ void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , rea
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend ) {
-  int i, k, ll;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -172,17 +171,15 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
     compute_tendencies_z(state_forcing,flux,tend);
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
-        state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
-      }
-    }
-  }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (k=0; k<nz; k++) {
+  //     for (i=0; i<nx; i++) {
+  Kokkos::parallel_for( nx*nz*NUM_VARS , KOKKOS_LAMBDA ( int iGlob ) {
+    int ll,k,i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+    state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
+  });
 }
 
 
@@ -191,56 +188,54 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
-  int  i,k,ll,s;
-  real r,u,w,t,p, hv_coef;
-  SArray<real,4> stencil;
-  SArray<real,NUM_VARS> d3_vals;
-  SArray<real,NUM_VARS> vals;
-  //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dx / (16*dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx+1; i++) {
-      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (ll=0; ll<NUM_VARS; ll++) {
-        for (s=0; s < sten_size; s++) {
-          stencil(s) = state(ll,hs+k,i+s);
-        }
-        //Fourth-order-accurate interpolation of the state
-        vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
-        //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-        d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
+  // for (k=0; k<nz; k++) {
+  //   for (i=0; i<nx+1; i++) {
+  Kokkos::parallel_for( nz*(nx+1) , KOKKOS_LAMBDA (int iGlob) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz,nx+1,k,i);
+
+    SArray<real,4> stencil;
+    SArray<real,NUM_VARS> d3_vals;
+    SArray<real,NUM_VARS> vals;
+    //Compute the hyperviscosity coeficient
+    real hv_coef = -hv_beta * dx / (16*dt);
+
+    //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int s=0; s < sten_size; s++) {
+        stencil(s) = state(ll,hs+k,i+s);
       }
-
-      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      r = vals(ID_DENS) + hy_dens_cell(hs+k);
-      u = vals(ID_UMOM) / r;
-      w = vals(ID_WMOM) / r;
-      t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
-      p = C0*pow((r*t),gamm);
-
-      //Compute the flux vector
-      flux(ID_DENS,k,i) = r*u     - hv_coef*d3_vals(ID_DENS);
-      flux(ID_UMOM,k,i) = r*u*u+p - hv_coef*d3_vals(ID_UMOM);
-      flux(ID_WMOM,k,i) = r*u*w   - hv_coef*d3_vals(ID_WMOM);
-      flux(ID_RHOT,k,i) = r*u*t   - hv_coef*d3_vals(ID_RHOT);
+      //Fourth-order-accurate interpolation of the state
+      vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
+      //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
+      d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
     }
-  }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
+    //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+    real r = vals(ID_DENS) + hy_dens_cell(hs+k);
+    real u = vals(ID_UMOM) / r;
+    real w = vals(ID_WMOM) / r;
+    real t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
+    real p = C0*pow((r*t),gamm);
+
+    //Compute the flux vector
+    flux(ID_DENS,k,i) = r*u     - hv_coef*d3_vals(ID_DENS);
+    flux(ID_UMOM,k,i) = r*u*u+p - hv_coef*d3_vals(ID_UMOM);
+    flux(ID_WMOM,k,i) = r*u*w   - hv_coef*d3_vals(ID_WMOM);
+    flux(ID_RHOT,k,i) = r*u*t   - hv_coef*d3_vals(ID_RHOT);
+  });
+
   //Use the fluxes to compute tendencies for each cell
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
-        tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
-      }
-    }
-  }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (k=0; k<nz; k++) {
+  //     for (i=0; i<nx; i++) {
+  Kokkos::parallel_for( NUM_VARS*nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+
+    tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
+  });
 }
 
 
@@ -249,67 +244,64 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
-  int  i,k,ll,s;
-  real r,u,w,t,p, hv_coef;
-  SArray<real,4> stencil;
-  SArray<real,NUM_VARS> d3_vals;
-  SArray<real,NUM_VARS> vals;
-  //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dx / (16*dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
-  for (k=0; k<nz+1; k++) {
-    for (i=0; i<nx; i++) {
-      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (ll=0; ll<NUM_VARS; ll++) {
-        for (s=0; s<sten_size; s++) {
-          stencil(s) = state(ll,k+s,hs+i);
-        }
-        //Fourth-order-accurate interpolation of the state
-        vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
-        //First-order-accurate interpolation of the third spatial derivative of the state
-        d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
+  // for (k=0; k<nz+1; k++) {
+  //   for (i=0; i<nx; i++) {
+  Kokkos::parallel_for( (nz+1)*nx , KOKKOS_LAMBDA (int iGlob) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz+1,nx,k,i);
+
+    SArray<real,4> stencil;
+    SArray<real,NUM_VARS> d3_vals;
+    SArray<real,NUM_VARS> vals;
+    //Compute the hyperviscosity coeficient
+    real hv_coef = -hv_beta * dx / (16*dt);
+
+    //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int s=0; s<sten_size; s++) {
+        stencil(s) = state(ll,k+s,hs+i);
       }
-
-      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      r = vals(ID_DENS) + hy_dens_int(k);
-      u = vals(ID_UMOM) / r;
-      w = vals(ID_WMOM) / r;
-      t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
-      p = C0*pow((r*t),gamm) - hy_pressure_int(k);
-
-      //Compute the flux vector with hyperviscosity
-      flux(ID_DENS,k,i) = r*w     - hv_coef*d3_vals(ID_DENS);
-      flux(ID_UMOM,k,i) = r*w*u   - hv_coef*d3_vals(ID_UMOM);
-      flux(ID_WMOM,k,i) = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
-      flux(ID_RHOT,k,i) = r*w*t   - hv_coef*d3_vals(ID_RHOT);
+      //Fourth-order-accurate interpolation of the state
+      vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
+      //First-order-accurate interpolation of the third spatial derivative of the state
+      d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
     }
-  }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
+    //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+    real r = vals(ID_DENS) + hy_dens_int(k);
+    real u = vals(ID_UMOM) / r;
+    real w = vals(ID_WMOM) / r;
+    real t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
+    real p = C0*pow((r*t),gamm) - hy_pressure_int(k);
+
+    //Compute the flux vector with hyperviscosity
+    flux(ID_DENS,k,i) = r*w     - hv_coef*d3_vals(ID_DENS);
+    flux(ID_UMOM,k,i) = r*w*u   - hv_coef*d3_vals(ID_UMOM);
+    flux(ID_WMOM,k,i) = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
+    flux(ID_RHOT,k,i) = r*w*t   - hv_coef*d3_vals(ID_RHOT);
+  });
+
   //Use the fluxes to compute tendencies for each cell
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
-        tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
-        if (ll == ID_WMOM) {
-          tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
-        }
-      }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (k=0; k<nz; k++) {
+  //     for (i=0; i<nx; i++) {
+  Kokkos::parallel_for( NUM_VARS*nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+
+    tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
+    if (ll == ID_WMOM) {
+      tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
     }
-  }
+  });
 }
 
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
 void set_halo_values_x( realArr &state ) {
-  int k, ll, ind_r, ind_u, ind_t, i, s, ierr;
-  double z;
+  int ierr;
   MPI_Request req_r[2], req_s[2];
 
   //Prepost receives
@@ -317,14 +309,16 @@ void set_halo_values_x( realArr &state ) {
   ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,MPI_FLOAT,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (s=0; s<hs; s++) {
-        sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
-        sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
-      }
-    }
-  }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (k=0; k<nz; k++) {
+  //     for (s=0; s<hs; s++) {
+  Kokkos::parallel_for( NUM_VARS*nz*hs , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, s;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
+
+    sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
+    sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
+  });
 
   //Fire off the sends
   ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,MPI_FLOAT, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
@@ -334,29 +328,34 @@ void set_halo_values_x( realArr &state ) {
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
   //Unpack the receive buffers
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (s=0; s<hs; s++) {
-        state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
-        state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
-      }
-    }
-  }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (k=0; k<nz; k++) {
+  //     for (s=0; s<hs; s++) {
+  Kokkos::parallel_for( NUM_VARS*nz*hs , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, s;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
+
+    state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
+    state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
+  });
 
   //Wait for sends to finish
   ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-      for (k=0; k<nz; k++) {
-        for (i=0; i<hs; i++) {
-          z = (k_beg + k+0.5)*dz;
-          if (abs(z-3*zlen/4) <= zlen/16) {
-            state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
-            state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298. - hy_dens_theta_cell(hs+k);
-          }
+      // for (k=0; k<nz; k++) {
+      //   for (i=0; i<hs; i++) {
+      Kokkos::parallel_for( nz*hs , KOKKOS_LAMBDA (int iGlob) {
+        int k, i;
+        yakl::unpackIndices(iGlob,nz,hs,k,i);
+
+        double z = (k_beg + k+0.5)*dz;
+        if (abs(z-3*zlen/4) <= zlen/16) {
+          state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
+          state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298. - hy_dens_theta_cell(hs+k);
         }
-      }
+      });
     }
   }
 }
@@ -365,45 +364,43 @@ void set_halo_values_x( realArr &state ) {
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
 void set_halo_values_z( realArr &state ) {
-  int    i, ll;
-  const real mnt_width = xlen/8;
-  real       x, xloc, mnt_deriv;
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (i=0; i<nx+2*hs; i++) {
-      if (ll == ID_WMOM) {
-        state(ll,0      ,i) = 0.;
-        state(ll,1      ,i) = 0.;
-        state(ll,nz+hs  ,i) = 0.;
-        state(ll,nz+hs+1,i) = 0.;
-        //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-        if (data_spec_int == DATA_SPEC_MOUNTAIN) {
-          x = (i_beg+i-hs+0.5)*dx;
-          if ( fabs(x-xlen/4) < mnt_width ) {
-            xloc = (x-(xlen/4)) / mnt_width;
-            //Compute the derivative of the fake mountain
-            mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
-            //w = (dz/dx)*u
-            state(ID_WMOM,0,i) = mnt_deriv*state(ID_UMOM,hs,i);
-            state(ID_WMOM,1,i) = mnt_deriv*state(ID_UMOM,hs,i);
-          }
+  // for (ll=0; ll<NUM_VARS; ll++) {
+  //   for (i=0; i<nx+2*hs; i++) {
+  Kokkos::parallel_for( NUM_VARS*(nx+2*hs) , KOKKOS_LAMBDA (int iGlob) {
+    int ll, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nx+2*hs,ll,i);
+
+    const real mnt_width = xlen/8;
+    if (ll == ID_WMOM) {
+      state(ll,0      ,i) = 0.;
+      state(ll,1      ,i) = 0.;
+      state(ll,nz+hs  ,i) = 0.;
+      state(ll,nz+hs+1,i) = 0.;
+      //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
+      if (data_spec_int == DATA_SPEC_MOUNTAIN) {
+        real x = (i_beg+i-hs+0.5)*dx;
+        if ( fabs(x-xlen/4) < mnt_width ) {
+          real xloc = (x-(xlen/4)) / mnt_width;
+          //Compute the derivative of the fake mountain
+          real mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
+          //w = (dz/dx)*u
+          state(ID_WMOM,0,i) = mnt_deriv*state(ID_UMOM,hs,i);
+          state(ID_WMOM,1,i) = mnt_deriv*state(ID_UMOM,hs,i);
         }
-      } else {
-        state(ll,0      ,i) = state(ll,hs     ,i);
-        state(ll,1      ,i) = state(ll,hs     ,i);
-        state(ll,nz+hs  ,i) = state(ll,nz+hs-1,i);
-        state(ll,nz+hs+1,i) = state(ll,nz+hs-1,i);
       }
+    } else {
+      state(ll,0      ,i) = state(ll,hs     ,i);
+      state(ll,1      ,i) = state(ll,hs     ,i);
+      state(ll,nz+hs  ,i) = state(ll,nz+hs-1,i);
+      state(ll,nz+hs+1,i) = state(ll,nz+hs-1,i);
     }
-  }
+  });
 }
 
 
 void init( int *argc , char ***argv ) {
-  int  i, k, ii, kk, ll, ierr, i_end;
-  real x, z, r, u, w, t, hr, ht, nper;
+  int  ierr, i_end;
+  real nper;
 
   ierr = MPI_Init(argc,argv);
 
@@ -480,45 +477,52 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-  for (k=0; k<nz+2*hs; k++) {
-    for (i=0; i<nx+2*hs; i++) {
-      //Initialize the state to zero
-      for (ll=0; ll<NUM_VARS; ll++) {
-        state(ll,k,i) = 0.;
-      }
-      //Use Gauss-Legendre quadrature to initialize a hydrostatic balance + temperature perturbation
-      for (kk=0; kk<nqpoints; kk++) {
-        for (ii=0; ii<nqpoints; ii++) {
-          //Compute the x,z location within the global domain based on cell and quadrature index
-          x = (i_beg + i-hs+0.5)*dx + (qpoints(ii)-0.5)*dx;
-          z = (k_beg + k-hs+0.5)*dz + (qpoints(kk)-0.5)*dz;
+  // for (k=0; k<nz+2*hs; k++) {
+  //   for (i=0; i<nx+2*hs; i++) {
+  Kokkos::parallel_for( (nz+2*hs)*(nx+2*hs) , KOKKOS_LAMBDA (int iGlob) {
+    int k,i;
+    yakl::unpackIndices(iGlob,nz+2*hs,nx+2*hs,k,i);
 
-          //Set the fluid state based on the user's specification
-          if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
+    //Initialize the state to zero
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      state(ll,k,i) = 0.;
+    }
+    //Use Gauss-Legendre quadrature to initialize a hydrostatic balance + temperature perturbation
+    for (int kk=0; kk<nqpoints; kk++) {
+      for (int ii=0; ii<nqpoints; ii++) {
+        //Compute the x,z location within the global domain based on cell and quadrature index
+        real x = (i_beg + i-hs+0.5)*dx + (qpoints(ii)-0.5)*dx;
+        real z = (k_beg + k-hs+0.5)*dz + (qpoints(kk)-0.5)*dz;
+        real r, u, w, t, hr, ht;
 
-          //Store into the fluid state array
-          state(ID_DENS,k,i) += r                         * qweights(ii)*qweights(kk);
-          state(ID_UMOM,k,i) += (r+hr)*u                  * qweights(ii)*qweights(kk);
-          state(ID_WMOM,k,i) += (r+hr)*w                  * qweights(ii)*qweights(kk);
-          state(ID_RHOT,k,i) += ( (r+hr)*(t+ht) - hr*ht ) * qweights(ii)*qweights(kk);
-        }
-      }
-      for (ll=0; ll<NUM_VARS; ll++) {
-        state_tmp(ll,k,i) = state(ll,k,i);
+        //Set the fluid state based on the user's specification
+        if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
+
+        //Store into the fluid state array
+        state(ID_DENS,k,i) += r                         * qweights(ii)*qweights(kk);
+        state(ID_UMOM,k,i) += (r+hr)*u                  * qweights(ii)*qweights(kk);
+        state(ID_WMOM,k,i) += (r+hr)*w                  * qweights(ii)*qweights(kk);
+        state(ID_RHOT,k,i) += ( (r+hr)*(t+ht) - hr*ht ) * qweights(ii)*qweights(kk);
       }
     }
-  }
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      state_tmp(ll,k,i) = state(ll,k,i);
+    }
+  });
+
   //Compute the hydrostatic background state over vertical cell averages
-  for (k=0; k<nz+2*hs; k++) {
+  // for (int k=0; k<nz+2*hs; k++) {
+  Kokkos::parallel_for( (nz+2*hs) , KOKKOS_LAMBDA (int k) {
     hy_dens_cell      (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
-    for (kk=0; kk<nqpoints; kk++) {
-      z = (k_beg + k-hs+0.5)*dz;
+    for (int kk=0; kk<nqpoints; kk++) {
+      real z = (k_beg + k-hs+0.5)*dz;
+      real r, u, w, t, hr, ht;
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
@@ -529,10 +533,12 @@ void init( int *argc , char ***argv ) {
       hy_dens_cell      (k) = hy_dens_cell      (k) + hr    * qweights(kk);
       hy_dens_theta_cell(k) = hy_dens_theta_cell(k) + hr*ht * qweights(kk);
     }
-  }
+  });
   //Compute the hydrostatic background state at vertical cell interfaces
-  for (k=0; k<nz+1; k++) {
-    z = (k_beg + k)*dz;
+  // for (int k=0; k<nz+1; k++) {
+  Kokkos::parallel_for( (nz+2*hs) , KOKKOS_LAMBDA (int k) {
+    real z = (k_beg + k)*dz;
+      real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
@@ -542,7 +548,7 @@ void init( int *argc , char ***argv ) {
     hy_dens_int      (k) = hr;
     hy_dens_theta_int(k) = hr*ht;
     hy_pressure_int  (k) = C0*pow((hr*ht),gamm);
-  }
+  });
 }
 
 

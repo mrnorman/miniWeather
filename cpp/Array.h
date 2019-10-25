@@ -297,7 +297,12 @@ template <class T, int myMem> class Array {
     *refCount = 1;
     if (myMem == memDevice) {
       #ifdef __USE_CUDA__
-        cudaMalloc(&myData,totElems*sizeof(T));
+        #ifdef __MANAGED__
+          cudaMallocManaged(&myData,totElems*sizeof(T));
+          cudaMemPrefetchAsync(myData,totElems*sizeof(T),0);
+        #else
+          cudaMalloc(&myData,totElems*sizeof(T));
+        #endif
       #elif defined(__USE_HIP__)
         hipMalloc(&myData,totElems*sizeof(T));
       #endif
