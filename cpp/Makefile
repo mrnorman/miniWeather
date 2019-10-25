@@ -6,6 +6,10 @@ CXX := mpic++
 CXXFLAGS := -O3 # -DARRAY_DEBUG
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
+# Valid DEVICE options: CPU, CUDA
+DEVICE := CPU
+# Valid GPU_ARCH options: https://github.com/kokkos/kokkos/wiki/Compiling#table-43-architecture-variables
+GPU_ARCH := "Maxwell50"
 ##########################################################
 ## END EDITING SECTION
 ##########################################################
@@ -15,8 +19,16 @@ KOKKOS_SRC_PATH = ${KOKKOS_PATH}
 
 default: main
 
-KOKKOS_DEVICES = "Serial"
 # KOKKOS_DEBUG = "yes"
+
+ifeq ($(DEVICE),CPU)
+  KOKKOS_DEVICES = "Serial"
+endif
+ifeq ($(DEVICE),CUDA)
+  KOKKOS_DEVICES = "Cuda"
+  KOKKOS_ARCH = $(GPU_ARCH)
+  KOKKOS_CUDA_OPTIONS += "enable_lambda"
+endif
 
 include ${KOKKOS_PATH}/Makefile.kokkos
 

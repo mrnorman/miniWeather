@@ -6,6 +6,10 @@ CXX := mpic++
 CXXFLAGS := -O3 # -DARRAY_DEBUG
 INCLUDE := -I${OLCF_PARALLEL_NETCDF_ROOT}/include
 LDFLAGS := -L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
+# Valid DEVICE options: CPU, CUDA
+DEVICE := CPU
+# Valid GPU_ARCH options: https://github.com/kokkos/kokkos/wiki/Compiling#table-43-architecture-variables
+GPU_ARCH := "Volta70"
 ##########################################################
 ## END EDITING SECTION
 ##########################################################
@@ -15,16 +19,27 @@ KOKKOS_SRC_PATH = ${KOKKOS_PATH}
 
 default: main
 
-KOKKOS_DEVICES = "Serial"
 # KOKKOS_DEBUG = "yes"
+
+ifeq ($(DEVICE),CPU)
+  KOKKOS_DEVICES = "Serial"
+endif
+ifeq ($(DEVICE),CUDA)
+  KOKKOS_DEVICES = "Cuda"
+  KOKKOS_ARCH = $(GPU_ARCH)
+  KOKKOS_CUDA_OPTIONS += "enable_lambda"
+endif
 
 include ${KOKKOS_PATH}/Makefile.kokkos
 
-main: serial
+main: serial mpi
 
 serial: miniWeather_serial.cpp *.h $(KOKKOS_CPP_DEPENDS) $(KOKKOS_LINK_DEPENDS)
 	$(CXX) $(INCLUDE) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(KOKKOS_LDFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_serial.cpp $(KOKKOS_LIBS) $(LIB) -o miniWeather_serial $(LDFLAGS)
 
+mpi: miniWeather_mpi.cpp *.h $(KOKKOS_CPP_DEPENDS) $(KOKKOS_LINK_DEPENDS)
+	$(CXX) $(INCLUDE) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(KOKKOS_LDFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi.cpp $(KOKKOS_LIBS) $(LIB) -o miniWeather_mpi $(LDFLAGS)
+
 clean:
-	rm -f *.gch *.o *.dat miniWeather_serial KokkosCore_config.h KokkosCore_config.tmp libkokkos.a
+	rm -f *.gch *.o *.dat miniWeather_mpi miniWeather_serial KokkosCore_config.h KokkosCore_config.tmp libkokkos.a
 
