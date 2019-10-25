@@ -1,0 +1,3 @@
+[submodule "cpp/kokkos"]
+	path = cpp/kokkos
+	url = git@github.com:kokkos/kokkos.git
