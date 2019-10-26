@@ -7,7 +7,7 @@ CXXFLAGS := -O3 # -DARRAY_DEBUG
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
 # Valid DEVICE options: CPU, CUDA, HIP
-DEVICE := CUDA
+DEVICE := HIP
 CUDA_ARCH := sm_50
 MANAGED_MEM := no
 ##########################################################
@@ -22,6 +22,10 @@ ifeq ($(DEVICE),CUDA)
   ifeq ($(MANAGED_MEM),yes)
     CXXFLAGS += -D__MANAGED__
   endif
+endif
+ifeq ($(DEVICE),HIP)
+  export OMPI_CXX=hipcc
+  CXXFLAGS += -D__USE_HIP__
 endif
 
 main: serial mpi parallelfor
