@@ -3,7 +3,7 @@
 ## EDIT THESE PARAMETERS
 ##########################################################
 CXX := mpic++
-CXXFLAGS := -O3 # -DARRAY_DEBUG
+CXXFLAGS := -O3 -DARRAY_DEBUG
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
 # Valid DEVICE options: CPU, CUDA
@@ -20,7 +20,7 @@ KOKKOS_SRC_PATH = ${KOKKOS_PATH}
 
 default: main
 
-# KOKKOS_DEBUG = "yes"
+KOKKOS_DEBUG = "yes"
 
 ifeq ($(DEVICE),CPU)
   KOKKOS_DEVICES = "Serial"

@@ -536,7 +536,7 @@ void init( int *argc , char ***argv ) {
   });
   //Compute the hydrostatic background state at vertical cell interfaces
   // for (int k=0; k<nz+1; k++) {
-  Kokkos::parallel_for( (nz+2*hs) , KOKKOS_LAMBDA (int k) {
+  Kokkos::parallel_for( (nz+1) , KOKKOS_LAMBDA (int k) {
     real z = (k_beg + k)*dz;
       real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
@@ -733,14 +733,17 @@ void output( realArr &state , real etime ) {
   }
 
   //Store perturbed values in the temp arrays for output
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
-      dens (k,i) = state(ID_DENS,hs+k,hs+i);
-      uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
-      wwnd (k,i) = state(ID_WMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
-      theta(k,i) = ( state(ID_RHOT,hs+k,hs+i) + hy_dens_theta_cell(hs+k) ) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) ) - hy_dens_theta_cell(hs+k) / hy_dens_cell(hs+k);
-    }
-  }
+  // for (k=0; k<nz; k++) {
+  //   for (i=0; i<nx; i++) {
+  Kokkos::parallel_for( nx*nz , KOKKOS_LAMBDA (int iGlob) {
+    int k,i;
+    yakl::unpackIndices(iGlob,nz,nx,k,i);
+
+    dens (k,i) = state(ID_DENS,hs+k,hs+i);
+    uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
+    wwnd (k,i) = state(ID_WMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
+    theta(k,i) = ( state(ID_RHOT,hs+k,hs+i) + hy_dens_theta_cell(hs+k) ) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) ) - hy_dens_theta_cell(hs+k) / hy_dens_cell(hs+k);
+  });
 
   //Write the grid data to file with all the processes writing collectively
   st3[0] = num_out; st3[1] = k_beg; st3[2] = i_beg;
