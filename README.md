@@ -10,6 +10,13 @@ Author: [Matt Norman](https://mrnorman.github.io)
 
 For detailed documentation, please see the [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf) file
 
+## Basic Setup
+```bash
+git clone git@github.com:mrnorman/miniWeather.git
+cd miniWeather
+git submodule update --init
+```
+
 ## Software Dependencies
 * Parallel-netcdf: https://trac.mcs.anl.gov/projects/parallel-netcdf
   * This is a dependency for two reasons: (1) NetCDF files are easy to visualize and convenient to work with; (2) The users of this code shouldn't have to write their own parallel I/O.
@@ -18,6 +25,7 @@ For detailed documentation, please see the [documentation/miniWeather_documentat
 * MPI
 * For OpenACC: An OpenACC-capable compiler (PGI, Cray, GNU)
 * For OpenMP: An OpenMP offload capable compiler (Cray, XL)
+* For C++ portability, Nvidia's CUB and AMD's hipCUB and rocPRIM are already included as submodules
 
 ## MiniWeather Model Scaling Details
 If you wnat to do scaling studies with miniWeather, this section will be important to make sure you're doing an apples-to-apples comparison. 
