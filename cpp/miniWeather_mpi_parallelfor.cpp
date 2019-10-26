@@ -56,25 +56,25 @@ realArrHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI ran
 
 
 //Declaring the functions defined after "main"
-void init                 ( int *argc , char ***argv , int &nx , int &nz );
+void init                 ( int *argc , char ***argv );
 void finalize             ( );
-void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-void hydro_const_theta    ( real z                    , real &r , real &t );
-void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
-real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( realArr &state , real etime , int nx , int nz );
+YAKL_INLINE void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void hydro_const_theta    ( real z                    , real &r , real &t );
+YAKL_INLINE void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
+YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
+void output               ( realArr &state , real etime );
 void ncwrap               ( int ierr , int line );
 void perform_timestep     ( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt );
-void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend , int nx , int nz );
-void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dx , real dt , realArr &hy_dens_cell , realArr &hy_dens_theta_cell );
-void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dz , real dt , realArr &hy_dens_int , realArr &hy_dens_theta_int , realArr &hy_pressure_int );
-void set_halo_values_x    ( realArr &state , int nx , int nz );
-void set_halo_values_z    ( realArr &state , int nx , int nz );
+void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend );
+void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend );
+void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend );
+void set_halo_values_x    ( realArr &state );
+void set_halo_values_z    ( realArr &state );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -98,10 +98,10 @@ int main(int argc, char **argv) {
     // END USER-CONFIGURABLE PARAMETERS
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    init( &argc , &argv , nx , nz );
+    init( &argc , &argv );
 
     //Output the initial state
-    output(state,etime,nx,nz);
+    output(state,etime);
 
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
       //If it's time for output, reset the counter, and do output
       if (output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
-        output(state,etime,nx,nz);
+        output(state,etime);
       }
     }
     finalize();
@@ -138,22 +138,22 @@ int main(int argc, char **argv) {
 void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt ) {
   if (direction_switch) {
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
   } else {
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , nx , nz );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
   }
   if (direction_switch) { direction_switch = 0; } else { direction_switch = 1; }
 }
@@ -162,18 +162,21 @@ void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , rea
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend , int nx , int nz ) {
+void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend ) {
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
-    set_halo_values_x(state_forcing,nx,nz);
+    set_halo_values_x(state_forcing);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend,nx,nz,dx,dt,hy_dens_cell,hy_dens_theta_cell);
+    compute_tendencies_x(state_forcing,flux,tend);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
-    set_halo_values_z(state_forcing,nx,nz);
+    set_halo_values_z(state_forcing);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend,nx,nz,dz,dt,hy_dens_int,hy_dens_theta_int,hy_pressure_int);
+    compute_tendencies_z(state_forcing,flux,tend);
   }
+
+  auto &nx = ::nx;
+  auto &nz = ::nz;
 
   //Apply the tendencies to the fluid state
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -191,7 +194,14 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dx , real dt , realArr &hy_dens_cell , realArr &hy_dens_theta_cell ) {
+void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &dt = ::dt;
+  auto &dx = ::dx;
+  auto &hy_dens_cell = ::hy_dens_cell;
+  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
@@ -247,7 +257,15 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend , int 
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dz , real dt , realArr &hy_dens_int , realArr &hy_dens_theta_int , realArr &hy_pressure_int ) {
+void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &dt = ::dt;
+  auto &dz = ::dz;
+  auto &hy_dens_int = ::hy_dens_int;
+  auto &hy_dens_theta_int = ::hy_dens_theta_int;
+  auto &hy_pressure_int = ::hy_pressure_int;
+
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
@@ -304,13 +322,20 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend , int 
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( realArr &state , int nx , int nz ) {
+void set_halo_values_x( realArr &state ) {
   int ierr;
   MPI_Request req_r[2], req_s[2];
 
   //Prepost receives
   ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,MPI_FLOAT, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
   ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,MPI_FLOAT,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &sendbuf_l = ::sendbuf_l;
+  auto &sendbuf_r = ::sendbuf_r;
+  auto &recvbuf_l = ::recvbuf_l;
+  auto &recvbuf_r = ::recvbuf_r;
 
   //Pack the send buffers
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -358,6 +383,12 @@ void set_halo_values_x( realArr &state , int nx , int nz ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
+      auto &dz = ::dz;
+      auto &zlen = ::zlen;
+      auto &k_beg = ::k_beg;
+      auto &hy_dens_cell = ::hy_dens_cell;
+      auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+      
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
       yakl::parallel_for( nz*hs , YAKL_LAMBDA (int iGlob) {
@@ -377,7 +408,14 @@ void set_halo_values_x( realArr &state , int nx , int nz ) {
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
-void set_halo_values_z( realArr &state , int nx , int nz ) {
+void set_halo_values_z( realArr &state ) {
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &xlen = ::xlen;
+  auto &data_spec_int = ::data_spec_int;
+  auto &i_beg = ::i_beg;
+  auto &dx = ::dx;
+  
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
   yakl::parallel_for( NUM_VARS*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
@@ -412,7 +450,7 @@ void set_halo_values_z( realArr &state , int nx , int nz ) {
 }
 
 
-void init( int *argc , char ***argv , int &nx , int &nz ) {
+void init( int *argc , char ***argv ) {
   int  ierr, i_end;
   real nper;
 
@@ -495,6 +533,16 @@ void init( int *argc , char ***argv , int &nx , int &nz ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &dx = ::dx;
+  auto &dz = ::dz;
+  auto &i_beg = ::i_beg;
+  auto &k_beg = ::k_beg;
+  auto &state = ::state;
+  auto &state_tmp = ::state_tmp;
+  auto &data_spec_int = ::data_spec_int;
+
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
   yakl::parallel_for( (nz+2*hs)*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
@@ -532,6 +580,12 @@ void init( int *argc , char ***argv , int &nx , int &nz ) {
       state_tmp(ll,k,i) = state(ll,k,i);
     }
   });
+
+  auto &hy_dens_cell = ::hy_dens_cell;
+  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+  auto &hy_dens_int = ::hy_dens_int;
+  auto &hy_dens_theta_int = ::hy_dens_theta_int;
+  auto &hy_pressure_int = ::hy_pressure_int;
 
   //Compute the hydrostatic background state over vertical cell averages
   // for (int k=0; k<nz+2*hs; k++) {
@@ -574,7 +628,7 @@ void init( int *argc , char ***argv , int &nx , int &nz ) {
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void injection( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void injection( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -587,7 +641,7 @@ void injection( real x , real z , real &r , real &u , real &w , real &t , real &
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void density_current( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -600,7 +654,7 @@ void density_current( real x , real z , real &r , real &u , real &w , real &t , 
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -616,7 +670,7 @@ void turbulence( real x , real z , real &r , real &u , real &w , real &t , real 
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_bvfreq(z,0.02,hr,ht);
   r = 0.;
   t = 0.;
@@ -629,7 +683,7 @@ void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , r
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void thermal( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void thermal( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -643,7 +697,7 @@ void thermal( real x , real z , real &r , real &u , real &w , real &t , real &hr
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -657,7 +711,7 @@ void collision( real x , real z , real &r , real &u , real &w , real &t , real &
 //Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
-void hydro_const_theta( real z , real &r , real &t ) {
+YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
   real       p,exner,rt;
@@ -674,7 +728,7 @@ void hydro_const_theta( real z , real &r , real &t ) {
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature
-void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
+YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
   real       p, exner, rt;
@@ -689,7 +743,7 @@ void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
 //Sample from an ellipse of a specified center, radius, and amplitude at a specified location
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
-real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
+YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
   real dist;
   //Compute distance from bubble center
   dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
@@ -705,7 +759,7 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( realArr &state , real etime , int nx , int nz ) {
+void output( realArr &state , real etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
@@ -748,6 +802,11 @@ void output( realArr &state , real etime , int nx , int nz ) {
     ncwrap( ncmpi_inq_varid( ncid , "theta" , &theta_varid ) , __LINE__ );
     ncwrap( ncmpi_inq_varid( ncid , "t"     ,     &t_varid ) , __LINE__ );
   }
+
+  auto &nx = ::nx;
+  auto &nz = ::nz;
+  auto &hy_dens_cell = ::hy_dens_cell;
+  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
 
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
