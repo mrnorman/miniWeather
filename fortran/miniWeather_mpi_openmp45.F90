@@ -294,7 +294,7 @@ contains
     integer :: i,k,ll,s
     real(rp) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
     !Compute the hyperviscosity coeficient
-    hv_coef = -hv_beta * dx / (16*dt)
+    hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
     !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals)
     do k = 1 , nz+1

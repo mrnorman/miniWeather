@@ -292,7 +292,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
   int    i,k,ll,s, inds, indf1, indf2, indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
   //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dx / (16*dt);
+  hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma acc parallel loop collapse(2) private(ll,s,inds,stencil,vals,d3_vals,r,u,w,t,p) default(present)
   for (k=0; k<nz+1; k++) {

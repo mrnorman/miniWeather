@@ -251,7 +251,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   SArray<real,NUM_VARS> d3_vals;
   SArray<real,NUM_VARS> vals;
   //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dx / (16*dt);
+  hv_coef = -hv_beta * dz / (16*dt);
   /////////////////////////////////////////////////
   // TODO: THREAD ME
   /////////////////////////////////////////////////

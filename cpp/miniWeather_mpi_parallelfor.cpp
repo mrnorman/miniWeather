@@ -56,7 +56,7 @@ realArrHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI ran
 
 
 //Declaring the functions defined after "main"
-void init                 ( int *argc , char ***argv );
+void init                 ( int *argc , char ***argv , int &nx , int &nz );
 void finalize             ( );
 void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
@@ -67,14 +67,14 @@ void collision            ( real x , real z , real &r , real &u , real &w , real
 void hydro_const_theta    ( real z                    , real &r , real &t );
 void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( realArr &state , real etime );
+void output               ( realArr &state , real etime , int nx , int nz );
 void ncwrap               ( int ierr , int line );
 void perform_timestep     ( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt );
-void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend );
-void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend );
-void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend );
-void set_halo_values_x    ( realArr &state );
-void set_halo_values_z    ( realArr &state );
+void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend , int nx , int nz );
+void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dx , real dt , realArr &hy_dens_cell , realArr &hy_dens_theta_cell );
+void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dz , real dt , realArr &hy_dens_int , realArr &hy_dens_theta_int , realArr &hy_pressure_int );
+void set_halo_values_x    ( realArr &state , int nx , int nz );
+void set_halo_values_z    ( realArr &state , int nx , int nz );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -98,10 +98,10 @@ int main(int argc, char **argv) {
     // END USER-CONFIGURABLE PARAMETERS
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    init( &argc , &argv );
+    init( &argc , &argv , nx , nz );
 
     //Output the initial state
-    output(state,etime);
+    output(state,etime,nx,nz);
 
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
       //If it's time for output, reset the counter, and do output
       if (output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
-        output(state,etime);
+        output(state,etime,nx,nz);
       }
     }
     finalize();
@@ -138,22 +138,22 @@ int main(int argc, char **argv) {
 void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt ) {
   if (direction_switch) {
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , nx , nz );
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , nx , nz );
   } else {
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , nx , nz );
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , nx , nz );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , nx , nz );
   }
   if (direction_switch) { direction_switch = 0; } else { direction_switch = 1; }
 }
@@ -162,17 +162,17 @@ void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , rea
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend ) {
+void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend , int nx , int nz ) {
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
-    set_halo_values_x(state_forcing);
+    set_halo_values_x(state_forcing,nx,nz);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend);
+    compute_tendencies_x(state_forcing,flux,tend,nx,nz,dx,dt,hy_dens_cell,hy_dens_theta_cell);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
-    set_halo_values_z(state_forcing);
+    set_halo_values_z(state_forcing,nx,nz);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend);
+    compute_tendencies_z(state_forcing,flux,tend,nx,nz,dz,dt,hy_dens_int,hy_dens_theta_int,hy_pressure_int);
   }
 
   //Apply the tendencies to the fluid state
@@ -191,7 +191,7 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
+void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dx , real dt , realArr &hy_dens_cell , realArr &hy_dens_theta_cell ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
@@ -247,7 +247,7 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
+void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend , int nx , int nz , real dz , real dt , realArr &hy_dens_int , realArr &hy_dens_theta_int , realArr &hy_pressure_int ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
@@ -259,7 +259,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
     SArray<real,NUM_VARS> d3_vals;
     SArray<real,NUM_VARS> vals;
     //Compute the hyperviscosity coeficient
-    real hv_coef = -hv_beta * dx / (16*dt);
+    real hv_coef = -hv_beta * dz / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
@@ -304,7 +304,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( realArr &state ) {
+void set_halo_values_x( realArr &state , int nx , int nz ) {
   int ierr;
   MPI_Request req_r[2], req_s[2];
 
@@ -377,7 +377,7 @@ void set_halo_values_x( realArr &state ) {
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
-void set_halo_values_z( realArr &state ) {
+void set_halo_values_z( realArr &state , int nx , int nz ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
   yakl::parallel_for( NUM_VARS*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
@@ -412,7 +412,7 @@ void set_halo_values_z( realArr &state ) {
 }
 
 
-void init( int *argc , char ***argv ) {
+void init( int *argc , char ***argv , int &nx , int &nz ) {
   int  ierr, i_end;
   real nper;
 
@@ -705,7 +705,7 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( realArr &state , real etime ) {
+void output( realArr &state , real etime , int nx , int nz ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];

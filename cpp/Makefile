@@ -7,7 +7,7 @@ CXXFLAGS := -O3 # -DARRAY_DEBUG
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
 # Valid DEVICE options: CPU, CUDA, HIP
-DEVICE := CPU
+DEVICE := CUDA
 CUDA_ARCH := sm_50
 MANAGED_MEM := no
 ##########################################################
