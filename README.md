@@ -4,7 +4,7 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 * OpenACC Offload (C and Fortran)
 * OpenMP Threading (C and Fortran)
 * OpenMP Offload (C and Fortran)
-* Kokkos (C++) [In Development]
+* C++ Portability
 
 Author: [Matt Norman](https://mrnorman.github.io)
 
