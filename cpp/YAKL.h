@@ -7,16 +7,16 @@
 
 #ifdef __USE_CUDA__
   #define YAKL_LAMBDA [=] __host__ __device__
-  #define YAKL_INLINE __host__ __device__
+  #define YAKL_INLINE inline __host__ __device__
   #include <cub/cub.cuh>
 #elif defined(__USE_HIP__)
   #define YAKL_LAMBDA [=] __host__ __device__
-  #define YAKL_INLINE __host__ __device__
+  #define YAKL_INLINE inline __host__ __device__
   #include "hip/hip_runtime.h"
   #include <hipcub/hipcub.hpp>
 #else
   #define YAKL_LAMBDA [=]
-  #define YAKL_INLINE 
+  #define YAKL_INLINE  inline
 #endif
 
 
@@ -46,7 +46,7 @@ namespace yakl {
   int vectorSize = 128;
 
 
-  void init(int vectorSize_in=128) {
+  void initialize(int vectorSize_in=128) {
     vectorSize = vectorSize_in;
     #if defined(__USE_CUDA__)
       cudaMalloc(&functorBuffer,functorBufSize);
@@ -559,7 +559,7 @@ namespace yakl {
       }
     }
   #endif
-  template <class FP> inline YAKL_INLINE void addAtomic(FP &x, FP const val) {
+  template <class FP> YAKL_INLINE void addAtomic(FP &x, FP const val) {
     #ifdef __USE_CUDA__
       atomicAdd(&x,val);
     #else
@@ -567,7 +567,7 @@ namespace yakl {
     #endif
   }
 
-  template <class FP> inline YAKL_INLINE void minAtomic(FP &a, FP const b) {
+  template <class FP> YAKL_INLINE void minAtomic(FP &a, FP const b) {
     #ifdef __USE_CUDA__
       atomicMin(&a,b);
     #else
@@ -575,7 +575,7 @@ namespace yakl {
     #endif
   }
 
-  template <class FP> inline YAKL_INLINE void maxAtomic(FP &a, FP const b) {
+  template <class FP> YAKL_INLINE void maxAtomic(FP &a, FP const b) {
     #ifdef __USE_CUDA__
       atomicMax(&a,b);
     #else

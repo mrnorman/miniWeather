@@ -77,7 +77,7 @@ void set_halo_values_z    ( realArr &state );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-  Kokkos::initialize();
+  yakl::initialize();
   {
     ///////////////////////////////////////////////////////////////////////////////////////
     // BEGIN USER-CONFIGURABLE PARAMETERS
@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
     }
     finalize();
   }
-  Kokkos::finalize();
+  yakl::finalize();
 }
 
 

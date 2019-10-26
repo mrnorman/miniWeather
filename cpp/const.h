@@ -2,7 +2,7 @@
 #ifndef __CONST_H__
 #define __CONST_H__
 
-#include <Kokkos_Core.hpp>
+#include "YAKL.h"
 #include <cmath>
 
 #ifdef __NVCC__
@@ -25,6 +25,7 @@ inline real operator"" _fp( long double x ) {
 #else
   typedef yakl::Array<real,yakl::memHost> realArr;
 #endif
+typedef yakl::Array<real,yakl::memHost> realArrHost;
 
 const real pi        = 3.14159265358979323846264338327;   //Pi
 const real grav      = 9.8;                               //Gravitational acceleration (m / s^2)
