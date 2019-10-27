@@ -20,7 +20,7 @@ inline real operator"" _fp( long double x ) {
   return static_cast<real>(x);
 }
 
-#ifdef __NVCC__
+#if defined(__USE_CUDA__) || defined(__USE_HIP__)
   typedef yakl::Array<real,yakl::memDevice> realArr;
 #else
   typedef yakl::Array<real,yakl::memHost> realArr;
