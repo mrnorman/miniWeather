@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include "YAKL.h"
 
 /*
   This is intended to be a simple, low-overhead class to do multi-dimensional arrays
