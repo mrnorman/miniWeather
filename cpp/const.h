@@ -4,13 +4,6 @@
 
 #include "YAKL.h"
 #include <cmath>
-
-#ifdef __NVCC__
-  #define _HOSTDEV __host__ __device__
-#else
-  #define _HOSTDEV 
-#endif
-
 #include "SArray.h"
 #include "Array.h"
 

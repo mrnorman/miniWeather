@@ -23,31 +23,31 @@ protected:
 
 public :
 
-  _HOSTDEV SArray() { }
+  YAKL_INLINE SArray() { }
   // KOKKOS DOESN'T LIKE THESE
-  // _HOSTDEV SArray(SArray &&in) {
+  // YAKL_INLINE SArray(SArray &&in) {
   //   for (int i=0; i < D0*D1*D2*D3; i++) { data[i] = in.data[i]; }
   // }
-  // _HOSTDEV SArray &operator=(SArray &&in) {
+  // YAKL_INLINE SArray &operator=(SArray &&in) {
   //   for (int i=0; i < D0*D1*D2*D3; i++) { data[i] = in.data[i]; }
   //   return *this;
   // }
-  _HOSTDEV ~SArray() { }
+  YAKL_INLINE ~SArray() { }
 
-  inline _HOSTDEV T &operator()(ulong const i0)       {
+  YAKL_INLINE T &operator()(ulong const i0)       {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
     #endif
     return data[i0];
   }
-  inline _HOSTDEV T &operator()(ulong const i0, ulong const i1)       {
+  YAKL_INLINE T &operator()(ulong const i0, ulong const i1)       {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
     #endif
     return data[i0*D1 + i1];
   }
-  inline _HOSTDEV T &operator()(ulong const i0, ulong const i1, ulong const i2)       {
+  YAKL_INLINE T &operator()(ulong const i0, ulong const i1, ulong const i2)       {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
@@ -55,7 +55,7 @@ public :
     #endif
     return data[i0*D1*D2 + i1*D2 + i2];
   }
-  inline _HOSTDEV T &operator()(ulong const i0, ulong const i1, ulong const i2, ulong const i3)       {
+  YAKL_INLINE T &operator()(ulong const i0, ulong const i1, ulong const i2, ulong const i3)       {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
@@ -65,20 +65,20 @@ public :
     return data[i0*D1*D2*D3 + i1*D2*D3 + i2*D3 + i3];
   }
 
-  inline _HOSTDEV T  operator()(ulong const i0) const {
+  YAKL_INLINE T  operator()(ulong const i0) const {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
     #endif
     return data[i0];
   }
-  inline _HOSTDEV T  operator()(ulong const i0, ulong const i1) const {
+  YAKL_INLINE T  operator()(ulong const i0, ulong const i1) const {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
     #endif
     return data[i0*D1 + i1];
   }
-  inline _HOSTDEV T  operator()(ulong const i0, ulong const i1, ulong const i2) const {
+  YAKL_INLINE T  operator()(ulong const i0, ulong const i1, ulong const i2) const {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
@@ -86,7 +86,7 @@ public :
     #endif
     return data[i0*D1*D2 + i1*D2 + i2];
   }
-  inline _HOSTDEV T  operator()(ulong const i0, ulong const i1, ulong const i2, ulong const i3) const {
+  YAKL_INLINE T  operator()(ulong const i0, ulong const i1, ulong const i2, ulong const i3) const {
     #ifdef ARRAY_DEBUG
       if (i0>D0-1) { printf("i0 > D0-1"); exit(-1); }
       if (i1>D1-1) { printf("i1 > D1-1"); exit(-1); }
@@ -96,7 +96,7 @@ public :
     return data[i0*D1*D2*D3 + i1*D2*D3 + i2*D3 + i3];
   }
 
-  template <class I, ulong E0> inline _HOSTDEV SArray<T,E0> operator*(SArray<I,D0> const &rhs) {
+  template <class I, ulong E0> YAKL_INLINE SArray<T,E0> operator*(SArray<I,D0> const &rhs) {
     //This template could match either vector-vector or matrix-vector multiplication
     if ( (D1*D2*D3 == 1) ) {
       // Both 1-D Arrays --> Element-wise multiplication
@@ -119,7 +119,7 @@ public :
     }
   }
 
-  template <class I, ulong E0> inline _HOSTDEV SArray<T,E0,D1> operator*(SArray<I,E0,D0> const &rhs) {
+  template <class I, ulong E0> YAKL_INLINE SArray<T,E0,D1> operator*(SArray<I,E0,D0> const &rhs) {
     //This template matches Matrix-Matrix multiplication
     SArray<T,E0,D1> ret;
     for (ulong j=0; j<E0; j++) {
@@ -134,14 +134,14 @@ public :
     return ret;
   }
 
-  inline _HOSTDEV void operator=(T rhs) {
+  YAKL_INLINE void operator=(T rhs) {
     //Scalar assignment
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
       data[i] = rhs;
     }
   }
 
-  inline _HOSTDEV T sum() {
+  YAKL_INLINE T sum() {
     //Scalar division
     T sum = 0.;
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
@@ -150,21 +150,21 @@ public :
     return sum;
   }
 
-  inline _HOSTDEV void operator/=(T rhs) {
+  YAKL_INLINE void operator/=(T rhs) {
     //Scalar division
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
       data[i] = data[i] / rhs;
     }
   }
 
-  inline _HOSTDEV void operator*=(T rhs) {
+  YAKL_INLINE void operator*=(T rhs) {
     //Scalar multiplication
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
       data[i] = data[i] * rhs;
     }
   }
 
-  inline _HOSTDEV SArray<T,D0,D1,D2> operator*(T rhs) {
+  YAKL_INLINE SArray<T,D0,D1,D2> operator*(T rhs) {
     //Scalar multiplication
     SArray<T,D0,D1,D2> ret;
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
@@ -173,7 +173,7 @@ public :
     return ret;
   }
 
-  inline _HOSTDEV SArray<T,D0,D1,D2> operator/(T rhs) {
+  YAKL_INLINE SArray<T,D0,D1,D2> operator/(T rhs) {
     //Scalar division
     SArray<T,D0,D1,D2> ret;
     for (ulong i=0; i<D0*D1*D2*D3; i++) {
