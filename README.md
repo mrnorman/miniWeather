@@ -5,6 +5,7 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 * OpenMP Threading (C and Fortran)
 * OpenMP Offload (C and Fortran)
 * C++ Portability
+  * C++ code works on CPU, Nvidia GPUs, and AMD GPUs
 
 Author: [Matt Norman](https://mrnorman.github.io)
 
