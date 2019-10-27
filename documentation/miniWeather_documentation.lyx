@@ -1197,6 +1197,191 @@ In the C code, you'll need to put in manual copy, copyin, and copyout statements
  data after receiving MPI buffers.
 \end_layout
 
+\begin_layout Subsection
+C++ Performance Portability
+\end_layout
+
+\begin_layout Standard
+The C++ code is in the 
+\begin_inset Quotes eld
+\end_inset
+
+
+\family typewriter
+cpp
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+ directory, and it uses a custom multi-dimensional array class from 
+\begin_inset Quotes eld
+\end_inset
+
+
+\family typewriter
+Array.h
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ For adding MPI to the serial code, please follow the instructions in the
+ above MPI section.
+ The real purpose of the C++ code is to get used to what performance portability
+ looks like in C++, and this is moving from the 
+\family typewriter
+miniWeather_mpi.cpp
+\family default
+ code to the 
+\family typewriter
+miniWeather_mpi_parallelfor.cpp
+\family default
+ code, where you change all of the loops into 
+\family typewriter
+parallel_for
+\family default
+ kernel launches, similar to the Kokkos syntax.
+ For a description of how to move loops to 
+\family typewriter
+parallel_for
+\family default
+, please see the following webpage:
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\size scriptsize
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenA
+CC-and-OpenMP-Folks
+\end_layout
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I strongly recommend moving to parallel_for while compiling for the CPU
+ so you don't have to worry about separate memory address spaces at the
+ same time.
+ Be sure to use array bounds checking during this process to ensure you
+ don't mess up the indexing in the parallel_for launch.
+ You can do this by adding 
+\family typewriter
+-DARRAY_DEBUG
+\family default
+ to the 
+\family typewriter
+CXX_FLAGS
+\family default
+.
+ After you've transformed all of the for loops to 
+\family typewriter
+parallel_for
+\family default
+, you can deal with the complications of separate memory spaces.
+\end_layout
+
+\begin_layout Standard
+You'll have to pay attention to asynchronicity.
+ 
+\family typewriter
+parallel_for
+\family default
+ is asynchronous, and therefore, you'll need to add 
+\family typewriter
+yakl::fence()
+\family default
+ in a few places (MPI and File I/O).
+ If a 
+\family typewriter
+parallel_for
+\family default
+'s kernel uses variables with global scope, you will get a compile time
+ error when running on the GPU.
+ C++ Lambdas do not capture variables with global scope, and therefore,
+ you'll be using CPU copies of that data, which nvcc does not allow.
+ The most convenient way to handle this is to create local references as
+ follows:
+\family typewriter
+ auto &varName = ::varName
+\end_layout
+
+\begin_layout Standard
+You will run into similar issues if you attempt to use data from your own
+ class because the "
+\family typewriter
+this
+\family default
+" pointer is typically into CPU memory because class objects are often allocated
+ on the CPU.
+ This can also be circumvented via local references.
+ You have to put 
+\family typewriter
+YAKL_INLINE
+\family default
+ in front of the following functions because they are called from kernels:
+ 
+\family typewriter
+injection, density_current, turbulence, mountain_waves, thermal, collision,
+ hydro_const_bvfreq, hydro_const_theta, and sample_ellipse_cosine
+\family default
+.
+ Finally, you'll need to create new send and receive buffers in the x-direction
+ halo exchange that are valid on the CPU using the 
+\family typewriter
+realArrHost
+\family default
+ 
+\family typewriter
+typdef
+\family default
+ in 
+\family typewriter
+const.h
+\family default
+.
+ Then you'll need to copy the data to the CPU with the 
+\family typewriter
+deep_copy_to
+\family default
+ function in 
+\family typewriter
+Array
+\family default
+ class.
+ See more information here:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/mrnorman/YAKL
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Numerical Experiments
 \end_layout
