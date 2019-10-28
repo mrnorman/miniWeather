@@ -320,10 +320,10 @@ sim_time = 1000
 This simulates a rising thermal in a neutral atmosphere, which will look something like a “mushroom” cloud (without all of the violence).
 
 Potential Temperature after 500 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png" width=2in/>
 
 Potential Temperature after 1,000 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png" width=2in/>
 
 ## Colliding Thermals
 
@@ -335,13 +335,13 @@ sim_time = 700
 This is similar to the rising thermal test case except with a cold bubble at the model top colliding with a warm bubble at the model bottom to produce some cool looking eddies.
 
 Potential Temperature after 200 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0200.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0200.png" width=2in/>
 
 Potential Temperature after 400 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0400.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0400.png" width=2in/>
 
 Potential Temperature after 700 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0700.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0700.png" width=2in/>
 
 ## Mountain Gravity Waves
 
@@ -353,10 +353,10 @@ sim_time = 1500
 This test cases passes a horizontal wind over a faked mountain at the model bottom in a stable atmosphere to generate a train of stationary gravity waves across the model domain.
 
 Potential Temperature after 400 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_0400.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_0400.png" width=2in/>
 
 Potential Temperature after 1,300 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_1300.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_1300.png" width=2in/>
 
 ## Density Current
 
@@ -368,10 +368,10 @@ sim_time = 600
 This test case creates a neutrally stratified atmosphere with a strong cold bubble in the middle of the domain that crashes into the ground to give the feel of a weather front (more of a downburst, I suppose).
 
 Potential Temperature after 200 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0200.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0200.png" width=2in/>
 
 Potential Temperature after 600 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0600.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0600.png" width=2in/>
 
 ## Injection
 
@@ -383,10 +383,10 @@ sim_time = 1200
 A narrow jet of fast and slightly cold wind is injected into a balanced, neutral atmosphere at rest from the left domain near the model top. This has nothing to do with atmospheric flows. It's just here for looks. 
 
 Potential Temperature after 300 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_0300.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_0300.png" width=2in/>
 
 Potential Temperature after 1,000 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_1000.png"/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_1000.png" width=2in/>
 
 # Physics, PDEs, and Numerical Approximations
 
