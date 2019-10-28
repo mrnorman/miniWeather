@@ -49,6 +49,9 @@ realArr sendbuf_l;           //Buffer to send data to the left MPI rank
 realArr sendbuf_r;           //Buffer to send data to the right MPI rank
 realArr recvbuf_l;           //Buffer to receive data from the left MPI rank
 realArr recvbuf_r;           //Buffer to receive data from the right MPI rank
+////////////////////////////////////////////////////////////
+// TODO: CREATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
+////////////////////////////////////////////////////////////
 
 
 //Declaring the functions defined after "main"
@@ -173,7 +176,7 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
   }
 
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
   for (ll=0; ll<NUM_VARS; ll++) {
@@ -199,7 +202,7 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
   for (k=0; k<nz; k++) {
@@ -231,7 +234,7 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   }
 
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Use the fluxes to compute tendencies for each cell
   for (ll=0; ll<NUM_VARS; ll++) {
@@ -257,7 +260,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
   for (k=0; k<nz+1; k++) {
@@ -289,7 +292,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   }
 
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Use the fluxes to compute tendencies for each cell
   for (ll=0; ll<NUM_VARS; ll++) {
@@ -313,10 +316,16 @@ void set_halo_values_x( realArr &state ) {
   MPI_Request req_r[2], req_s[2];
 
   //Prepost receives
+  ////////////////////////////////////////////////////////////
+  // TODO: CHANGE RECVBUF'S TO HOST COPIES
+  ////////////////////////////////////////////////////////////
   ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,MPI_FLOAT, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
   ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,MPI_FLOAT,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
+  /////////////////////////////////////////////////
+  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -326,14 +335,28 @@ void set_halo_values_x( realArr &state ) {
     }
   }
 
+  ///////////////////////////////////////////////////////////////////////
+  // TODO: COPY DEVICE SENDBUF'S TO HOST SENDBUF'S WITH DEEP_COPY_TO
+  ///////////////////////////////////////////////////////////////////////
+
   //Fire off the sends
+  ////////////////////////////////////////////////////////////
+  // TODO: CHANGE SENDBUF'S TO HOST COPIES
+  ////////////////////////////////////////////////////////////
   ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,MPI_FLOAT, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
   ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,MPI_FLOAT,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
 
   //Wait for receives to finish
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
+  ///////////////////////////////////////////////////////////////////////
+  // TODO: COPY HOST RECVBUF'S TO DEVICE RECVBUF'S WITH DEEP_COPY_TO
+  ///////////////////////////////////////////////////////////////////////
+
   //Unpack the receive buffers
+  /////////////////////////////////////////////////
+  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -348,6 +371,9 @@ void set_halo_values_x( realArr &state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
+      /////////////////////////////////////////////////
+      // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
+      /////////////////////////////////////////////////
       for (k=0; k<nz; k++) {
         for (i=0; i<hs; i++) {
           z = (k_beg + k+0.5)*dz;
@@ -369,7 +395,7 @@ void set_halo_values_z( realArr &state ) {
   const real mnt_width = xlen/8;
   real       x, xloc, mnt_deriv;
   /////////////////////////////////////////////////
-  // TODO: THREAD ME
+  // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   for (ll=0; ll<NUM_VARS; ll++) {
     for (i=0; i<nx+2*hs; i++) {
@@ -422,13 +448,6 @@ void init( int *argc , char ***argv ) {
   right_rank = myrank + 1;
   if (right_rank == nranks) right_rank = 0;
 
-
-  ////////////////////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////////////////////
-  // YOU DON'T NEED TO ALTER ANYTHING BELOW THIS POINT IN THE CODE
-  ////////////////////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////////////////////
-
   //Vertical direction isn't MPI-ized, so the rank's local values = the global values
   k_beg = 0;
   nz = nz_glob;
@@ -448,6 +467,9 @@ void init( int *argc , char ***argv ) {
   sendbuf_r          = realArr( "sendbuf_r" , NUM_VARS,nz,hs );
   recvbuf_l          = realArr( "recvbuf_l" , NUM_VARS,nz,hs );
   recvbuf_r          = realArr( "recvbuf_r" , NUM_VARS,nz,hs );
+  ////////////////////////////////////////////////////////////
+  // TODO: ALLOCATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
+  ////////////////////////////////////////////////////////////
 
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = min(dx,dz) / max_speed * cfl;
@@ -480,6 +502,9 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////
+  // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (k=0; k<nz+2*hs; k++) {
     for (i=0; i<nx+2*hs; i++) {
       //Initialize the state to zero
@@ -514,6 +539,9 @@ void init( int *argc , char ***argv ) {
     }
   }
   //Compute the hydrostatic background state over vertical cell averages
+  /////////////////////////////////////////////////
+  // TODO: MAKE THIS LOOP A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (k=0; k<nz+2*hs; k++) {
     hy_dens_cell      (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
@@ -531,6 +559,9 @@ void init( int *argc , char ***argv ) {
     }
   }
   //Compute the hydrostatic background state at vertical cell interfaces
+  /////////////////////////////////////////////////
+  // TODO: MAKE THIS LOOP A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (k=0; k<nz+1; k++) {
     z = (k_beg + k)*dz;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
@@ -727,6 +758,9 @@ void output( realArr &state , real etime ) {
   }
 
   //Store perturbed values in the temp arrays for output
+  /////////////////////////////////////////////////
+  // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
+  /////////////////////////////////////////////////
   for (k=0; k<nz; k++) {
     for (i=0; i<nx; i++) {
       dens (k,i) = state(ID_DENS,hs+k,hs+i);
