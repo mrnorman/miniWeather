@@ -44,6 +44,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
   * [Hyper-viscosity](#hyper-viscosity)
 - [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
+- [Further Resources](#further-resources)
 
 
 # Introduction
@@ -497,13 +498,19 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
   * More precisely, the time step is directly proportional to the minimum grid spacing. The x- and y-direction grid spacingsb are: `dx=20km/nx_glob` and `dz=10km/nz_glob`. So as you decrease the minimum grid spacing (by increasing `nx_glob` and/or `nz_glob`), you proportionally decrease the size of the time step and therefore proportionally increase the number of time steps you need to complete the simulation (thus proportionally increasing the expected walltime).
 * The larger the problem size, `nx_glob` and `nz_glob`, the lower the relative parallel overheads will be. You can get to a point where there isn't enough work on the accelerator to keep it busy and / or enough local work to amortize parallel overheads. At this point, you'll need to increase the problem size to see better scaling. This is a typical [Amdahl's Law](https://en.wikipedia.org/wiki/Amdahl%27s_law) situation.
 
-# Resources
-* https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate
-* https://www.openacc.org 
-* https://www.openacc.org/sites/default/files/inline-files/OpenACC%20API%202.6%20Reference%20Guide.pdf
-* https://www.openmp.org
-* https://www.openmp.org/wp-content/uploads/OpenMP-4.5-1115-CPP-web.pdf
-* https://devblogs.nvidia.com/getting-started-openacc
-* https://github.com/kokkos/kokkos
-* https://github.com/mrnorman/YAKL/wiki
+# Further Resources
+
+* Directives-Based Approaches
+  * https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate
+  * https://www.openacc.org 
+  * https://www.openacc.org/sites/default/files/inline-files/OpenACC%20API%202.6%20Reference%20Guide.pdf
+  * https://www.openmp.org
+  * https://www.openmp.org/wp-content/uploads/OpenMP-4.5-1115-CPP-web.pdf
+  * https://devblogs.nvidia.com/getting-started-openacc
+* C++
+  * https://github.com/kokkos/kokkos/wiki
+  * https://raja.readthedocs.io/en/master
+  * https://rocm-documentation.readthedocs.io/en/latest/Programming_Guides/Programming-Guides.html#hc-programming-guide
+  * https://www.khronos.org/files/sycl/sycl-121-reference-card.pdf
+  * https://github.com/mrnorman/YAKL/wiki
 
