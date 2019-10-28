@@ -47,11 +47,16 @@ Once the time tendency is computed, the fluid PDEs are essentially now cast as a
 
 # Compiling and Running the Code
 
-## Required Libraries
+## Software Dependencies
 
-To run everything in this code, you need MPI, parallel-netcdf, ncview, an OpenACC compiler (PGI,GNU,Cray) for OpenACC work, an OpenMP offload compiler (IBM XL, Cray) for OpenMP offload work. The serial code still uses MPI because I figured it was best to start with parallel I/O in place so that it's ready to go when the MPI implementation is done.
-
-You can download parallel-netcdf from: https://trac.mcs.anl.gov/projects/parallel-netcdfAlso, you can download a free version of PGI Community Edition (which has OpenACC implemented) from: https://www.pgroup.com/products/community.htm. You'll probably also want to have `ncview` installed so you can easily view the NetCDF files. Ncview also makes it easy to see a movie of the solution as it evolves in time: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
+* Parallel-netcdf: https://trac.mcs.anl.gov/projects/parallel-netcdf
+  * This is a dependency for two reasons: (1) NetCDF files are easy to visualize and convenient to work with; (2) The users of this code shouldn't have to write their own parallel I/O.
+* Ncview: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
+  * This is the easiest way to visualize NetCDF files.
+* MPI
+* For OpenACC: An OpenACC-capable compiler (PGI, Cray, GNU)
+* For OpenMP: An OpenMP offload capable compiler (Cray, XL)
+* For C++ portability, Nvidia's CUB and AMD's hipCUB and rocPRIM are already included as submodules
 
 ## Basic Setup
 
