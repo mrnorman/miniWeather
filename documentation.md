@@ -209,7 +209,7 @@ https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-Open
 
 I strongly recommend moving to `parallel_for` while compiling for the CPU so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
 
-### GPU Mofifications
+### GPU Modifications
 
 First, you'll have to pay attention to asynchronicity. `parallel_for` is asynchronous, and therefore, you'll need to add `yakl::fence()` in two places: (1) MPI ; and (2) File I/O.
 
@@ -234,15 +234,19 @@ realArrHost recvbuf_l_cpu;
 realArrHost recvbuf_r_cpu;
 ```
 
+You'll also need to replace the buffers in `MPI_Isend()` and `MPI_Irecv()` with the CPU versions. 
+
 Next, you need to allocate these in `init()` in a similar manner as the existing MPI buffers, but replacing `realArr` with `realArrHost`. 
 
 Finally, you'll need to manage data movement to and from the CPU in the File I/O and in the MPI message exchanges.
 
-For the File I/O, you'll need to use the `createHostCopy()` `Array` member function in the `ncmpi_put_*` routines, and you can use it in place before the `.data()` function.
+For the File I/O, you can use `Array::createHostCopy()` in the `ncmpi_put_*` routines, and you can use it in-place before the `.data()` function calls.
 
-For the MPI buffers, you'll need to use the `deep_copy_to()` `Array` member function....
+For the MPI buffers, you'll need to use the `Array::deep_copy_to(Array &target)` member function. e.g.,
 
-Finally, you'll need to create new send and receive buffers in the x-direction halo exchange that are valid on the CPU using the realArrHost typdef in const.h. Then you'll need to copy the data to the CPU with the deep_copy_to function in Array class. See more information here:
+```C++
+sendbuf_l.deep_copy_to(sendbuf_l_cpu)
+```
 
-https://github.com/mrnorman/YAKL
+A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
 
