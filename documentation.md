@@ -250,3 +250,110 @@ sendbuf_l.deep_copy_to(sendbuf_l_cpu)
 
 A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
 
+# Numerical Experiments
+
+A number of numerical experiments are in the code for you to play around with. You can set these by changing the `data_spec_int` variable. 
+
+## Rising Thermal
+
+```
+data_spec_int = DATA_SPEC_THERMAL
+sim_time = 1000
+```
+
+This simulates a rising thermal in a neutral atmosphere, which will look something like a “mushroom” cloud (without all of the violence).
+
+Potential Temperature after 500 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png"/>
+
+Potential Temperature after 1,000 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png"/>
+
+## Colliding Thermals
+
+```
+data_spec_int = DATA_SPEC_COLLISION
+sim_time = 700
+```
+
+This is similar to the rising thermal test case except with a cold bubble at the model top colliding with a warm bubble at the model bottom to produce some cool looking eddies.
+
+Potential Temperature after 200 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0200.png"/>
+
+Potential Temperature after 400 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0400.png"/>
+
+Potential Temperature after 700 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0700.png"/>
+
+## Mountain Gravity Waves
+
+```
+data_spec_int = DATA_SPEC_MOUNTAIN
+sim_time = 1500
+```
+
+This test cases passes a horizontal wind over a faked mountain at the model bottom in a stable atmosphere to generate a train of stationary gravity waves across the model domain.
+
+Potential Temperature after 400 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_0400.png"/>
+
+Potential Temperature after 1,300 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_1300.png"/>
+
+## Density Current
+
+```
+data_spec_int = DATA_SPEC_DENSITY_CURRENT
+sim_time = 600
+```
+
+This test case creates a neutrally stratified atmosphere with a strong cold bubble in the middle of the domain that crashes into the ground to give the feel of a weather front (more of a downburst, I suppose).
+
+Potential Temperature after 200 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0200.png"/>
+
+Potential Temperature after 600 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0600.png"/>
+
+## Injection
+
+```
+data_spec_int = DATA_SPEC_INJECTION
+sim_time = 1200
+```
+
+A narrow jet of fast and slightly cold wind is injected into a balanced, neutral atmosphere at rest from the left domain near the model top. This has nothing to do with atmospheric flows. It's just here for looks. 
+
+Potential Temperature after 300 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_0300.png"/>
+
+Potential Temperature after 1,000 seconds:
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_1000.png"/>
+
+# Physics, PDEs, and Numerical Approximations
+
+While the numerical approximations in this code are certainly cheap and dirty, they are a fast and easy way to get the job done in a relatively small amount of code. For instance, on 16 K20x GPUs, you can perform a "colliding thermals” simulation with 5 million grid cells (3200 x 1600) in just a minute or two.
+
+## The 2-D Euler Equations
+
+This app simulates the 2-D inviscid Euler equations for stratified fluid dynamics, which are defined as follows:
+
+<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\frac{\partial}{\partial&space;t}\left[\begin{array}{c}&space;\rho\\&space;\rho&space;u\\&space;\rho&space;w\\&space;\rho\theta&space;\end{array}\right]&plus;\frac{\partial}{\partial&space;x}\left[\begin{array}{c}&space;\rho&space;u\\&space;\rho&space;u^{2}&plus;p\\&space;\rho&space;uw\\&space;\rho&space;u\theta&space;\end{array}\right]&plus;\frac{\partial}{\partial&space;z}\left[\begin{array}{c}&space;\rho&space;w\\&space;\rho&space;wu\\&space;\rho&space;w^{2}&plus;p\\&space;\rho&space;w\theta&space;\end{array}\right]=\left[\begin{array}{c}&space;0\\&space;0\\&space;-\rho&space;g\\&space;0&space;\end{array}\right]" title="\large \frac{\partial}{\partial t}\left[\begin{array}{c} \rho\\ \rho u\\ \rho w\\ \rho\theta \end{array}\right]+\frac{\partial}{\partial x}\left[\begin{array}{c} \rho u\\ \rho u^{2}+p\\ \rho uw\\ \rho u\theta \end{array}\right]+\frac{\partial}{\partial z}\left[\begin{array}{c} \rho w\\ \rho wu\\ \rho w^{2}+p\\ \rho w\theta \end{array}\right]=\left[\begin{array}{c} 0\\ 0\\ -\rho g\\ 0 \end{array}\right]" />
+
+<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\rho_{H}=-\frac{1}{g}\frac{\partial&space;p}{\partial&space;z}" title="\large \rho_{H}=-\frac{1}{g}\frac{\partial p}{\partial z}" />
+
+where <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\rho" title="\large \rho" /> is density, u, and w are winds in the x-, and z-directions, respectively, <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\theta" title="\large \theta" /> is potential temperature related to temperature, T, by <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}" title="\large \theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}" />,<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;P_{0}=10^{5}\,\text{Pa}" title="\large P_{0}=10^{5}\,\text{Pa}" /> is the surface pressure, g=9.8<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\text{\,\&space;m}\,\mbox{s}^{-2}" title="\large \text{\,\ m}\,\mbox{s}^{-2}" /> is acceleration due to gravity,<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;p=C_{0}\left(\rho\theta\right)^{\gamma}" title="\large p=C_{0}\left(\rho\theta\right)^{\gamma}" /> is the pressure as determined by an alternative form of the ideal gas equation of state,<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;C_{0}=R_{d}^{\gamma}p_{0}^{-R_{d}/c_{v}}" title="\large C_{0}=R_{d}^{\gamma}p_{0}^{-R_{d}/c_{v}}" />, <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;R_{d}=287\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" title="\large R_{d}=287\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" /> is the dry gas constant, <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\gamma=c_{p}/c_{v}" title="\large \gamma=c_{p}/c_{v}" />, <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;c_{p}=1004\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" title="\large c_{p}=1004\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" /> is specific heat at constant pressure, and <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;c_{v}=717\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" title="\large c_{v}=717\,\mbox{J}\,\mbox{kg}^{-1}\,\mbox{K}^{-1}" /> is specific heat at constant volume. This can be cast in a more convenient form as:
+
+<img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;\frac{\partial\mathbf{q}}{\partial&space;t}&plus;\frac{\partial\mathbf{f}}{\partial&space;x}&plus;\frac{\partial\mathbf{h}}{\partial&space;z}=\mathbf{s}" title="\large \frac{\partial\mathbf{q}}{\partial t}+\frac{\partial\mathbf{f}}{\partial x}+\frac{\partial\mathbf{h}}{\partial z}=\mathbf{s}" />
+
+where a bold font represents a vector quantity.
+
+
+
+
+
+
+
+
