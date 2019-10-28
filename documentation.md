@@ -12,6 +12,37 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 
 Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
 
+- [Introduction](#introduction)
+  * [Brief Description of the Code](#brief-description-of-the-code)
+- [Compiling and Running the Code](#compiling-and-running-the-code)
+  * [Software Dependencies](#software-dependencies)
+  * [Basic Setup](#basic-setup)
+  * [Directories and Compiling](#directories-and-compiling)
+  * [Altering the Code's Configurations](#altering-the-code-s-configurations)
+  * [Running the Code](#running-the-code)
+  * [Viewing the Output](#viewing-the-output)
+- [Parallelization](#parallelization)
+  * [Indexing](#indexing)
+  * [MPI Domain Decomposition](#mpi-domain-decomposition)
+  * [OpenMP CPU Threading](#openmp-cpu-threading)
+  * [OpenACC Accelerator Threading](#openacc-accelerator-threading)
+  * [C++ Performance Portability](#c---performance-portability)
+- [Numerical Experiments](#numerical-experiments)
+  * [Rising Thermal](#rising-thermal)
+  * [Colliding Thermals](#colliding-thermals)
+  * [Mountain Gravity Waves](#mountain-gravity-waves)
+  * [Density Current](#density-current)
+  * [Injection](#injection)
+- [Physics, PDEs, and Numerical Approximations](#physics--pdes--and-numerical-approximations)
+  * [The 2-D Euler Equations](#the-2-d-euler-equations)
+  * [Maintaining Hydrostatic Balance](#maintaining-hydrostatic-balance)
+  * [Dimensional Splitting](#dimensional-splitting)
+  * [Finite-Volume Spatial Discretization](#finite-volume-spatial-discretization)
+  * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
+  * [Hyper-viscosity](#hyper-viscosity)
+- [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
+
+
 # Introduction
 
 The miniWeather code mimics the basic dynamics seen in atmospheric weather and climate. The dynamics themselves are dry compressible, stratified, non-hydrostatic flows dominated by buoyant forces that are relatively small perturbations on a hydrostatic background state. The equations in this code themselves form the backbone of pretty much all fluid dynamics codes, and this particular flavor forms the base of all weather and climate modeling.
