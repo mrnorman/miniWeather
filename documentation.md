@@ -153,7 +153,7 @@ In the C code, you'll need to put in manual `copy()`, `copyin()`, and `copyout()
 #pragma acc data copy( varname[ starting_index : size_of_transfer ] )
 ```
 
-So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:N])`.
+So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:n])`. Many would expect it to look like an array slice (e.g., `(0:n-1)`), but it is not. 
 
 Other than this, the approach is the same as with the Fortran case.
 
