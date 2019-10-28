@@ -12,6 +12,8 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 
 Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
 
+# Table of Contents
+
 - [Introduction](#introduction)
   * [Brief Description of the Code](#brief-description-of-the-code)
 - [Compiling and Running the Code](#compiling-and-running-the-code)
