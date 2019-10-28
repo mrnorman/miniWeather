@@ -103,4 +103,61 @@ In the Fortran code's fluid state (`state`), the x- and z-dimensions are dimensi
 
 In the C code, the fluid `state` array is dimensioned to size `nz+2*hs` and `nx+2*hs` in the x- and z-directions. In the x-direction, cells `0` to `hs-1` belong to the left MPI task, cells `hs` to `nx+hs-1` belong to the current MPI taks, and cells `nx+hs` to `nx+2*hs-1` belong to the right MPI task. The z-direction's halo cells are used to mimic solid wall boundaries. The cell-interface fluxes (`flux`) are dimensioned as `nx+1` and `nz+1` in the x- and z-directions, and the cell average tendencies (`tend`) are dimensioned `nx` and `nz` in the x- and z-directions. The cell of index `i+hs` will have left- and right-hand interface fluxes of index `i` and `i+1`, respectively, and it will be evolved by the tendency at index `i`. The analog of this is also true in the z-direction.
 
+### C++
+
+The C++ indexing is the same as the C indexing, but instead of having to flatten array indices into a single dimension like the C code, multi-dimensional arrays are used with `()` indexing syntax and the right-most index varying the fastest.
+
+## MPI Domain Decomposition
+
+This code was designed to use domain decomposition, where each MPI rank “owns” a certain set of cells in the x-direction and contains two “halo” cells from the left- and right-hand MPI tasks in the x-direction as well. The domain is only decomposed in the x-direction and not the z-direction for simplicity.
+
+**IMPORTANT**: Please be sure to set `nranks`, `myrank`, `nx`, `i_beg`, `left_rank`, and `right_rank`. These are clearly marked in the serial source code. You can set more variables, but these are used elsewhere in the code (particularly in the parallel file I/O), so they must be set.
+
+To parallelize with MPI, there are only two places in the code that need to be altered. The first is the initialization, a subroutine / function named `init`, where you must determine the number of ranks, you process's rank, the beginning index of your rank's first cell in the x-direction, the number of x-direction cells your rank will own, and the MPI rank IDs that are to your left and your right. Because the code is periodic in the x-direction, your left and right neighboring ranks will wrap around. For instance, if your are rank `0`, your left-most rank will be `nranks-1`.
+
+The second place is in the routine that sets the halo values in the x-direction. In this routine, you need to:
+
+1. Create MPI data buffers (at the same place the other arrays are declared) to hold the data that needs to be sent and received, allocate them in the `init()` routine, and deallocate them in the `finalize()` routine.
+
+2. Pack the data you need to send to your left and right MPI neighbors
+
+3. Send the data to your left and right MPI neighbors
+
+4. Receive the data from your left and right MPI neighbors
+
+5. Unpack the data from your left and right neighbors and place the data into your MPI rank's halo cells. 
+
+Once you complete this, the code will be fully parallelized in MPI. Both of the places you need to add code for MPI are marked in the serial code, and there are some extra hints in the `set_halo_values_x()` routine as well.
+
+## OpenMP CPU Threading
+
+For the OpenMP code, you basically need to decorate the loops with `omp parallel do` in Fortran or `omp parallel for` in C, and pay attention to any variables you need to make `private()` so that each thread has its own copy. Keep in mind that OpenMP works best on “outer” loops rather than “inner” loops. Also, for sake of performance, there are a couple of instances where it is wise to use the “collapse” clause because the outermost loop is not large enough to support the number of threads most CPUs have.
+
+## OpenACC Accelerator Threading
+
+The OpenACC approach will differ depending on whether you're in Fortran or C. Just a forewarning, OpenACC is much more convenient in Fortran when it comes to data movement because in Fortran, the compiler knows how big your arrays are, and therefore the compiler can (and does) create all of the data movement for you (NOTE: This is true for PGI and Cray but not for GNU at the moment). All you have to do is optimize the data movement after the fact.
+
+### Fortran Code
+
+The OpenACC parallelization is a bit more involved when it comes to performance. But, it's a good idea to just start with the kernels themselves, since the compiler will generate all of your data statements for you on a per-kernel basis. You need to pay attention to private variables here as well. Only arrays need to be privatized. Scalars are automatically privatized for you.
+
+Once you're getting the right answer with the kernels on the GPU, you can look at optimizing data movement by putting in data statements. I recommend putting data statements for the `state`, `tend`, `flux`, `hy_*`, and the MPI buffers (`sendbuf_l`, `sendbuf_r`, `recvbuf_l`, and `recvbuf_r`) around the main time stepping loop. Then, you need to move the data to the host before sending MPI data, back to the device once you receive MPI data, and to the host before file I/O.
+
+### C Code
+
+In the C code, you'll need to put in manual `copy()`, `copyin()`, and `copyout()` statements on a **per-kernel basis**, and you'll need to explicitly declare the size of each array as well.
+
+**IMPORTANT**: The syntax for data movement in C will seem odd to you. The syntax is:
+
+```C
+#pragma acc data copy( varname[ starting_index : size_of_transfer ] )
+```
+
+So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:N])`.
+
+Other than this, the approach is the same as with the Fortran case.
+
+## C++ Performance Portability
+
+
 
