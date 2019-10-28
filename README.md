@@ -322,6 +322,17 @@ sendbuf_l.deep_copy_to(sendbuf_l_cpu)
 
 A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
 
+### Why Doesn't MiniWeather Use CUDA?
+
+Because if you've refactored your code to use kernel launching (i.e., CUDA), you should really be using a C++ portability framework. The code is basically identical, but it can run on many different backends from a single source.
+
+### Why Doesn't MiniWeather Use Kokkos or RAJA?
+
+I chose not to use the mainline C++ portability frameworks for two main reasons.
+
+1. It's much easier to compile and managed things with a C++ performance portability layer that's only 1K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
+2. With `YAKL.h` and `Array.h`, you can easily see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
+
 # Numerical Experiments
 
 A number of numerical experiments are in the code for you to play around with. You can set these by changing the `data_spec_int` variable. 
