@@ -43,6 +43,14 @@ To run everything in this code, you need MPI, parallel-netcdf, ncview, an OpenAC
 
 You can download parallel-netcdf from: https://trac.mcs.anl.gov/projects/parallel-netcdfAlso, you can download a free version of PGI Community Edition (which has OpenACC implemented) from: https://www.pgroup.com/products/community.htm. You'll probably also want to have `ncview` installed so you can easily view the NetCDF files. Ncview also makes it easy to see a movie of the solution as it evolves in time: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
 
+## Basic Setup
+
+```bash
+git clone git@github.com:mrnorman/miniWeather.git
+cd miniWeather
+git submodule update --init
+```
+
 ## Directories and Compiling
 
 There are four main directories in the mini app: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. The C code is technically C++ code but only because I wanted to use the ampersand pass by reference notation rather than the hideious C asterisks.
