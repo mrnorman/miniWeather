@@ -47,7 +47,11 @@ You can download parallel-netcdf from: https://trac.mcs.anl.gov/projects/paralle
 
 There are four main directories in the mini app: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. The C code is technically C++ code but only because I wanted to use the ampersand pass by reference notation rather than the hideious C asterisks.
 
-To compile the code, first edit the `Makefile` and change the flags to point to your parallel-netcdf installation as well as change the flags based on which compiler you are using. There are five versions of the code in C and Fortran: serial, mpi, mpi+openmp, and mpi+openacc, mpi+openmp4.5. The filenames make it clear which file is associated with which programming paradigm. To make all of these at once, simply type `make`. To make them individually, you can type `make [serial|mpi|openmp|openacc|openmp45]`.
+To compile the code, first edit the `Makefile` and change the flags to point to your parallel-netcdf installation as well as change the flags based on which compiler you are using. There are five versions of the code in C and Fortran: serial, mpi, mpi+openmp, and mpi+openacc, mpi+openmp4.5. The filenames make it clear which file is associated with which programming paradigm. To make all of these at once, simply type `make`. To make them individually, you can type:
+
+```bash
+make [serial|mpi|openmp|openacc|openmp45]
+```
 
 ## Altering the Code's Configurations
 
@@ -55,7 +59,13 @@ There are four aspects of the configuration you can edit easily, and they are cl
 
 ## Running the Code
 
-To run the code, simply call `mpirun -n [# ranks] ./mini_weather_[version]`. Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Titan uses `aprun`).
+To run the code, simply call:
+
+```bash
+mpirun -n [# ranks] ./mini_weather_[version]
+```
+
+Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Titan uses `aprun`).
 
 ## Viewing the Output
 
