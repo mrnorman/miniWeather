@@ -28,6 +28,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [MPI Domain Decomposition](#mpi-domain-decomposition)
   * [OpenMP CPU Threading](#openmp-cpu-threading)
   * [OpenACC Accelerator Threading](#openacc-accelerator-threading)
+  * [OpenMP Offload Accelerator Threading](#openmp-offload-accelerator-threading)
   * [C++ Performance Portability](#c-performance-portability)
 - [Numerical Experiments](#numerical-experiments)
   * [Rising Thermal](#rising-thermal)
@@ -191,7 +192,9 @@ For the OpenMP code, you basically need to decorate the loops with `omp parallel
 
 ## OpenACC Accelerator Threading
 
-The OpenACC approach will differ depending on whether you're in Fortran or C. Just a forewarning, OpenACC is much more convenient in Fortran when it comes to data movement because in Fortran, the compiler knows how big your arrays are, and therefore the compiler can (and does) create all of the data movement for you (NOTE: This is true for PGI and Cray but not for GNU at the moment). All you have to do is optimize the data movement after the fact.
+The OpenACC approach will differ depending on whether you're in Fortran or C. Just a forewarning, OpenACC is much more convenient in Fortran when it comes to data movement because in Fortran, the compiler knows how big your arrays are, and therefore the compiler can (and does) create all of the data movement for you (NOTE: This is true for PGI and Cray but not for GNU at the moment). All you have to do is optimize the data movement after the fact. for more information about the OpenACC copy directives, see:
+
+https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate#optimizing--managing-data-movement
 
 ### Fortran Code
 
@@ -212,6 +215,18 @@ In the C code, you'll need to put in manual `copy()`, `copyin()`, and `copyout()
 So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:n])`. Many would expect it to look like an array slice (e.g., `(0:n-1)`), but it is not. 
 
 Other than this, the approach is the same as with the Fortran case.
+
+## OpenMP Offload Accelerator Threading
+
+The OpenMP 4.5+ approach is very similar to OpenACC for this code, except that the XL and GNU compilers do not generate data statements for you in Fortran. For OpenMP offload, you'll change your data statements as follows:
+
+```
+copyin (var) --> map(to:     var)
+copyout(var) --> map(from:   var)
+copy   (var) --> map(tofrom: var)
+create (var) --> map(alloc:  var)
+delete (var) --> map(delete: var)
+```
 
 ## C++ Performance Portability
 
