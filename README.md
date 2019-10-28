@@ -5,6 +5,8 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 * OpenMP Threading (C and Fortran)
 * OpenMP Offload (C and Fortran)
 * C++ Portability
+  * CUDA-like approach
+  * https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
   * C++ code works on CPU, Nvidia GPUs, and AMD GPUs
 
 Author: [Matt Norman](https://mrnorman.github.io)
