@@ -320,10 +320,10 @@ sim_time = 1000
 This simulates a rising thermal in a neutral atmosphere, which will look something like a “mushroom” cloud (without all of the violence).
 
 Potential Temperature after 500 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png" width=2in/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png" width="2in"/>
 
 Potential Temperature after 1,000 seconds:
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png" width=2in/>
+<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png" width="2in"/>
 
 ## Colliding Thermals
 
