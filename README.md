@@ -191,7 +191,63 @@ Once you complete this, the code will be fully parallelized in MPI. Both of the 
 
 For the OpenMP code, you basically need to decorate the loops with `omp parallel do` in Fortran or `omp parallel for` in C, and pay attention to any variables you need to make `private()` so that each thread has its own copy. Keep in mind that OpenMP works best on “outer” loops rather than “inner” loops. Also, for sake of performance, there are a couple of instances where it is wise to use the “collapse” clause because the outermost loop is not large enough to support the number of threads most CPUs have.
 
+In Fortran, you can parallelize three loops with the following directive:
+
+```fortran
+!$omp parallel do collapse(3)
+do ll = 1 , NUM_VARS
+  do k = 1 , nz
+    do i = 1 , nx
+      state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
+    enddo
+  enddo
+enddo
+```
+
+This will collapse the three loops together (combining their parallelism) and then launch that parallelism among a number of CPU threads. In C / C++, it will be:
+
+```C++
+#pragma omp parallel for collapse(3)
+for (ll=0; ll<NUM_VARS; ll++) {
+  for (k=0; k<nz; k++) {
+    for (i=0; i<nx; i++) {
+      inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      indt = ll*nz*nx + k*nx + i;
+      state_out[inds] = state_init[inds] + dt * tend[indt];
+    }
+  }
+}
+```
+
 ## OpenACC Accelerator Threading
+
+To thread the same loops among the threads on a GPU, you will use the following in Fortran:
+
+```fortran
+!$acc parallel loop collapse(3)
+do ll = 1 , NUM_VARS
+  do k = 1 , nz
+    do i = 1 , nx
+      state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
+    enddo
+  enddo
+enddo
+```
+
+In C / C++, it will be:
+
+```C++
+#pragma acc parallel loop collapse(3)
+for (ll=0; ll<NUM_VARS; ll++) {
+  for (k=0; k<nz; k++) {
+    for (i=0; i<nx; i++) {
+      inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      indt = ll*nz*nx + k*nx + i;
+      state_out[inds] = state_init[inds] + dt * tend[indt];
+    }
+  }
+}
+```
 
 The OpenACC approach will differ depending on whether you're in Fortran or C. Just a forewarning, OpenACC is much more convenient in Fortran when it comes to data movement because in Fortran, the compiler knows how big your arrays are, and therefore the compiler can (and does) create all of the data movement for you (NOTE: This is true for PGI and Cray but not for GNU at the moment). All you have to do is optimize the data movement after the fact. for more information about the OpenACC copy directives, see:
 
@@ -218,6 +274,34 @@ So, for instance, if you send a variable, `var`, of size `n` to the GPU, you wil
 Other than this, the approach is the same as with the Fortran case.
 
 ## OpenMP Offload Accelerator Threading
+
+To launch the same loops in OpenMP offload on a GPU's threads, you will use:
+
+```fortran
+!$omp target teams distribute parallel do simd collapse(3)
+do ll = 1 , NUM_VARS
+  do k = 1 , nz
+    do i = 1 , nx
+      state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
+    enddo
+  enddo
+enddo
+```
+
+Note that some compilers do different things for `simd` and `parallel for`, and therefore, there is no portable use of OpenMP offload at this point. In C / C++, this will be:
+
+```C++
+#pragma omp target teams distribute parallel for simd collapse(3)
+for (ll=0; ll<NUM_VARS; ll++) {
+  for (k=0; k<nz; k++) {
+    for (i=0; i<nx; i++) {
+      inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      indt = ll*nz*nx + k*nx + i;
+      state_out[inds] = state_init[inds] + dt * tend[indt];
+    }
+  }
+}
+```
 
 The OpenMP 4.5+ approach is very similar to OpenACC for this code, except that the XL and GNU compilers do not generate data statements for you in Fortran. For OpenMP offload, you'll change your data statements from OpenACC as follows:
 
