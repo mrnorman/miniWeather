@@ -159,5 +159,90 @@ Other than this, the approach is the same as with the Fortran case.
 
 ## C++ Performance Portability
 
+The C++ code is in the `cpp` directory, and it uses a custom multi-dimensional `Array` class from `Array.h` for large global variables and Static Array (`SArray`) class in `SArray.h`. For adding MPI to the serial code, please follow the instructions in the above MPI section. The primary purpose of the C++ code is to get used to what performance portability looks like in C++, and this is moving from the `miniWeather_mpi.cpp` code to the `miniWeather_mpi_parallelfor.cpp` code, where you change all of the loops into `parallel_for` kernel launches, similar to the [Kokkos](https://github.com/kokkos/kokkos) syntax. As an example, of transforming a set of loops into `parallel_for`, consider the following code:
 
+```C++
+inline void applyTendencies(realArr &state2, real const c0, realArr const &state0,
+                                             real const c1, realArr const &state1,
+                                             real const ct, realArr const &tend,
+                                             Domain const &dom) {
+  for (int l=0; l<numState; l++) {
+    for (int k=0; k<dom.nz; k++) {
+      for (int j=0; j<dom.ny; j++) {
+        for (int i=0; i<dom.nx; i++) {
+          state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
+                                     c1 * state1(l,hs+k,hs+j,hs+i) +
+                                     ct * dom.dt * tend(l,k,j,i);
+        }
+      }
+    }
+  }
+}
+```
+
+will become:
+
+```C++
+inline void applyTendencies(realArr &state2, real const c0, realArr const &state0,
+                                             real const c1, realArr const &state1,
+                                             real const ct, realArr const &tend,
+                                             Domain const &dom) {
+  // for (int l=0; l<numState; l++) {
+  //   for (int k=0; k<dom.nz; k++) {
+  //     for (int j=0; j<dom.ny; j++) {
+  //       for (int i=0; i<dom.nx; i++) {
+  yakl::parallel_for( numState*dom.nz*dom.ny*dom.nx , YAKL_LAMBDA (int iGlob) {
+    int l, k, j, i;
+    unpackIndices(iGlob,numState,dom.nz,dom.ny,dom.nx,l,k,j,i);
+    // LOOP BODY BEGINS HERE
+    state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
+                               c1 * state1(l,hs+k,hs+j,hs+i) +
+                               ct * dom.dt * tend(l,k,j,i);
+  }); 
+}
+```
+
+
+For a fuller description of how to move loops to parallel_for, please see the following webpage:
+
+https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
+
+I strongly recommend moving to `parallel_for` while compiling for the CPU so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
+
+### GPU Mofifications
+
+First, you'll have to pay attention to asynchronicity. `parallel_for` is asynchronous, and therefore, you'll need to add `yakl::fence()` in two places: (1) MPI ; and (2) File I/O.
+
+Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a compile time error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which nvcc does not allow. The most convenient way to handle this is to create local references as follows:
+
+```C++
+auto &varName = ::varName;
+```
+
+The `::varName` syntax it telling the compiler to look in the global namespace for `varName` rather than the local namespace, which would technically be a variable referencing itself, which is not legal C++.
+
+This process will be tedious, but it something you nearly always have to do in C++ performance portability approaches. So it's good to get used to doing it. You will run into similar issues if you attempt to __use data from your own class__ because the `this` pointer is typically into CPU memory because class objects are often allocated on the CPU. This can also be circumvented via local references in the same manner as above.
+
+You have to put `YAKL_INLINE` in front of the following functions because they are called from kernels: `injection`, `density_current`, `turbulence`, `mountain_waves`, `thermal`, `collision`, `hydro_const_bvfreq`, `hydro_const_theta`, and `sample_ellipse_cosine`.
+
+Next, you'll need to create new send and recv MPI buffers that are created in CPU memory to easiy interoperate with the MPI library. To do this, you'll use the `realArrHost` `typedef` in `const.h`. 
+
+```C++
+realArrHost sendbuf_l_cpu;
+realArrHost sendbuf_r_cpu;
+realArrHost recvbuf_l_cpu;
+realArrHost recvbuf_r_cpu;
+```
+
+Next, you need to allocate these in `init()` in a similar manner as the existing MPI buffers, but replacing `realArr` with `realArrHost`. 
+
+Finally, you'll need to manage data movement to and from the CPU in the File I/O and in the MPI message exchanges.
+
+For the File I/O, you'll need to use the `createHostCopy()` `Array` member function in the `ncmpi_put_*` routines, and you can use it in place before the `.data()` function.
+
+For the MPI buffers, you'll need to use the `deep_copy_to()` `Array` member function....
+
+Finally, you'll need to create new send and receive buffers in the x-direction halo exchange that are valid on the CPU using the realArrHost typdef in const.h. Then you'll need to copy the data to the CPU with the deep_copy_to function in Array class. See more information here:
+
+https://github.com/mrnorman/YAKL
 
