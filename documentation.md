@@ -49,7 +49,7 @@ There are four main directories in the mini app: (1) a Fortran source directory;
 
 To compile the code, first edit the `Makefile` and change the flags to point to your parallel-netcdf installation as well as change the flags based on which compiler you are using. There are five versions of the code in C and Fortran: serial, mpi, mpi+openmp, and mpi+openacc, mpi+openmp4.5. The filenames make it clear which file is associated with which programming paradigm. To make all of these at once, simply type `make`. To make them individually, you can type:
 
-```bash
+```
 make [serial|mpi|openmp|openacc|openmp45]
 ```
 
@@ -61,7 +61,7 @@ There are four aspects of the configuration you can edit easily, and they are cl
 
 To run the code, simply call:
 
-```bash
+```
 mpirun -n [# ranks] ./mini_weather_[version]
 ```
 
