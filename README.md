@@ -8,7 +8,7 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 * C++ Portability
   * CUDA-like approach
   * https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
-  * C++ code works on CPU, Nvidia GPUs, and AMD GPUs
+  * C++ code works on CPU, Nvidia GPUs (CUDA), and AMD GPUs (HIP)
 
 Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
 
@@ -45,6 +45,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [Hyper-viscosity](#hyper-viscosity)
 - [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
 - [Further Resources](#further-resources)
+- [Common Problems](#common-problems)
 
 
 # Introduction
@@ -347,9 +348,7 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
   //   for (int k=0; k<dom.nz; k++) {
   //     for (int j=0; j<dom.ny; j++) {
   //       for (int i=0; i<dom.nx; i++) {
-  yakl::parallel_for( numState*dom.nz*dom.ny*dom.nx , YAKL_LAMBDA (int iGlob) {
-    int l, k, j, i;
-    unpackIndices(iGlob,numState,dom.nz,dom.ny,dom.nx,l,k,j,i);
+  yakl::parallel_for( numState,dom.nz,dom.ny,dom.nx , YAKL_LAMBDA (int l, int k, int j, int i) {
     // LOOP BODY BEGINS HERE
     state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
                                c1 * state1(l,hs+k,hs+j,hs+i) +
@@ -362,6 +361,7 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
 For a fuller description of how to move loops to parallel_for, please see the following webpage:
 
 https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
+https://github.com/mrnorman/YAKL
 
 I strongly recommend moving to `parallel_for` while compiling for the CPU so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
 
@@ -608,4 +608,9 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
   * https://rocm-documentation.readthedocs.io/en/latest/Programming_Guides/Programming-Guides.html#hc-programming-guide
   * https://www.khronos.org/files/sycl/sycl-121-reference-card.pdf
   * https://github.com/mrnorman/YAKL/wiki
+
+# Common Problems
+
+* You cannot use `-DARRAY_DEBUG` on the GPU. If you do, it may segfault or give wrong answers
+* It appears if you build for the wrong GPU, the code often will still run but may give wrong answers.
 
