@@ -331,10 +331,11 @@ void set_halo_values_x( realArr &state ) {
     sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
     sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
   });
+  yakl::fence();
 
   // This will copy from GPU to host
   sendbuf_l.deep_copy_to(sendbuf_l_cpu);
-  sendbuf_r.deep_copy_to(sendbuf_l_cpu);
+  sendbuf_r.deep_copy_to(sendbuf_r_cpu);
   yakl::fence();
 
   //Fire off the sends
@@ -357,6 +358,7 @@ void set_halo_values_x( realArr &state ) {
     state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
     state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
   });
+  yakl::fence();
 
   //Wait for sends to finish
   ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
