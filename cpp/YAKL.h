@@ -352,14 +352,107 @@ namespace yakl {
 
 
   #ifdef __USE_HIP__
-    template <class F> __global__ void cudaKernelVal(size_t n1, F f) {
-      size_t i = hipBlockIdx_x*hipBlockDim_x + hipThreadIdx_x;
+    template <class F> __global__ void hipKernel(int n1, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
       if (i < n1) {
         f( i );
       }
     }
+    template <class F> __global__ void hipKernel(int n1, int n2, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2;
+      if (i < nTot) {
+        int i1, i2;
+        unpackIndices( i , n1 , n2 , i1 , i2 );
+        f( i1 , i2 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3;
+      if (i < nTot) {
+        int i1, i2, i3;
+        unpackIndices( i , n1 , n2 , n3 , i1 , i2 , i3 );
+        f( i1 , i2 , i3 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, int n4, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3*n4;
+      if (i < nTot) {
+        int i1, i2, i3, i4;
+        unpackIndices( i , n1 , n2 , n3 , n4 , i1 , i2 , i3 , i4 );
+        f( i1 , i2 , i3 , i4 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, int n4, int n5, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3*n4*n5;
+      if (i < nTot) {
+        int i1, i2, i3, i4, i5;
+        unpackIndices( i , n1 , n2 , n3 , n4 , n5 , i1 , i2 , i3 , i4 , i5 );
+        f( i1 , i2 , i3 , i4 , i5 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, int n4, int n5, int n6, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3*n4*n5*n6;
+      if (i < nTot) {
+        int i1, i2, i3, i4, i5, i6;
+        unpackIndices( i , n1 , n2 , n3 , n4 , n5 , n6 , i1 , i2 , i3 , i4 , i5 , i6 );
+        f( i1 , i2 , i3 , i4 , i5 , i6 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, int n4, int n5, int n6, int n7, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3*n4*n5*n6*n7;
+      if (i < nTot) {
+        int i1, i2, i3, i4, i5, i6, i7;
+        unpackIndices( i , n1 , n2 , n3 , n4 , n5 , n6 , n7 , i1 , i2 , i3 , i4 , i5 , i6 , i7 );
+        f( i1 , i2 , i3 , i4 , i5 , i6 , i7 );
+      }
+    }
+    template <class F> __global__ void hipKernel(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8, F f) {
+      size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+      size_t nTot = n1*n2*n3*n4*n5*n6*n7*n8;
+      if (i < nTot) {
+        int i1, i2, i3, i4, i5, i6, i7, i8;
+        unpackIndices( i , n1 , n2 , n3 , n4 , n5 , n6 , n7 , n8 , i1 , i2 , i3 , i4 , i5 , i6 , i7 , i8 );
+        f( i1 , i2 , i3 , i4 , i5 , i6 , i7 , i8 );
+      }
+    }
+
+
     template<class F> inline void parallel_for_hip( int n1 , F const &f ) {
-      hipLaunchKernelGGL( cudaKernelVal , dim3((n1-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , f );
+      hipLaunchKernelGGL( hipKernel , dim3((n1-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , F const &f ) {
+      size_t nTot = n1*n2;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , F const &f ) {
+      size_t nTot = n1*n2*n3;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , int n4 , F const &f ) {
+      size_t nTot = n1*n2*n3*n4;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , n4 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , int n4 , int n5 , F const &f ) {
+      size_t nTot = n1*n2*n3*n4*n5;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , n4 , n5 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , int n4 , int n5 , int n6 , F const &f ) {
+      size_t nTot = n1*n2*n3*n4*n5*n6;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , n4 , n5 , n6 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , int n4 , int n5 , int n6 , int n7 , F const &f ) {
+      size_t nTot = n1*n2*n3*n4*n5*n6*n7;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , n4 , n5 , n6 , n7 , f );
+    }
+    template<class F> inline void parallel_for_hip( int n1 , int n2 , int n3 , int n4 , int n5 , int n6 , int n7 , int n8 , F const &f ) {
+      size_t nTot = n1*n2*n3*n4*n5*n6*n7*n8;
+      hipLaunchKernelGGL( hipKernel , dim3((nTot-1)/vectorSize+1) , dim3(vectorSize) , (std::uint32_t) 0 , (hipStream_t) 0 , n1 , n2 , n3 , n4 , n5 , n6 , n7 , n8 , f );
     }
   #endif
 

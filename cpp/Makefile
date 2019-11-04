@@ -3,11 +3,11 @@
 ## EDIT THESE PARAMETERS
 ##########################################################
 CXX := mpic++
-CXXFLAGS := -O3 # -DARRAY_DEBUG
+CXXFLAGS := -O3 -DARRAY_DEBUG
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf
 # Valid DEVICE options: CPU, CUDA, HIP
-DEVICE := CUDA
+DEVICE := CPU
 # For more info on CUDA_ARCH: nvcc --help | grep -A 30 "gpu-architecture <arch>"
 CUDA_ARCH := sm_35
 # MANAGED_MEM := [yes | no]
