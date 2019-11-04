@@ -474,7 +474,7 @@ template <class T, int myMem> class Array {
       ret.setup_arr( ""             , rank , dimension );
     #endif
     if (myMem == memHost) {
-      for (int i=0; i<totElems; i++) {
+      for (size_t i=0; i<totElems; i++) {
         ret.myData[i] = myData[i];
       }
     } else {
@@ -520,7 +520,7 @@ template <class T, int myMem> class Array {
 
   inline void deep_copy_to(Array<T,memHost> lhs) {
     if (myMem == memHost) {
-      for (int i=0; i<totElems; i++) {
+      for (size_t i=0; i<totElems; i++) {
         lhs.myData[i] = myData[i];
       }
     } else {
