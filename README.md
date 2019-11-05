@@ -25,11 +25,11 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [Viewing the Output](#viewing-the-output)
 - [Parallelization](#parallelization)
   * [Indexing](#indexing)
-  * [MPI Domain Decomposition](#mpi-domain-decomposition)
-  * [OpenMP CPU Threading](#openmp-cpu-threading)
-  * [OpenACC Accelerator Threading](#openacc-accelerator-threading)
-  * [OpenMP Offload Accelerator Threading](#openmp-offload-accelerator-threading)
-  * [C++ Performance Portability](#c-performance-portability)
+  * **[MPI Domain Decomposition](#mpi-domain-decomposition)**
+  * **[OpenMP CPU Threading](#openmp-cpu-threading)**
+  * **[OpenACC Accelerator Threading](#openacc-accelerator-threading)**
+  * **[OpenMP Offload Accelerator Threading](#openmp-offload-accelerator-threading)**
+  * **[C++ Performance Portability](#c-performance-portability)**
 - [Numerical Experiments](#numerical-experiments)
   * [Rising Thermal](#rising-thermal)
   * [Colliding Thermals](#colliding-thermals)
