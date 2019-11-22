@@ -360,6 +360,7 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
 For a fuller description of how to move loops to parallel_for, please see the following webpage:
 
 https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
+
 https://github.com/mrnorman/YAKL
 
 I strongly recommend moving to `parallel_for` while compiling for the CPU so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
