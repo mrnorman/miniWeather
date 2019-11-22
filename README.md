@@ -316,7 +316,7 @@ delete (var) --> map(delete: var)
 
 ## C++ Performance Portability
 
-The C++ code is in the `cpp` directory, and it uses a custom multi-dimensional `Array` class from `Array.h` for large global variables and Static Array (`SArray`) class in `SArray.h` for small arrays placed on the stack. For adding MPI to the serial code, please follow the instructions in the above MPI section. The primary purpose of the C++ code is to get used to what performance portability looks like in C++, and this is moving from the `miniWeather_mpi.cpp` code to the `miniWeather_mpi_parallelfor.cpp` code, where you change all of the loops into `parallel_for` kernel launches, similar to the [Kokkos](https://github.com/kokkos/kokkos) syntax. As an example, of transforming a set of loops into `parallel_for`, consider the following code:
+The C++ code is in the `cpp` directory, and it uses a custom multi-dimensional `Array` class from `Array.h` for large global variables and Static Array (`SArray`) class in `SArray.h` for small local arrays placed on the stack. For adding MPI to the serial code, please follow the instructions in the above MPI section. The primary purpose of the C++ code is to get used to what performance portability looks like in C++, and this is moving from the `miniWeather_mpi.cpp` code to the `miniWeather_mpi_parallelfor.cpp` code, where you change all of the loops into `parallel_for` kernel launches, similar to the [Kokkos](https://github.com/kokkos/kokkos) syntax. As an example of transforming a set of loops into `parallel_for`, consider the following code:
 
 ```C++
 inline void applyTendencies(realArr &state2, real const c0, realArr const &state0,
@@ -368,15 +368,15 @@ I strongly recommend moving to `parallel_for` while compiling for the CPU so you
 
 First, you'll have to pay attention to asynchronicity. `parallel_for` is asynchronous, and therefore, you'll need to add `yakl::fence()` in two places: (1) MPI ; and (2) File I/O.
 
-Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a compile time error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which nvcc does not allow. The most convenient way to handle this is to create local references as follows:
+Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a runtime time error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which isn't accessible from the GPU. The most convenient way to handle this is to create local references as follows:
 
 ```C++
 auto &varName = ::varName;
 ```
 
-The `::varName` syntax it telling the compiler to look in the global namespace for `varName` rather than the local namespace, which would technically be a variable referencing itself, which is not legal C++.
+The `::varName` syntax is telling the compiler to look in the global context for `varName` rather than the local context.
 
-This process will be tedious, but it something you nearly always have to do in C++ performance portability approaches. So it's good to get used to doing it. You will run into similar issues if you attempt to __use data from your own class__ because the `this` pointer is typically into CPU memory because class objects are often allocated on the CPU. This can also be circumvented via local references in the same manner as above.
+This process will be tedious, but it is something you nearly always have to do in C++ performance portability approaches. So it's good to get used to doing it. You will run into similar issues if you attempt to __use data from your own class__ because the `this` pointer is typically into CPU memory because class objects are often allocated on the CPU. This can also be circumvented via local references in the same manner as above.
 
 You have to put `YAKL_INLINE` in front of the following functions because they are called from kernels: `injection`, `density_current`, `turbulence`, `mountain_waves`, `thermal`, `collision`, `hydro_const_bvfreq`, `hydro_const_theta`, and `sample_ellipse_cosine`.
 
@@ -395,12 +395,16 @@ Next, you need to allocate these in `init()` in a similar manner as the existing
 
 Finally, you'll need to manage data movement to and from the CPU in the File I/O and in the MPI message exchanges.
 
-For the File I/O, you can use `Array::createHostCopy()` in the `ncmpi_put_*` routines, and you can use it in-place before the `.data()` function calls.
+For the File I/O, you can use `Array::createHostCopy()` in the `ncmpi_put_*` routines, and you can use it in-place before the `.data()` function calls, e.g.,
+
+```C++
+arrName.createHostCopy().data()
+```
 
 For the MPI buffers, you'll need to use the `Array::deep_copy_to(Array &target)` member function. e.g.,
 
 ```C++
-sendbuf_l.deep_copy_to(sendbuf_l_cpu)
+sendbuf_l.deep_copy_to(sendbuf_l_cpu);
 ```
 
 A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
@@ -413,8 +417,8 @@ Because if you've refactored your code to use kernel launching (i.e., CUDA), you
 
 I chose not to use the mainline C++ portability frameworks for two main reasons.
 
-1. It's much easier to compile and managed things with a C++ performance portability layer that's only 1K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
-2. With `YAKL.h` and `Array.h`, you can easily see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
+1. It's easier to compile and managed things with a C++ performance portability layer that's only 1K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
+2. With `YAKL.h` and `Array.h`, you can see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
 
 # Numerical Experiments
 
