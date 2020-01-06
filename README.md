@@ -44,6 +44,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
   * [Hyper-viscosity](#hyper-viscosity)
 - [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
+- [Checking for Correctness](#checking-for-correctness)
 - [Further Resources](#further-resources)
 - [Common Problems](#common-problems)
 
@@ -596,6 +597,103 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
 * `nx_glob, nz_glob`: As a rule, it's easiest if you always keep `nx_glob = nz_glob * 2` since the domain is always 20km x 10km in the x- and z-directions. As you increase `nx_glob` (and proportionally `nz_glob`) by some factor `f`, the time step automatically reduced by that same factor, `f`. Therefore, increasing `nx_glob` by 2x leads to 8x more work that needs to be done. Thus, with the same amount of parallelism, you should expect a 2x increase in `nx_glob` and `nz_glob` to increase the walltime by 8x (neglecting parallel overhead concerns).
   * More precisely, the time step is directly proportional to the minimum grid spacing. The x- and y-direction grid spacingsb are: `dx=20km/nx_glob` and `dz=10km/nz_glob`. So as you decrease the minimum grid spacing (by increasing `nx_glob` and/or `nz_glob`), you proportionally decrease the size of the time step and therefore proportionally increase the number of time steps you need to complete the simulation (thus proportionally increasing the expected walltime).
 * The larger the problem size, `nx_glob` and `nz_glob`, the lower the relative parallel overheads will be. You can get to a point where there isn't enough work on the accelerator to keep it busy and / or enough local work to amortize parallel overheads. At this point, you'll need to increase the problem size to see better scaling. This is a typical [Amdahl's Law](https://en.wikipedia.org/wiki/Amdahl%27s_law) situation.
+
+# Checking for Correctness
+
+## Domain-Integrated Mass and Total Energy
+
+There are two main ways to check for correctness. The easiest is to look at the domain-integrated mass and total energy printed out at the end of the simulation.
+
+** In all cases, the relative mass change printed out should be at machine precision (`1.e-15` or lower). If the mass changes more than this, you've probably introduced a bug. **
+
+In order to use total energy to check the answer, you need to set the following parameters:
+
+* `nx_glob`: >= 100
+* `nz_glob`: >= 50 and exactly half of `nx_glob`
+* `sim_time`: 400
+* `data_spec_int`: DATA_SPEC_THERMAL
+
+Also, it is assumed you have not changed any other default parameters such as `xlen` and `zlen`
+
+From there, you can scale up to any problem size or node count you wish. The relative change in total energy should always be negative, and the magnitude should always be less than `4.5e-5`. If the magnitude is larger than this, or if the value is positive, then you have introduced a bug. As you increase the problem size, the energy is always better conserved.
+
+## NetCDF Files
+
+Your other option is to create two baseline NetCDF files before you do your refactoring: (1) with `-O0` optimizations; and (2) with `-O3` optimizations. Then, you can use the following python script to do a 3-way diff between the two baselines and the refactored code. The refactored diff should be of the same order of magnitude as the baseline compiler optimization diffs. Note that if you run for too long, non-linear chaotic amplification of the initially small differences will eventually be come too large to make for a useful comparison, so try to limit the simulation time to, say, 400 seconds or less.
+
+```python
+import netCDF4
+import sys
+import numpy as np
+
+#######################################################################################
+#######################################################################################
+##
+## nccmp3.py: A simple python-based NetCDF 3-way comparison tool. The purpose of this
+## is to show whether files 2 and 3 have more of a difference than files 1 and 2. The
+## specific purpose is to compare refactored differences against presumed bit-level
+## differences (like -O0 and -O3 compiler flags). This prints the relative 2-norm of
+## the absolute differences between files 1 & 2 and files 2 & 3, as well as the ratio
+## of the relative 2-norms between the 2-3 comparison and the 1-2 comparison.
+##
+## python nccmp.py file1.nc file2.nc file3.nc
+##
+#######################################################################################
+#######################################################################################
+
+#Complain if there aren't two arguments
+if (len(sys.argv) < 4) :
+  print("Usage: python nccmp.py file1.nc file2.nc")
+  sys.exit(1)
+
+#Open the files
+nc1 = netCDF4.Dataset(sys.argv[1])
+nc2 = netCDF4.Dataset(sys.argv[2])
+nc3 = netCDF4.Dataset(sys.argv[3])
+
+#Print column headers
+print("Var Name".ljust(20)+":  "+"|1-2|".ljust(20)+"  ,  "+"|2-3|".ljust(20)+"  ,  "+"|2-3|/|1-2|")
+
+#Loop through all variables
+for v in nc1.variables.keys() :
+  #Only compare floats
+  if (nc2.variables[v].dtype == np.float64 or nc2.variables[v].dtype == np.float32) :
+    #Grab the variables
+    a1 = nc1.variables[v][:]
+    a2 = nc2.variables[v][:]
+    a3 = nc3.variables[v][:]
+    #Compute the absolute difference vectors
+    adiff12 = abs(a2-a1)
+    adiff23 = abs(a3-a2)
+
+    #Compute relative 2-norm between files 1 & 2 and files 2 & 3
+    norm12 = np.sum( adiff12**2 )
+    norm23 = np.sum( adiff23**2 )
+    #Assume file 1 is "truth" for the normalization
+    norm_denom = np.sum( a1**2 )
+    #Only normalize if this denominator is != 0
+    if (norm_denom != 0) :
+      norm12 = norm12 / norm_denom
+      norm23 = norm23 / norm_denom
+
+    #Compute the ratio between the 2-3 norm and the 1-2 norm
+    normRatio = norm23
+    #If the denom is != 0, then go ahead and compute the ratio
+    if (norm12 != 0) :
+      normRatio = norm23 / norm12
+    else :
+      #If they're both zero, then just give a ratio of "1", showing they are the same
+      if (norm23 == 0) :
+        normRatio = 1
+      #If the 1-2 norm is zero but the 2-3 norm is not, give a very large number so the user is informed
+      else :
+        normRatio = 1e50
+
+    #Only print ratios that are > 2, meaning 2-3 diff is >2x more than the 1-2 diff.
+    #In the future, this should be added as a command line parameter for the user to choose.
+    if (normRatio > 2) :
+      print(v.ljust(20)+":  %20.10e  ,  %20.10e  ,  %20.10e"%(norm12,norm23,norm23/norm12))
+```
 
 # Further Resources
 
