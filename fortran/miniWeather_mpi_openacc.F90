@@ -97,9 +97,9 @@ program miniweather
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !The x-direction length is twice as long as the z-direction length
   !So, you'll want to have nx_glob be twice as large as nz_glob
-  nx_glob = 1600      !Number of total cells in the x-dirction
-  nz_glob = 800      !Number of total cells in the z-dirction
-  sim_time = 400      !How many seconds to run the simulation
+  nx_glob = 50       !Number of total cells in the x-dirction
+  nz_glob = 25       !Number of total cells in the z-dirction
+  sim_time = 400     !How many seconds to run the simulation
   output_freq = 10   !How frequently to output data to file (in seconds)
   !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
   data_spec_int = DATA_SPEC_THERMAL
@@ -149,8 +149,10 @@ program miniweather
 
   !$acc end data
 
-  write(*,*) "d_mass: ", (mass - mass0)/mass0
-  write(*,*) "d_te:   ", (te   - te0  )/te0
+  if (masterproc) then
+    write(*,*) "d_mass: ", (mass - mass0)/mass0
+    write(*,*) "d_te:   ", (te   - te0  )/te0
+  endif
 
   !Deallocate and finialize MPI
   call finalize()
@@ -888,7 +890,7 @@ contains
         te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
       enddo
     enddo
-    call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,ierr)
+    call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
     mass = glob(1)
     te   = glob(2)
   end subroutine reductions
