@@ -43,6 +43,8 @@ realArr state;               //Fluid state.             Dimensions: (NUM_VARS,1-
 realArr state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
 realArr flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
 realArr tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
+doubArr mass2d;              //2-D grid of the mass
+doubArr te2d;                //2-D grid of the total energy
 int  num_out = 0;           //The number of outputs performed so far
 int  direction_switch = 1;
 realArr sendbuf_l;           //Buffer to send data to the left MPI rank
@@ -53,6 +55,8 @@ realArrHost sendbuf_l_cpu;       //Buffer to send data to the left MPI rank (CPU
 realArrHost sendbuf_r_cpu;       //Buffer to send data to the right MPI rank (CPU copy)
 realArrHost recvbuf_l_cpu;       //Buffer to receive data from the left MPI rank (CPU copy)
 realArrHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI rank (CPU copy)
+double mass0, te0;            //Initial domain totals for mass and total energy  
+double mass , te ;            //Domain totals for mass and total energy  
 
 
 //Declaring the functions defined after "main"
@@ -75,6 +79,7 @@ void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend );
 void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend );
 void set_halo_values_x    ( realArr &state );
 void set_halo_values_z    ( realArr &state );
+void reductions           ( double &mass , double &te );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -88,9 +93,9 @@ int main(int argc, char **argv) {
     ///////////////////////////////////////////////////////////////////////////////////////
     //The x-direction length is twice as long as the z-direction length
     //So, you'll want to have nx_glob be twice as large as nz_glob
-    nx_glob = 200;      //Number of total cells in the x-dirction
-    nz_glob = 100;      //Number of total cells in the z-dirction
-    sim_time = 100;     //How many seconds to run the simulation
+    nx_glob = 1600;      //Number of total cells in the x-dirction
+    nz_glob = 800;       //Number of total cells in the z-dirction
+    sim_time = 400;     //How many seconds to run the simulation
     output_freq = 10;   //How frequently to output data to file (in seconds)
     //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
     data_spec_int = DATA_SPEC_THERMAL;
@@ -99,6 +104,9 @@ int main(int argc, char **argv) {
     ///////////////////////////////////////////////////////////////////////////////////////
 
     init( &argc , &argv );
+
+    //Initial reductions for mass, kinetic energy, and total energy
+    reductions(mass0,te0);
 
     //Output the initial state
     output(state,etime);
@@ -122,6 +130,15 @@ int main(int argc, char **argv) {
         output(state,etime);
       }
     }
+
+    //Final reductions for mass, kinetic energy, and total energy
+    reductions(mass,te);
+
+    if (masterproc) {
+      printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
+      printf( "d_te:   %le\n" , (te   - te0  )/te0   );
+    }
+
     finalize();
   }
   yakl::finalize();
@@ -285,6 +302,10 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
     real w = vals(ID_WMOM) / r;
     real t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
     real p = C0*pow((r*t),gamm) - hy_pressure_int(k);
+    if (k == 0 || k == nz) {
+      w                = 0;
+      d3_vals(ID_DENS) = 0;
+    }
 
     //Compute the flux vector with hyperviscosity
     flux(ID_DENS,k,i) = r*w     - hv_coef*d3_vals(ID_DENS);
@@ -457,6 +478,8 @@ void init( int *argc , char ***argv ) {
   state_tmp          = realArr( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
   flux               = realArr( "flux"      , NUM_VARS,nz+1   ,nx+1   );
   tend               = realArr( "tend"      , NUM_VARS,nz     ,nx     );
+  mass2d             = doubArr( "mass2d"    , nz , nx );
+  te2d               = doubArr( "te2d"      , nz , nx );
   hy_dens_cell       = realArr( "hy_dens_cell"       ,  nz+2*hs );
   hy_dens_theta_cell = realArr( "hy_dens_theta_cell" ,  nz+2*hs );
   hy_dens_int        = realArr( "hy_dens_int"        ,  nz+1    );
@@ -840,3 +863,42 @@ void finalize() {
   recvbuf_l         .deallocate();
   recvbuf_r         .deallocate();
 }
+
+
+//Compute reduced quantities for error checking without resorting to the "ncdiff" tool
+void reductions( double &mass , double &te ) {
+  auto &state              = ::state             ;
+  auto &hy_dens_cell       = ::hy_dens_cell      ;
+  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+  auto &mass2d             = ::mass2d            ;
+  auto &te2d               = ::te2d              ;
+  auto &dx                 = ::dx                ;
+  auto &dz                 = ::dz                ;
+
+  // for (k=0; k<nz; k++) {
+  //   for (i=0; i<nx; i++) {
+  yakl::parallel_for( nz,nx , YAKL_LAMBDA (int k, int i) {
+    double r  =   state(ID_DENS,hs+k,hs+i) + hy_dens_cell(hs+k);             // Density
+    double u  =   state(ID_UMOM,hs+k,hs+i) / r;                              // U-wind
+    double w  =   state(ID_WMOM,hs+k,hs+i) / r;                              // W-wind
+    double th = ( state(ID_RHOT,hs+k,hs+i) + hy_dens_theta_cell(hs+k) ) / r; // Potential Temperature (theta)
+    double p  = C0*pow(r*th,gamm);                               // Pressure
+    double t  = th / pow(p0/p,rd/cp);                            // Temperature
+    double ke = r*(u*u+w*w);                                     // Kinetic Energy
+    double ie = r*cv*t;                                          // Internal Energy
+    mass2d(k,i) = r        *dx*dz; // Accumulate domain mass
+    te2d  (k,i) = (ke + ie)*dx*dz; // Accumulate domain total energy
+  });
+  yakl::ParallelSum<double,yakl::memDevice> psum( nx*nz );
+  mass = psum( mass2d.data() );
+  te   = psum( te2d  .data() );
+
+  double glob[2], loc[2];
+  loc[0] = mass;
+  loc[1] = te;
+  int ierr = MPI_Allreduce(loc,glob,2,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  mass = glob[0];
+  te   = glob[1];
+}
+
+

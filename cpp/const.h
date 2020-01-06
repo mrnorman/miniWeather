@@ -16,11 +16,14 @@ inline real operator"" _fp( long double x ) {
 }
 
 #if defined(__USE_CUDA__) || defined(__USE_HIP__)
-  typedef yakl::Array<real,yakl::memDevice> realArr;
+  typedef yakl::Array<real  ,yakl::memDevice> realArr;
+  typedef yakl::Array<double,yakl::memDevice> doubArr;
 #else
-  typedef yakl::Array<real,yakl::memHost> realArr;
+  typedef yakl::Array<real  ,yakl::memHost> realArr;
+  typedef yakl::Array<double,yakl::memHost> doubArr;
 #endif
-typedef yakl::Array<real,yakl::memHost> realArrHost;
+typedef yakl::Array<real  ,yakl::memHost> realArrHost;
+typedef yakl::Array<double,yakl::memHost> doubArrHost;
 
 constexpr real pi        = 3.14159265358979323846264338327;   //Pi
 constexpr real grav      = 9.8;                               //Gravitational acceleration (m / s^2)

@@ -7,7 +7,7 @@ CXXFLAGS := -O3 # -DARRAY_DEBUG
 INCLUDE := -I${OLCF_PARALLEL_NETCDF_ROOT}/include
 LDFLAGS := -L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf #-L${LAPACK_PATH}/lib
 # Valid DEVICE options: CPU, CUDA, HIP
-DEVICE := CPU
+DEVICE := CUDA
 CUDA_ARCH := sm_70
 MANAGED_MEM := no
 ##########################################################
