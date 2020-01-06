@@ -604,7 +604,7 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
 
 There are two main ways to check for correctness. The easiest is to look at the domain-integrated mass and total energy printed out at the end of the simulation.
 
-** In all cases, the relative mass change printed out should be at machine precision (1.e-15 or lower). If the mass changes more than this, you've probably introduced a bug. **
+** In all cases, the relative mass change printed out should be at machine precision (`1.e-15` or lower). If the mass changes more than this, you've probably introduced a bug. **
 
 In order to use total energy to check the answer, you need to set the following parameters:
 
