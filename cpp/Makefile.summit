@@ -30,13 +30,13 @@ endif
 main: serial mpi parallelfor
 
 serial: miniWeather_serial.cpp *.h 
-	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_serial.cpp $(LIB) -o miniWeather_serial $(LDFLAGS)
+	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_serial.cpp YAKL.cpp $(LIB) -o miniWeather_serial $(LDFLAGS)
 
 mpi: miniWeather_mpi.cpp *.h
-	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi.cpp $(LIB) -o miniWeather_mpi $(LDFLAGS)
+	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi.cpp YAKL.cpp $(LIB) -o miniWeather_mpi $(LDFLAGS)
 
 parallelfor: miniWeather_mpi.cpp *.h
-	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi_parallelfor.cpp $(LIB) -o miniWeather_mpi_parallelfor $(LDFLAGS)
+	$(CXX) $(INCLUDE) $(CXXFLAGS) $(EXTRA_PATH) $(EXTRA_INC) miniWeather_mpi_parallelfor.cpp YAKL.cpp $(LIB) -o miniWeather_mpi_parallelfor $(LDFLAGS)
 
 clean:
 	rm -f *.gch *.o *.dat miniWeather_mpi miniWeather_serial miniWeather_mpi_parallelfor
