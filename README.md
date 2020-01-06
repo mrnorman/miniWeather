@@ -604,7 +604,13 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
 
 There are two main ways to check for correctness. The easiest is to look at the domain-integrated mass and total energy printed out at the end of the simulation.
 
-** In all cases, the relative mass change printed out should be at machine precision (`1.e-13` or lower just to be flexible with reduced precision optimizations). If the mass changes more than this, you've introduced a bug. **
+### Mass Change
+
+In all cases for Fortran and C, the relative mass change printed out should be at machine precision (`1.e-13` or lower just to be flexible with reduced precision optimizations). If the mass changes more than this, you've introduced a bug.
+
+For the C++ code, which uses single precision, the relative mass should be `1.e-7` or lower.
+
+### Total Energy Change
 
 In order to use total energy to check the answer, you need to set the following parameters:
 
@@ -615,7 +621,7 @@ In order to use total energy to check the answer, you need to set the following 
 
 Also, it is assumed you have not changed any other default parameters such as `xlen` and `zlen`
 
-From there, you can scale up to any problem size or node count you wish. The relative change in total energy should always be negative, and the magnitude should always be less than `4.5e-5`. If the magnitude is larger than this, or if the value is positive, then you have introduced a bug. As you increase the problem size, the energy is always better conserved.
+From there, you can scale up to any problem size or node count you wish. The relative change in total energy should always be negative, and the magnitude should always be less than `4.5e-5`. If the magnitude is larger than this, or if the value is positive, then you have introduced a bug. As you increase the problem size, the energy is always better conserved. These total energy change values are valid for single precision in C++ as well.
 
 ## NetCDF Files
 
