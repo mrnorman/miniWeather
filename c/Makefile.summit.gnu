@@ -23,6 +23,9 @@ mpi:
 openmp:
 	${CC} ${INCLUDE} ${CFLAGS} ${OMPFLAGS} -o miniWeather_mpi_openmp miniWeather_mpi_openmp.cpp ${LDFLAGS}
 
+openmp45:
+	${CC} ${INCLUDE} ${CFLAGS} ${OMPFLAGS} -o miniWeather_mpi_openmp45 miniWeather_mpi_openmp45.cpp ${LDFLAGS}
+
 openacc:
 	${CC} ${INCLUDE} ${CFLAGS} ${ACCFLAGS} -o miniWeather_mpi_openacc miniWeather_mpi_openacc.cpp ${LDFLAGS}
 
