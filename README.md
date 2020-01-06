@@ -610,8 +610,8 @@ In order to use total energy to check the answer, you need to set the following 
 
 * `nx_glob`: >= 100
 * `nz_glob`: >= 50 and exactly half of `nx_glob`
-* `sim_time`: 400
-* `data_spec_int`: DATA_SPEC_THERMAL
+* `sim_time = 400`
+* `data_spec_int = DATA_SPEC_THERMAL`
 
 Also, it is assumed you have not changed any other default parameters such as `xlen` and `zlen`
 
