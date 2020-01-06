@@ -608,7 +608,7 @@ There are two main ways to check for correctness. The easiest is to look at the 
 
 In all cases for Fortran and C, the relative mass change printed out should be at machine precision (`1.e-13` or lower just to be flexible with reduced precision optimizations). If the mass changes more than this, you've introduced a bug.
 
-For the C++ code, which uses single precision, the relative mass should be `1.e-7` or lower.
+For the C++ code, which uses single precision, the relative mass should be `1.e-5` or lower just to be flexible with reduced precision optimizations.
 
 ### Total Energy Change
 
