@@ -94,11 +94,11 @@ program miniweather
   !The x-direction length is twice as long as the z-direction length
   !So, you'll want to have nx_glob be twice as large as nz_glob
   nx_glob = 200      !Number of total cells in the x-dirction
-  nz_glob = 100      !Number of total cells in the z-dirction
-  sim_time = 1500    !How many seconds to run the simulation
+  nz_glob = 100       !Number of total cells in the z-dirction
+  sim_time = 400     !How many seconds to run the simulation
   output_freq = 10   !How frequently to output data to file (in seconds)
   !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_INJECTION
+  data_spec_int = DATA_SPEC_THERMAL
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! END USER-CONFIGURABLE PARAMETERS
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -140,7 +140,6 @@ program miniweather
   !Final reductions for mass, kinetic energy, and total energy
   call reductions(mass,ke,te)
   write(*,*) "d_mass: ", (mass - mass0)/mass0
-  write(*,*) "d_ke:   ", (ke   - ke0  )/ke0
   write(*,*) "d_te:   ", (te   - te0  )/te0
 
   !Deallocate and finialize MPI
@@ -842,10 +841,10 @@ contains
     te   = 0
     do k = 1 , nz
       do i = 1 , nx
-        r  = dens (i,k)            ! Density
-        u  = uwnd (i,k)            ! U-wind
-        w  = wwnd (i,k)            ! W-wind
-        th = theta(i,k)            ! Potential Temperature (theta)
+        r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
+        u  =   state(i,k,ID_UMOM) / r                           ! U-wind
+        w  =   state(i,k,ID_WMOM) / r                           ! W-wind
+        th = ( state(i,k,ID_RHOT) + hy_dens_theta_cell(k) ) / r ! Potential Temperature (theta)
         p  = C0*(r*th)**gamma      ! Pressure
         t  = th / (p0/p)**(rd/cp)  ! Temperature
         mass = mass + r;           ! Accumulate domain mass
