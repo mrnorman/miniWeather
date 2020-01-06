@@ -85,6 +85,8 @@ double *recvbuf_l;            //Buffer to receive data from the left MPI rank
 double *recvbuf_r;            //Buffer to receive data from the right MPI rank
 int    num_out = 0;           //The number of outputs performed so far
 int    direction_switch = 1;
+double mass0, te0;            //Initial domain totals for mass and total energy  
+double mass , te ;            //Domain totals for mass and total energy  
 
 //How is this not in the standard?!
 double dmin( double a , double b ) { if (a<b) {return a;} else {return b;} };
@@ -110,6 +112,7 @@ void   compute_tendencies_x ( double *state , double *flux , double *tend );
 void   compute_tendencies_z ( double *state , double *flux , double *tend );
 void   set_halo_values_x    ( double *state );
 void   set_halo_values_z    ( double *state );
+void   reductions           ( double &mass , double &te );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -121,17 +124,20 @@ int main(int argc, char **argv) {
   ///////////////////////////////////////////////////////////////////////////////////////
   //The x-direction length is twice as long as the z-direction length
   //So, you'll want to have nx_glob be twice as large as nz_glob
-  nx_glob = 400;      //Number of total cells in the x-dirction
-  nz_glob = 200;      //Number of total cells in the z-dirction
-  sim_time = 1500;     //How many seconds to run the simulation
+  nx_glob = 100;      //Number of total cells in the x-dirction
+  nz_glob = 50;       //Number of total cells in the z-dirction
+  sim_time = 400;     //How many seconds to run the simulation
   output_freq = 10;   //How frequently to output data to file (in seconds)
   //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_INJECTION;
+  data_spec_int = DATA_SPEC_THERMAL;
   ///////////////////////////////////////////////////////////////////////////////////////
   // END USER-CONFIGURABLE PARAMETERS
   ///////////////////////////////////////////////////////////////////////////////////////
 
   init( &argc , &argv );
+
+  //Initial reductions for mass, kinetic energy, and total energy
+  reductions(mass0,te0);
 
   //Output the initial state
   output(state,etime);
@@ -156,6 +162,13 @@ int main(int argc, char **argv) {
     }
   }
 
+  //Final reductions for mass, kinetic energy, and total energy
+  reductions(mass,te);
+
+  if (masterproc) {
+    printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
+    printf( "d_te:   %le\n" , (te   - te0  )/te0   );
+  }
 
   finalize();
 }
@@ -309,6 +322,11 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
       w = vals[ID_WMOM] / r;
       t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
       p = C0*pow((r*t),gamm) - hy_pressure_int[k];
+      //Enforce vertical boundary condition and exact mass conservation
+      if (k == 0 || k == nz) {
+        w                = 0;
+        d3_vals[ID_DENS] = 0;
+      }
 
       //Compute the flux vector with hyperviscosity
       flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
@@ -834,3 +852,37 @@ void finalize() {
   free( recvbuf_r );
   ierr = MPI_Finalize();
 }
+
+
+//Compute reduced quantities for error checking without resorting to the "ncdiff" tool
+void reductions( double &mass , double &te ) {
+  mass = 0;
+  te   = 0;
+  #pragma omp parallel for reduction(+:mass,te)
+  for (int k=0; k<nz; k++) {
+    for (int i=0; i<nx; i++) {
+      int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      int ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      int ind_w = ID_WMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      int ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      double r  =   state[ind_r] + hy_dens_cell[hs+k];             // Density
+      double u  =   state[ind_u] / r;                              // U-wind
+      double w  =   state[ind_w] / r;                              // W-wind
+      double th = ( state[ind_t] + hy_dens_theta_cell[hs+k] ) / r; // Potential Temperature (theta)
+      double p  = C0*pow(r*th,gamm);                               // Pressure
+      double t  = th / pow(p0/p,rd/cp);                            // Temperature
+      double ke = r*(u*u+w*w);                                     // Kinetic Energy
+      double ie = r*cv*t;                                          // Internal Energy
+      mass += r        *dx*dz; // Accumulate domain mass
+      te   += (ke + ie)*dx*dz; // Accumulate domain total energy
+    }
+  }
+  double glob[2], loc[2];
+  loc[0] = mass;
+  loc[1] = te;
+  int ierr = MPI_Allreduce(loc,glob,2,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  mass = glob[0];
+  te   = glob[1];
+}
+
+

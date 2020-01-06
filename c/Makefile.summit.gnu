@@ -5,8 +5,9 @@ CC := mpic++
 CFLAGS := -O3
 INCLUDE := -I${OLCF_PARALLEL_NETCDF_ROOT}/include
 LDFLAGS := -L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf
-OMPFLAGS := -mp
-ACCFLAGS := -ta=tesla,pinned,cc70,ptxinfo -Minfo=accel
+OMPFLAGS := -fopenmp
+OMP45FLAGS := -fopenmp
+ACCFLAGS := -fopenacc
 ##########################################################
 ## END EDITING SECTION
 ##########################################################
