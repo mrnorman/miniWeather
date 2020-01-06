@@ -2,8 +2,8 @@
 ##########################################################
 ## EDIT THESE PARAMETERS
 ##########################################################
-FC := mpif90 
-FFLAGS := -O3 -Mextend
+FC := mpif90
+FFLAGS := -O3 -ffree-line-length-none
 INCLUDE := -I${PNETCDF_PATH}/include
 LDFLAGS := -L${PNETCDF_PATH}/lib -lpnetcdf -L${LAPACK_PATH}/lib
 OMPFLAGS := -mp

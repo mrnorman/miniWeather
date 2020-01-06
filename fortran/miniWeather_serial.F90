@@ -80,7 +80,9 @@ program miniweather
   real(rp), allocatable :: state_tmp         (:,:,:)  !Fluid state.                            Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
   real(rp), allocatable :: flux              (:,:,:)  !Cell interface fluxes.                  Dimensions: (nx+1,nz+1,NUM_VARS)
   real(rp), allocatable :: tend              (:,:,:)  !Fluid state tendencies.                 Dimensions: (nx,nz,NUM_VARS)
-  integer(8) :: t1, t2, rate                           !For CPU Timings
+  integer(8) :: t1, t2, rate                          !For CPU Timings
+  real(rp) :: mass0, ke0, te0                         !Initial domain totals for mass, kinetic energy, and total energy  
+  real(rp) :: mass, ke, te                            !Domain totals for mass, kinetic energy, and total energy  
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! THE MAIN PROGRAM STARTS HERE
@@ -103,6 +105,9 @@ program miniweather
 
   !Initialize MPI, allocate arrays, initialize the grid and the data
   call init()
+
+  !Initial reductions for mass, kinetic energy, and total energy
+  call reductions(mass0,ke0,te0)
 
   !Output the initial state
   call output(state,etime)
@@ -131,6 +136,12 @@ program miniweather
     call system_clock(t2,rate)
     write(*,*) "CPU Time: ",dble(t2-t1)/dble(rate)
   endif
+
+  !Final reductions for mass, kinetic energy, and total energy
+  call reductions(mass,ke,te)
+  write(*,*) "d_mass: ", (mass - mass0)/mass0
+  write(*,*) "d_ke:   ", (ke   - ke0  )/ke0
+  write(*,*) "d_te:   ", (te   - te0  )/te0
 
   !Deallocate and finialize MPI
   call finalize()
@@ -818,6 +829,31 @@ contains
       stop
     endif
   end subroutine ncwrap
+
+
+  !Compute reduced quantities for error checking without resorting to the "ncdiff" tool
+  subroutine reductions( mass , ke , te )
+    implicit none
+    real(rp), intent(out) :: mass, ke, te
+    integer :: i, k
+    real(rp) :: r,u,w,th,t,p
+    mass = 0
+    ke   = 0
+    te   = 0
+    do k = 1 , nz
+      do i = 1 , nx
+        r  = dens (i,k)            ! Density
+        u  = uwnd (i,k)            ! U-wind
+        w  = wwnd (i,k)            ! W-wind
+        th = theta(i,k)            ! Potential Temperature (theta)
+        p  = C0*(r*th)**gamma      ! Pressure
+        t  = th / (p0/p)**(rd/cp)  ! Temperature
+        mass = mass + r;           ! Accumulate domain mass
+        ke   = ke   + r*(u*u+w*w)  ! Accumulate domain kinetic energy
+        te   = te   + ke + r*cv*t; ! Accumulate domain total energy
+      enddo
+    enddo
+  end subroutine reductions
 
 
 end program miniweather
