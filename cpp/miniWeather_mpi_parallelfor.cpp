@@ -93,8 +93,8 @@ int main(int argc, char **argv) {
     ///////////////////////////////////////////////////////////////////////////////////////
     //The x-direction length is twice as long as the z-direction length
     //So, you'll want to have nx_glob be twice as large as nz_glob
-    nx_glob = 1600;      //Number of total cells in the x-dirction
-    nz_glob = 800;       //Number of total cells in the z-dirction
+    nx_glob = 800;       //Number of total cells in the x-dirction
+    nz_glob = 400;       //Number of total cells in the z-dirction
     sim_time = 400;     //How many seconds to run the simulation
     output_freq = 10;   //How frequently to output data to file (in seconds)
     //Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION

@@ -12,7 +12,7 @@ ACCFLAGS := -fopenacc
 ## END EDITING SECTION
 ##########################################################
 
-all: serial mpi openmp openacc
+all: serial mpi openmp openacc openmp45
 
 serial:
 	${CC} ${INCLUDE} ${CFLAGS} -o miniWeather_serial miniWeather_serial.cpp ${LDFLAGS}

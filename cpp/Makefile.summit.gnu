@@ -24,7 +24,7 @@ ifeq ($(DEVICE),CUDA)
   endif
 endif
 ifeq ($(DEVICE),HIP)
-  CXXFLAGS += -D__USE_HIP__
+  CXXFLAGS += -D__USE_HIP__ -I ./hipCUB -I ./rocPRIM
 endif
 
 main: serial mpi parallelfor
