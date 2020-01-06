@@ -69,6 +69,7 @@ program miniweather
   real(rp), allocatable :: hy_dens_int       (:)      !hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
   real(rp), allocatable :: hy_dens_theta_int (:)      !hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
   real(rp), allocatable :: hy_pressure_int   (:)      !hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+  integer :: asyncid
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! Variables that are dynamics over the course of the simulation
@@ -85,10 +86,14 @@ program miniweather
   real(rp), allocatable :: recvbuf_l(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   real(rp), allocatable :: recvbuf_r(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   integer(8) :: t1, t2, rate                    !For CPU Timings
+  real(rp) :: mass0, te0                              !Initial domain totals for mass and total energy  
+  real(rp) :: mass ,te                                !Domain totals for mass and total energy  
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! THE MAIN PROGRAM STARTS HERE
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  asyncid = 1
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! BEGIN USER-CONFIGURABLE PARAMETERS
@@ -97,10 +102,10 @@ program miniweather
   !So, you'll want to have nx_glob be twice as large as nz_glob
   nx_glob = 400      !Number of total cells in the x-dirction
   nz_glob = 200      !Number of total cells in the z-dirction
-  sim_time = 1500      !How many seconds to run the simulation
+  sim_time = 400     !How many seconds to run the simulation
   output_freq = 10   !How frequently to output data to file (in seconds)
   !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_INJECTION
+  data_spec_int = DATA_SPEC_THERMAL
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! END USER-CONFIGURABLE PARAMETERS
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -109,6 +114,9 @@ program miniweather
   call init()
 
   !$omp target data map(to:state_tmp,hy_dens_cell,hy_dens_theta_cell,hy_dens_int,hy_dens_theta_int,hy_pressure_int) map(alloc:flux,tend,sendbuf_l,sendbuf_r,recvbuf_l,recvbuf_r) map(tofrom:state)
+
+  !Initial reductions for mass, kinetic energy, and total energy
+  call reductions(mass0,te0)
 
   !Output the initial state
   call output(state,etime)
@@ -133,12 +141,21 @@ program miniweather
       call output(state,etime)
     endif
   enddo
+  !$omp taskwait
   if (masterproc) then
     call system_clock(t2,rate)
     write(*,*) "CPU Time: ",dble(t2-t1)/dble(rate)
   endif
 
+  !Final reductions for mass, kinetic energy, and total energy
+  call reductions(mass,te)
+
   !$omp end target data
+
+  if (masterproc) then
+    write(*,*) "d_mass: ", (mass - mass0)/mass0
+    write(*,*) "d_te:   ", (te   - te0  )/te0
+  endif
 
   !Deallocate and finialize MPI
   call finalize()
@@ -216,7 +233,7 @@ contains
     endif
 
     !Apply the tendencies to the fluid state
-    !$omp target teams distribute parallel do collapse(3)
+    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -241,8 +258,9 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dx / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals)
+    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
     do k = 1 , nz
+
       do i = 1 , nx+1
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
         do ll = 1 , NUM_VARS
@@ -271,7 +289,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp target teams distribute parallel do collapse(3)
+    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -296,8 +314,9 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals)
+    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
     do k = 1 , nz+1
+
       do i = 1 , nx
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
         do ll = 1 , NUM_VARS
@@ -316,6 +335,11 @@ contains
         w = vals(ID_WMOM) / r
         t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r
         p = C0*(r*t)**gamma - hy_pressure_int(k)
+        !Enforce vertical boundary condition and exact mass conservation
+        if (k == 1 .or. k == nz+1) then
+          w                = 0
+          d3_vals(ID_DENS) = 0
+        endif
 
         !Compute the flux vector with hyperviscosity
         flux(i,k,ID_DENS) = r*w     - hv_coef*d3_vals(ID_DENS)
@@ -326,7 +350,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp target teams distribute parallel do collapse(3)
+    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -352,7 +376,7 @@ contains
     call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
 
     !Pack the send buffers
-    !$omp target teams distribute parallel do collapse(3) 
+    !$omp target teams distribute parallel do collapse(3)  depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -362,7 +386,8 @@ contains
       enddo
     enddo
 
-    !$omp target update from(sendbuf_l,sendbuf_r)
+    !$omp target update from(sendbuf_l,sendbuf_r) depend(inout:asyncid) nowait
+    !$omp taskwait
 
     !Fire off the sends
     call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,MPI_REAL8, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
@@ -371,10 +396,10 @@ contains
     !Wait for receives to finish
     call mpi_waitall(2,req_r,status,ierr)
 
-    !$omp target update to(recvbuf_l,recvbuf_r)
+    !$omp target update to(recvbuf_l,recvbuf_r) depend(inout:asyncid) nowait
 
     !Unpack the receive buffers
-    !$omp target teams distribute parallel do collapse(3)
+    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -389,7 +414,7 @@ contains
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
-        !$omp target teams distribute parallel do
+        !$omp target teams distribute parallel do depend(inout:asyncid) nowait
         do k = 1 , nz
           z = (k_beg-1 + k-0.5_rp)*dz
           if (abs(z-3*zlen/4) <= zlen/16) then
@@ -410,7 +435,7 @@ contains
     integer :: i, ll
     real(rp), parameter :: mnt_width = xlen/8
     real(rp) :: x, xloc, mnt_deriv
-    !$omp target teams distribute parallel do collapse(2) private(xloc,mnt_deriv,x)
+    !$omp target teams distribute parallel do collapse(2) private(xloc,mnt_deriv,x) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
@@ -752,7 +777,8 @@ contains
     real(rp), allocatable :: dens(:,:), uwnd(:,:), wwnd(:,:), theta(:,:)
     real(rp) :: etimearr(1)
 
-    !$omp target update from(state)
+    !$omp target update from(state) depend(inout:asyncid) nowait
+    !$omp taskwait
 
     !Inform the user
     if (masterproc) write(*,*) '*** OUTPUT ***'
@@ -841,6 +867,36 @@ contains
       stop
     endif
   end subroutine ncwrap
+
+
+  !Compute reduced quantities for error checking without resorting to the "ncdiff" tool
+  subroutine reductions( mass , te )
+    implicit none
+    real(rp), intent(out) :: mass, te
+    integer :: i, k, ierr
+    real(rp) :: r,u,w,th,p,t,ke,ie
+    real(rp) :: glob(2)
+    mass = 0
+    te   = 0
+    !$omp target teams distribute parallel do collapse(2) reduction(+:mass,te)
+    do k = 1 , nz
+      do i = 1 , nx
+        r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
+        u  =   state(i,k,ID_UMOM) / r                           ! U-wind
+        w  =   state(i,k,ID_WMOM) / r                           ! W-wind
+        th = ( state(i,k,ID_RHOT) + hy_dens_theta_cell(k) ) / r ! Potential Temperature (theta)
+        p  = C0*(r*th)**gamma      ! Pressure
+        t  = th / (p0/p)**(rd/cp)  ! Temperature
+        ke = r*(u*u+w*w)           ! Kinetic Energy
+        ie = r*cv*t                ! Internal Energy
+        mass = mass + r            *dx*dz ! Accumulate domain mass
+        te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
+      enddo
+    enddo
+    call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+    mass = glob(1)
+    te   = glob(2)
+  end subroutine reductions
 
 
 end program miniweather
