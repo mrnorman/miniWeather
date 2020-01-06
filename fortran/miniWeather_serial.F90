@@ -81,8 +81,8 @@ program miniweather
   real(rp), allocatable :: flux              (:,:,:)  !Cell interface fluxes.                  Dimensions: (nx+1,nz+1,NUM_VARS)
   real(rp), allocatable :: tend              (:,:,:)  !Fluid state tendencies.                 Dimensions: (nx,nz,NUM_VARS)
   integer(8) :: t1, t2, rate                          !For CPU Timings
-  real(rp) :: mass0, ke0, te0                         !Initial domain totals for mass, kinetic energy, and total energy  
-  real(rp) :: mass, ke, te                            !Domain totals for mass, kinetic energy, and total energy  
+  real(rp) :: mass0, te0                              !Initial domain totals for mass and total energy  
+  real(rp) :: mass ,te                                !Domain totals for mass and total energy  
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! THE MAIN PROGRAM STARTS HERE
@@ -107,7 +107,7 @@ program miniweather
   call init()
 
   !Initial reductions for mass, kinetic energy, and total energy
-  call reductions(mass0,ke0,te0)
+  call reductions(mass0,te0)
 
   !Output the initial state
   call output(state,etime)
@@ -138,7 +138,7 @@ program miniweather
   endif
 
   !Final reductions for mass, kinetic energy, and total energy
-  call reductions(mass,ke,te)
+  call reductions(mass,te)
   write(*,*) "d_mass: ", (mass - mass0)/mass0
   write(*,*) "d_te:   ", (te   - te0  )/te0
 
@@ -327,6 +327,11 @@ contains
         w = vals(ID_WMOM) / r
         t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r
         p = C0*(r*t)**gamma - hy_pressure_int(k)
+        !Enforce vertical boundary condition and exact mass conservation
+        if (k == 1 .or. k == nz+1) then
+          w                = 0
+          d3_vals(ID_DENS) = 0
+        endif
 
         !Compute the flux vector with hyperviscosity
         flux(i,k,ID_DENS) = r*w     - hv_coef*d3_vals(ID_DENS)
@@ -831,13 +836,13 @@ contains
 
 
   !Compute reduced quantities for error checking without resorting to the "ncdiff" tool
-  subroutine reductions( mass , ke , te )
+  subroutine reductions( mass , te )
     implicit none
-    real(rp), intent(out) :: mass, ke, te
-    integer :: i, k
-    real(rp) :: r,u,w,th,t,p
+    real(rp), intent(out) :: mass, te
+    integer :: i, k, ierr
+    real(rp) :: r,u,w,th,p,t,ke,ie
+    real(rp) :: glob(2)
     mass = 0
-    ke   = 0
     te   = 0
     do k = 1 , nz
       do i = 1 , nx
@@ -847,11 +852,15 @@ contains
         th = ( state(i,k,ID_RHOT) + hy_dens_theta_cell(k) ) / r ! Potential Temperature (theta)
         p  = C0*(r*th)**gamma      ! Pressure
         t  = th / (p0/p)**(rd/cp)  ! Temperature
-        mass = mass + r;           ! Accumulate domain mass
-        ke   = ke   + r*(u*u+w*w)  ! Accumulate domain kinetic energy
-        te   = te   + ke + r*cv*t; ! Accumulate domain total energy
+        ke = r*(u*u+w*w)           ! Kinetic Energy
+        ie = r*cv*t                ! Internal Energy
+        mass = mass + r            *dx*dz ! Accumulate domain mass
+        te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
       enddo
     enddo
+    call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,ierr)
+    mass = glob(1)
+    te   = glob(2)
   end subroutine reductions
 
 
