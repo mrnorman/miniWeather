@@ -606,9 +606,9 @@ There are two main ways to check for correctness. The easiest is to look at the 
 
 ### Mass Change
 
-In all cases for Fortran and C, the relative mass change printed out should be at machine precision (`1.e-13` or lower just to be flexible with reduced precision optimizations). If the mass changes more than this, you've introduced a bug.
+In all cases for Fortran and C, the relative mass change printed out should be at machine precision (magnitude `1.e-13` or lower just to be flexible with reduced precision optimizations). If the mass changes more than this, you've introduced a bug.
 
-For the C++ code, which uses single precision, the relative mass should be `1.e-5` or lower just to be flexible with reduced precision optimizations.
+For the C++ code, which uses single precision, the relative mass displayed at the end of the run should be of magnitude `1.e-9` or lower.
 
 ### Total Energy Change
 
@@ -625,7 +625,9 @@ From there, you can scale up to any problem size or node count you wish. The rel
 
 ## NetCDF Files
 
-Your other option is to create two baseline NetCDF files before you do your refactoring: (1) with `-O0` optimizations; and (2) with `-O3` optimizations. Then, you can use the following python script to do a 3-way diff between the two baselines and the refactored code. The refactored diff should be of the same order of magnitude as the baseline compiler optimization diffs. Note that if you run for too long, non-linear chaotic amplification of the initially small differences will eventually be come too large to make for a useful comparison, so try to limit the simulation time to, say, 400 seconds or less.
+Your other option is to create two baseline NetCDF files whose answers you trust: (1) with `-O0` optimizations; and (2) with `-O3` optimizations. Then, you can use the following python script to do a 3-way diff between the two baselines and the refactored code. The refactored diff should be of the same order of magnitude as the baseline compiler optimization diffs. Note that if you run for too long, non-linear chaotic amplification of the initially small differences will eventually be come too large to make for a useful comparison, so try to limit the simulation time to, say, 400 seconds or less.
+
+The reason you have to go to all of this trouble is because of chaotic amplification of initially small differences (the same reason you can't predict weather reliably past a few days). Therefore, you can't compare snapshots to machine precision tolerance.
 
 ```python
 import netCDF4
