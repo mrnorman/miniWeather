@@ -863,9 +863,9 @@ void finalize() {
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
 void reductions( double &mass , double &te ) {
-  mass = 0;
-  te   = 0;
-  #pragma acc parallel loop collapse(2) reduction(+:mass,te) present(state)
+  double mass_loc = 0;
+  double te_loc   = 0;
+  #pragma acc parallel loop collapse(2) reduction(+:mass_loc,te_loc) present(state)
   for (int k=0; k<nz; k++) {
     for (int i=0; i<nx; i++) {
       int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
@@ -880,13 +880,13 @@ void reductions( double &mass , double &te ) {
       double t  = th / pow(p0/p,rd/cp);                            // Temperature
       double ke = r*(u*u+w*w);                                     // Kinetic Energy
       double ie = r*cv*t;                                          // Internal Energy
-      mass += r        *dx*dz; // Accumulate domain mass
-      te   += (ke + ie)*dx*dz; // Accumulate domain total energy
+      mass_loc += r        *dx*dz; // Accumulate domain mass
+      te_loc   += (ke + ie)*dx*dz; // Accumulate domain total energy
     }
   }
   double glob[2], loc[2];
-  loc[0] = mass;
-  loc[1] = te;
+  loc[0] = mass_loc;
+  loc[1] = te_loc;
   int ierr = MPI_Allreduce(loc,glob,2,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   mass = glob[0];
   te   = glob[1];
