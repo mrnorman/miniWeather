@@ -1,5 +1,29 @@
 #!/bin/bash
 
+showusage() {
+  printf "Usage:\n"
+  printf "./check_output.sh  executable  mass_relative_tolerance  energy_relative_tolerance\n\n"
+}
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  showusage
+  exit 0
+fi
+if [[ "$1" == "" ]]; then
+  printf "ERROR: Did not specify an executable\n\n"
+  showusage
+  exit -1
+fi
+if [[ "$2" == "" ]]; then
+  printf "ERROR: Did not specify a mass tolerance\n\n"
+  showusage
+  exit -1
+fi
+if [[ "$3" == "" ]]; then
+  printf "ERROR: Did not specify a total energy tolerance\n\n"
+  showusage
+  exit -1
+fi
+
 output=`$1`
 
 dmass=`echo "$output" | grep d_mass | awk '{print $2}'`
