@@ -9,6 +9,7 @@
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
       -DCXXFLAGS="-O3"                              \
+      -DARCH="CUDA"                                 \
       -DLDFLAGS=""                                  \
       ..
 
