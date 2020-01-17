@@ -84,7 +84,7 @@ set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
 string(STRIP "${_LIBS}" _LIBS)
 target_link_libraries(mpi yakl "${_LIBS}")
 
-add_executable(mpi_test miniWeather_serial.cpp)
+add_executable(mpi_test miniWeather_mpi.cpp)
 target_include_directories(mpi_test PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(mpi_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 target_link_libraries(mpi_test yakl "${_LIBS}")
@@ -95,19 +95,19 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ############################################################
 ## YAKL Version
 ############################################################
-# add_executable(openmp miniWeather_mpi_parallelfor.cpp)
-# target_include_directories(openmp PUBLIC ${PNETCDF_PATH}/include)
-# set_target_properties(openmp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${OPENMP_FLAGS}")
-# set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS} ${OPENMP_FLAGS}")
-# string(STRIP "${_LIBS}" _LIBS)
-# target_link_libraries(openmp "${_LIBS}")
-# 
-# add_executable(openmp_test miniWeather_serial.cpp)
-# target_include_directories(openmp_test PUBLIC ${PNETCDF_PATH}/include)
-# set_target_properties(openmp_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${OPENMP_FLAGS}")
-# target_link_libraries(openmp_test "${_LIBS}")
-# 
-# add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./openmp_test 1e-13 4.5e-5 ) 
+add_executable(yakl miniWeather_mpi_yakl.cpp)
+target_include_directories(yakl PUBLIC ${PNETCDF_PATH}/include)
+set_target_properties(yakl PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${OPENMP_FLAGS}")
+set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS} ${OPENMP_FLAGS}")
+string(STRIP "${_LIBS}" _LIBS)
+target_link_libraries(yakl "${_LIBS}")
+
+add_executable(yakl_test miniWeather_mpi_yakl.cpp)
+target_include_directories(yakl_test PUBLIC ${PNETCDF_PATH}/include)
+set_target_properties(yakl_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${OPENMP_FLAGS}")
+target_link_libraries(yakl_test "${_LIBS}")
+
+add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./yakl_test 1e-9 4.5e-5 ) 
 
 
 
