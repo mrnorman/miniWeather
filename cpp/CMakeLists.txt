@@ -56,7 +56,8 @@ include_directories(rocPRIM)
 ## Add Kokkos 
 ############################################################
 add_subdirectory(kokkos)
-include_directories(kokkos)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/kokkos)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/kokkos/core/src)
 
 
 ############################################################
@@ -67,12 +68,12 @@ target_include_directories(serial PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(serial PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
 set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
 string(STRIP "${_LIBS}" _LIBS)
-target_link_libraries(serial yakl "${_LIBS}")
+target_link_libraries(serial kokkos "${_LIBS}")
 
 add_executable(serial_test miniWeather_serial.cpp)
 target_include_directories(serial_test PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(serial_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(serial_test yakl "${_LIBS}")
+target_link_libraries(serial_test kokkos "${_LIBS}")
 
 add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 
@@ -85,18 +86,18 @@ target_include_directories(mpi PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(mpi PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
 set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
 string(STRIP "${_LIBS}" _LIBS)
-target_link_libraries(mpi yakl "${_LIBS}")
+target_link_libraries(mpi kokkos "${_LIBS}")
 
 add_executable(mpi_test miniWeather_mpi.cpp)
 target_include_directories(mpi_test PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(mpi_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(mpi_test yakl "${_LIBS}")
+target_link_libraries(mpi_test kokkos "${_LIBS}")
 
 add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 ) 
 
 
 ############################################################
-## YAKL Version
+## YAKL Parallel For Version
 ############################################################
 if ("${ARCH}" STREQUAL "CUDA")
   message(STATUS "Compiling YAKL code for CUDA")
