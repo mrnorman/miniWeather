@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include "const.h"
+#include "const_kokkos.h"
 #include "pnetcdf.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -27,11 +27,11 @@ int nranks, myrank;         //Number of MPI ranks and my rank id
 int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
 int masterproc;             //Am I the master process (rank == 0)?
 real data_spec_int;         //Which data initialization to use
-realArr hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
-realArr hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
-realArr hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
-realArr hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
-realArr hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+real1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
+real1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
+real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
+real1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
+real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are dynamics over the course of the simulation
@@ -39,22 +39,22 @@ realArr hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimension
 real etime;                 //Elapsed model time
 real output_counter;        //Helps determine when it's time to do output
 //Runtime variable arrays
-realArr state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-realArr state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-realArr flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
-realArr tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
-doubArr mass2d;              //2-D grid of the mass
-doubArr te2d;                //2-D grid of the total energy
+real3d state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
+real3d state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
+real3d flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
+real3d tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
+doub2d mass2d;              //2-D grid of the mass
+doub2d te2d;                //2-D grid of the total energy
 int  num_out = 0;           //The number of outputs performed so far
 int  direction_switch = 1;
-realArr sendbuf_l;           //Buffer to send data to the left MPI rank
-realArr sendbuf_r;           //Buffer to send data to the right MPI rank
-realArr recvbuf_l;           //Buffer to receive data from the left MPI rank
-realArr recvbuf_r;           //Buffer to receive data from the right MPI rank
-realArrHost sendbuf_l_cpu;       //Buffer to send data to the left MPI rank (CPU copy)
-realArrHost sendbuf_r_cpu;       //Buffer to send data to the right MPI rank (CPU copy)
-realArrHost recvbuf_l_cpu;       //Buffer to receive data from the left MPI rank (CPU copy)
-realArrHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI rank (CPU copy)
+real3d sendbuf_l;           //Buffer to send data to the left MPI rank
+real3d sendbuf_r;           //Buffer to send data to the right MPI rank
+real3d recvbuf_l;           //Buffer to receive data from the left MPI rank
+real3d recvbuf_r;           //Buffer to receive data from the right MPI rank
+real3dHost sendbuf_l_cpu;       //Buffer to send data to the left MPI rank (CPU copy)
+real3dHost sendbuf_r_cpu;       //Buffer to send data to the right MPI rank (CPU copy)
+real3dHost recvbuf_l_cpu;       //Buffer to receive data from the left MPI rank (CPU copy)
+real3dHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI rank (CPU copy)
 double mass0, te0;            //Initial domain totals for mass and total energy  
 double mass , te ;            //Domain totals for mass and total energy  
 
@@ -62,23 +62,23 @@ double mass , te ;            //Domain totals for mass and total energy
 //Declaring the functions defined after "main"
 void init                 ( int *argc , char ***argv );
 void finalize             ( );
-YAKL_INLINE void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void hydro_const_theta    ( real z                    , real &r , real &t );
-YAKL_INLINE void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
-YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( realArr &state , real etime );
+KOKKOS_INLINE_FUNCTION void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+KOKKOS_INLINE_FUNCTION void hydro_const_theta    ( real z                    , real &r , real &t );
+KOKKOS_INLINE_FUNCTION void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
+KOKKOS_INLINE_FUNCTION real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
+void output               ( real3d &state , real etime );
 void ncwrap               ( int ierr , int line );
-void perform_timestep     ( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt );
-void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend );
-void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend );
-void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend );
-void set_halo_values_x    ( realArr &state );
-void set_halo_values_z    ( realArr &state );
+void perform_timestep     ( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt );
+void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend );
+void compute_tendencies_x ( real3d &state , real3d &flux , real3d &tend );
+void compute_tendencies_z ( real3d &state , real3d &flux , real3d &tend );
+void set_halo_values_x    ( real3d &state );
+void set_halo_values_z    ( real3d &state );
 void reductions           ( double &mass , double &te );
 
 
@@ -86,7 +86,7 @@ void reductions           ( double &mass , double &te );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-  yakl::init();
+  Kokkos::initialize();
   {
     ///////////////////////////////////////////////////////////////////////////////////////
     // BEGIN USER-CONFIGURABLE PARAMETERS
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
 
     finalize();
   }
-  yakl::finalize();
+  Kokkos::finalize();
 }
 
 
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt ) {
+void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt ) {
   if (direction_switch) {
     //x-direction first
     semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
@@ -178,7 +178,7 @@ void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , rea
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend ) {
+void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend ) {
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -198,7 +198,9 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS,nz,nx , YAKL_LAMBDA ( int ll, int k, int i ) {
+  Kokkos::parallel_for( NUM_VARS*nz*nx , KOKKOS_LAMBDA ( int iGlob ) {
+    int ll, k, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
 }
@@ -208,7 +210,7 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
+void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
   auto &nx = ::nx;
   auto &nz = ::nz;
   auto &dt = ::dt;
@@ -219,7 +221,9 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
-  yakl::parallel_for( nz,nx+1 , YAKL_LAMBDA (int k, int i) {
+  Kokkos::parallel_for( nz*(nx+1) , KOKKOS_LAMBDA (int iGlob) {
+    int  k, i;
+    yakl::unpackIndices(iGlob,nz,nx+1,k,i);
     SArray<real,4> stencil;
     SArray<real,NUM_VARS> d3_vals;
     SArray<real,NUM_VARS> vals;
@@ -255,7 +259,9 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS,nz,nx , YAKL_LAMBDA (int ll, int k, int i) {
+  Kokkos::parallel_for( NUM_VARS*nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
     tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
   });
 }
@@ -265,7 +271,7 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
+void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
   auto &nx = ::nx;
   auto &nz = ::nz;
   auto &dt = ::dt;
@@ -277,7 +283,9 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( nz+1,nx , YAKL_LAMBDA (int k, int i) {
+  Kokkos::parallel_for( (nz+1)*(nx) , KOKKOS_LAMBDA (int iGlob) {
+    int  k, i;
+    yakl::unpackIndices(iGlob,nz+1,nx,k,i);
     SArray<real,4> stencil;
     SArray<real,NUM_VARS> d3_vals;
     SArray<real,NUM_VARS> vals;
@@ -317,7 +325,9 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS,nz,nx , YAKL_LAMBDA (int ll, int k, int i) {
+  Kokkos::parallel_for( NUM_VARS*nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
     tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
     if (ll == ID_WMOM) {
       tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
@@ -328,7 +338,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( realArr &state ) {
+void set_halo_values_x( real3d &state ) {
   int ierr;
   MPI_Request req_r[2], req_s[2];
 
@@ -347,16 +357,23 @@ void set_halo_values_x( realArr &state ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  yakl::parallel_for( NUM_VARS,nz,hs , YAKL_LAMBDA (int ll, int k, int s) {
+  Kokkos::parallel_for( NUM_VARS*nz*hs , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, s;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
     sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
     sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
   });
-  yakl::fence();
+  Kokkos::fence();
 
   // This will copy from GPU to host
-  sendbuf_l.deep_copy_to(sendbuf_l_cpu);
-  sendbuf_r.deep_copy_to(sendbuf_r_cpu);
-  yakl::fence();
+  #ifdef __USE_CUDA__
+    cudaMemcpyAsync( sendbuf_l_cpu.data() , sendbuf_l.data() , NUM_VARS*nz*hs*sizeof(real) , cudaMemcpyDeviceToHost );
+    cudaMemcpyAsync( sendbuf_r_cpu.data() , sendbuf_r.data() , NUM_VARS*nz*hs*sizeof(real) , cudaMemcpyDeviceToHost );
+  #else
+    Kokkos::deep_copy( sendbuf_l_cpu , sendbuf_l );
+    Kokkos::deep_copy( sendbuf_r_cpu , sendbuf_r );
+  #endif
+  Kokkos::fence();
 
   //Fire off the sends
   ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,MPI_FLOAT, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
@@ -366,19 +383,26 @@ void set_halo_values_x( realArr &state ) {
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
   // This will copy from host to GPU
-  recvbuf_l_cpu.deep_copy_to(recvbuf_l);
-  recvbuf_r_cpu.deep_copy_to(recvbuf_r);
-  yakl::fence();
+  #ifdef __USE_CUDA__
+    cudaMemcpyAsync( recvbuf_l.data() , recvbuf_l_cpu.data() , NUM_VARS*nz*hs*sizeof(real) , cudaMemcpyHostToDevice );
+    cudaMemcpyAsync( recvbuf_r.data() , recvbuf_r_cpu.data() , NUM_VARS*nz*hs*sizeof(real) , cudaMemcpyHostToDevice );
+  #else
+    Kokkos::deep_copy( recvbuf_l , recvbuf_l_cpu );
+    Kokkos::deep_copy( recvbuf_r , recvbuf_r_cpu );
+  #endif
+  Kokkos::fence();
 
   //Unpack the receive buffers
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  yakl::parallel_for( NUM_VARS,nz,hs , YAKL_LAMBDA (int ll, int k, int s) {
+  Kokkos::parallel_for( NUM_VARS*nz*hs , KOKKOS_LAMBDA (int iGlob) {
+    int ll, k, s;
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
     state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
     state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
   });
-  yakl::fence();
+  Kokkos::fence();
 
   //Wait for sends to finish
   ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
@@ -393,7 +417,9 @@ void set_halo_values_x( realArr &state ) {
       
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
-      yakl::parallel_for( nz,hs , YAKL_LAMBDA (int k, int i) {
+      Kokkos::parallel_for( nz*hs , KOKKOS_LAMBDA (int iGlob) {
+        int k, i;
+        yakl::unpackIndices(iGlob,nz,hs,k,i);
         double z = (k_beg + k+0.5)*dz;
         if (abs(z-3*zlen/4) <= zlen/16) {
           state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
@@ -407,7 +433,7 @@ void set_halo_values_x( realArr &state ) {
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
-void set_halo_values_z( realArr &state ) {
+void set_halo_values_z( real3d &state ) {
   auto &nx = ::nx;
   auto &nz = ::nz;
   auto &xlen = ::xlen;
@@ -417,7 +443,9 @@ void set_halo_values_z( realArr &state ) {
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  yakl::parallel_for( NUM_VARS,nx+2*hs , YAKL_LAMBDA (int ll, int i) {
+  Kokkos::parallel_for( NUM_VARS*(nx+2*hs) , KOKKOS_LAMBDA (int iGlob) {
+    int ll, i;
+    yakl::unpackIndices(iGlob,NUM_VARS,nx+2*hs,ll,i);
     const real mnt_width = xlen/8;
     if (ll == ID_WMOM) {
       state(ll,0      ,i) = 0.;
@@ -473,25 +501,25 @@ void init( int *argc , char ***argv ) {
   masterproc = (myrank == 0);
 
   //Allocate the model data
-  state              = realArr( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
-  state_tmp          = realArr( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
-  flux               = realArr( "flux"      , NUM_VARS,nz+1   ,nx+1   );
-  tend               = realArr( "tend"      , NUM_VARS,nz     ,nx     );
-  mass2d             = doubArr( "mass2d"    , nz , nx );
-  te2d               = doubArr( "te2d"      , nz , nx );
-  hy_dens_cell       = realArr( "hy_dens_cell"       ,  nz+2*hs );
-  hy_dens_theta_cell = realArr( "hy_dens_theta_cell" ,  nz+2*hs );
-  hy_dens_int        = realArr( "hy_dens_int"        ,  nz+1    );
-  hy_dens_theta_int  = realArr( "hy_dens_theta_int"  ,  nz+1    );
-  hy_pressure_int    = realArr( "hy_pressure_int"    ,  nz+1    );
-  sendbuf_l          = realArr( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r          = realArr( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l          = realArr( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r          = realArr( "recvbuf_r" , NUM_VARS,nz,hs );
-  sendbuf_l_cpu      = realArrHost( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r_cpu      = realArrHost( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l_cpu      = realArrHost( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r_cpu      = realArrHost( "recvbuf_r" , NUM_VARS,nz,hs );
+  state              = real3d( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
+  state_tmp          = real3d( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
+  flux               = real3d( "flux"      , NUM_VARS,nz+1   ,nx+1   );
+  tend               = real3d( "tend"      , NUM_VARS,nz     ,nx     );
+  mass2d             = doub2d( "mass2d"    , nz , nx );
+  te2d               = doub2d( "te2d"      , nz , nx );
+  hy_dens_cell       = real1d( "hy_dens_cell"       ,  nz+2*hs );
+  hy_dens_theta_cell = real1d( "hy_dens_theta_cell" ,  nz+2*hs );
+  hy_dens_int        = real1d( "hy_dens_int"        ,  nz+1    );
+  hy_dens_theta_int  = real1d( "hy_dens_theta_int"  ,  nz+1    );
+  hy_pressure_int    = real1d( "hy_pressure_int"    ,  nz+1    );
+  sendbuf_l          = real3d( "sendbuf_l" , NUM_VARS,nz,hs );
+  sendbuf_r          = real3d( "sendbuf_r" , NUM_VARS,nz,hs );
+  recvbuf_l          = real3d( "recvbuf_l" , NUM_VARS,nz,hs );
+  recvbuf_r          = real3d( "recvbuf_r" , NUM_VARS,nz,hs );
+  sendbuf_l_cpu      = real3dHost( "sendbuf_l" , NUM_VARS,nz,hs );
+  sendbuf_r_cpu      = real3dHost( "sendbuf_r" , NUM_VARS,nz,hs );
+  recvbuf_l_cpu      = real3dHost( "recvbuf_l" , NUM_VARS,nz,hs );
+  recvbuf_r_cpu      = real3dHost( "recvbuf_r" , NUM_VARS,nz,hs );
 
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = min(dx,dz) / max_speed * cfl;
@@ -536,7 +564,10 @@ void init( int *argc , char ***argv ) {
 
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  yakl::parallel_for( nz+2*hs,nx+2*hs , YAKL_LAMBDA (int k, int i) {
+  Kokkos::parallel_for( (nz+2*hs)*(nx+2*hs) , KOKKOS_LAMBDA (int iGlob) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz+2*hs,nx+2*hs,k,i);
+
     //Initialize the state to zero
     for (int ll=0; ll<NUM_VARS; ll++) {
       state(ll,k,i) = 0.;
@@ -577,7 +608,7 @@ void init( int *argc , char ***argv ) {
 
   //Compute the hydrostatic background state over vertical cell averages
   // for (int k=0; k<nz+2*hs; k++) {
-  yakl::parallel_for( nz+2*hs , YAKL_LAMBDA (int k) {
+  Kokkos::parallel_for( nz+2*hs , KOKKOS_LAMBDA (int k) {
     hy_dens_cell      (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
     for (int kk=0; kk<nqpoints; kk++) {
@@ -596,7 +627,7 @@ void init( int *argc , char ***argv ) {
   });
   //Compute the hydrostatic background state at vertical cell interfaces
   // for (int k=0; k<nz+1; k++) {
-  yakl::parallel_for( nz+1 , YAKL_LAMBDA (int k) {
+  Kokkos::parallel_for( nz+1 , KOKKOS_LAMBDA (int k) {
     real z = (k_beg + k)*dz;
       real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
@@ -616,7 +647,7 @@ void init( int *argc , char ***argv ) {
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void injection( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void injection( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -629,7 +660,7 @@ YAKL_INLINE void injection( real x , real z , real &r , real &u , real &w , real
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void density_current( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -642,7 +673,7 @@ YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w 
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -658,7 +689,7 @@ YAKL_INLINE void turbulence( real x , real z , real &r , real &u , real &w , rea
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_bvfreq(z,0.02,hr,ht);
   r = 0.;
   t = 0.;
@@ -671,7 +702,7 @@ YAKL_INLINE void mountain_waves( real x , real z , real &r , real &u , real &w ,
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void thermal( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void thermal( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -685,7 +716,7 @@ YAKL_INLINE void thermal( real x , real z , real &r , real &u , real &w , real &
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+KOKKOS_INLINE_FUNCTION void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
@@ -699,7 +730,7 @@ YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real
 //Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
-YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
+KOKKOS_INLINE_FUNCTION void hydro_const_theta( real z , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
   real       p,exner,rt;
@@ -716,7 +747,7 @@ YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature
-YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
+KOKKOS_INLINE_FUNCTION void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
   real       p, exner, rt;
@@ -731,7 +762,7 @@ YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t 
 //Sample from an ellipse of a specified center, radius, and amplitude at a specified location
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
-YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
+KOKKOS_INLINE_FUNCTION real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
   real dist;
   //Compute distance from bubble center
   dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
@@ -747,20 +778,25 @@ YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , r
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( realArr &state , real etime ) {
+void output( real3d &state , real etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  realArr dens, uwnd, wwnd, theta;
+  real2d dens, uwnd, wwnd, theta;
+  real2dHost densHost, uwndHost, wwndHost, thetaHost;
   real etimearr[1];
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = realArr( "dens"     , nz,nx );
-  uwnd     = realArr( "uwnd"     , nz,nx );
-  wwnd     = realArr( "wwnd"     , nz,nx );
-  theta    = realArr( "theta"    , nz,nx );
+  dens      = real2d    ( "dens"      , nz,nx );
+  uwnd      = real2d    ( "uwnd"      , nz,nx );
+  wwnd      = real2d    ( "wwnd"      , nz,nx );
+  theta     = real2d    ( "theta"     , nz,nx );
+  densHost  = real2dHost( "densHost"  , nz,nx );
+  uwndHost  = real2dHost( "uwndHost"  , nz,nx );
+  wwndHost  = real2dHost( "wwndHost"  , nz,nx );
+  thetaHost = real2dHost( "thetaHost" , nz,nx );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -799,21 +835,35 @@ void output( realArr &state , real etime ) {
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( nz,nx , YAKL_LAMBDA (int k, int i) {
+  Kokkos::parallel_for( nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz,nx,k,i);
     dens (k,i) = state(ID_DENS,hs+k,hs+i);
     uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
     wwnd (k,i) = state(ID_WMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
     theta(k,i) = ( state(ID_RHOT,hs+k,hs+i) + hy_dens_theta_cell(hs+k) ) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) ) - hy_dens_theta_cell(hs+k) / hy_dens_cell(hs+k);
   });
-  yakl::fence();
+
+  #ifdef __USE_CUDA__
+    cudaMemcpyAsync( densHost .data() , dens .data() , nz*nx*sizeof(real) , cudaMemcpyDeviceToHost );
+    cudaMemcpyAsync( uwndHost .data() , uwnd .data() , nz*nx*sizeof(real) , cudaMemcpyDeviceToHost );
+    cudaMemcpyAsync( wwndHost .data() , wwnd .data() , nz*nx*sizeof(real) , cudaMemcpyDeviceToHost );
+    cudaMemcpyAsync( thetaHost.data() , theta.data() , nz*nx*sizeof(real) , cudaMemcpyDeviceToHost );
+  #else
+    Kokkos::deep_copy( densHost  , dens  );
+    Kokkos::deep_copy( uwndHost  , uwnd  );
+    Kokkos::deep_copy( wwndHost  , wwnd  );
+    Kokkos::deep_copy( thetaHost , theta );
+  #endif
+  Kokkos::fence();
 
   //Write the grid data to file with all the processes writing collectively
   st3[0] = num_out; st3[1] = k_beg; st3[2] = i_beg;
   ct3[0] = 1      ; ct3[1] = nz   ; ct3[2] = nx   ;
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  dens_varid , st3 , ct3 , dens .createHostCopy().data() ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  uwnd_varid , st3 , ct3 , uwnd .createHostCopy().data() ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd .createHostCopy().data() ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid , theta_varid , st3 , ct3 , theta.createHostCopy().data() ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_float_all( ncid ,  dens_varid , st3 , ct3 , densHost .data() ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_float_all( ncid ,  uwnd_varid , st3 , ct3 , uwndHost .data() ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_float_all( ncid ,  wwnd_varid , st3 , ct3 , wwndHost .data() ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_float_all( ncid , theta_varid , st3 , ct3 , thetaHost.data() ) , __LINE__ );
 
   //Only the master process needs to write the elapsed time
   //Begin "independent" write mode
@@ -848,19 +898,25 @@ void ncwrap( int ierr , int line ) {
 void finalize() {
   int ierr;
   ierr = MPI_Finalize();
-  hy_dens_cell      .deallocate();
-  hy_dens_theta_cell.deallocate();
-  hy_dens_int       .deallocate();
-  hy_dens_theta_int .deallocate();
-  hy_pressure_int   .deallocate();
-  state             .deallocate();
-  state_tmp         .deallocate();
-  flux              .deallocate();
-  tend              .deallocate();
-  sendbuf_l         .deallocate();
-  sendbuf_r         .deallocate();
-  recvbuf_l         .deallocate();
-  recvbuf_r         .deallocate();
+  hy_dens_cell       = real1d();
+  hy_dens_theta_cell = real1d();
+  hy_dens_int        = real1d();
+  hy_dens_theta_int  = real1d();
+  hy_pressure_int    = real1d();
+  state              = real3d();
+  state_tmp          = real3d();
+  flux               = real3d();
+  tend               = real3d();
+  sendbuf_l          = real3d();
+  sendbuf_r          = real3d();
+  recvbuf_l          = real3d();
+  recvbuf_r          = real3d();
+  sendbuf_l_cpu      = real3dHost();
+  sendbuf_r_cpu      = real3dHost();
+  recvbuf_l_cpu      = real3dHost();
+  recvbuf_r_cpu      = real3dHost();
+  mass2d             = doub2d();
+  te2d               = doub2d();
 }
 
 
@@ -876,7 +932,9 @@ void reductions( double &mass , double &te ) {
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( nz,nx , YAKL_LAMBDA (int k, int i) {
+  Kokkos::parallel_for( nz*nx , KOKKOS_LAMBDA (int iGlob) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz,nx,k,i);
     double r  =   state(ID_DENS,hs+k,hs+i) + hy_dens_cell(hs+k);             // Density
     double u  =   state(ID_UMOM,hs+k,hs+i) / r;                              // U-wind
     double w  =   state(ID_WMOM,hs+k,hs+i) / r;                              // W-wind
@@ -888,9 +946,25 @@ void reductions( double &mass , double &te ) {
     mass2d(k,i) = r        *dx*dz; // Accumulate domain mass
     te2d  (k,i) = (ke + ie)*dx*dz; // Accumulate domain total energy
   });
-  yakl::ParallelSum<double,yakl::memDevice> psum( nx*nz );
-  mass = psum( mass2d.data() );
-  te   = psum( te2d  .data() );
+
+  // Perform Kokkos reductions for mass and te
+  mass = 0;
+  Kokkos::parallel_reduce (nz*nx, KOKKOS_LAMBDA (int iGlob, double& update) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz,nx,k,i);
+    update += mass2d(k,i); 
+  }, mass);
+  mass = 0;
+  Kokkos::parallel_reduce (nz*nx, KOKKOS_LAMBDA (int iGlob, double& update) {
+    int k, i;
+    yakl::unpackIndices(iGlob,nz,nx,k,i);
+    update += te2d(k,i); 
+  }, te);
+
+  // YAKL's syntax is a bit easier
+  // yakl::ParallelSum<double,yakl::memDevice> psum( nx*nz );
+  // mass = psum( mass2d.data() );
+  // te   = psum( te2d  .data() );
 
   double glob[2], loc[2];
   loc[0] = mass;
