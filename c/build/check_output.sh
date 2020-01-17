@@ -24,6 +24,9 @@ if [[ "$3" == "" ]]; then
   exit -1
 fi
 
+if [[ ! -f $1 ]]; then
+  exit -1
+fi
 output=`$1`
 
 dmass=`echo "$output" | grep d_mass | awk '{print $2}'`
