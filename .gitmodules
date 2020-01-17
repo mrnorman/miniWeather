@@ -1,12 +1,15 @@
 [submodule "cpp/kokkos"]
 	path = cpp/kokkos
-	url = git@github.com:kokkos/kokkos.git
+	url = https://github.com/kokkos/kokkos.git
 [submodule "cpp/cub"]
 	path = cpp/cub
-	url = git@github.com:NVlabs/cub.git
+	url = https://github.com/NVlabs/cub.git
 [submodule "cpp/hipCUB"]
 	path = cpp/hipCUB
-	url = git@github.com:ROCmSoftwarePlatform/hipCUB.git
+	url = https://github.com/ROCmSoftwarePlatform/hipCUB.git
 [submodule "cpp/rocPRIM"]
 	path = cpp/rocPRIM
-	url = git@github.com:ROCmSoftwarePlatform/rocPRIM.git
+	url = https://github.com/ROCmSoftwarePlatform/rocPRIM.git
+[submodule "cpp/YAKL"]
+	path = cpp/YAKL
+	url = https://github.com/mrnorman/YAKL.git
