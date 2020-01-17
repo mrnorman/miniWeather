@@ -97,12 +97,11 @@ program miniweather
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !The x-direction length is twice as long as the z-direction length
   !So, you'll want to have nx_glob be twice as large as nz_glob
-  nx_glob = 200      !Number of total cells in the x-dirction
-  nz_glob = 100      !Number of total cells in the z-dirction
-  sim_time = 400     !How many seconds to run the simulation
-  output_freq = 10   !How frequently to output data to file (in seconds)
-  !Model setup: DATA_SPEC_THERMAL or DATA_SPEC_COLLISION
-  data_spec_int = DATA_SPEC_THERMAL
+  nx_glob = _NX        !Number of total cells in the x-dirction
+  nz_glob = _NZ        !Number of total cells in the z-dirction
+  sim_time = _SIM_TIME !How many seconds to run the simulation
+  output_freq = _OUT_FREQ  !How frequently to output data to file (in seconds)
+  data_spec_int = _DATA_SPEC !How to initialize the data
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! END USER-CONFIGURABLE PARAMETERS
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
