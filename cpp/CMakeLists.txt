@@ -55,6 +55,10 @@ include_directories(rocPRIM)
 ############################################################
 ## Add Kokkos 
 ############################################################
+if ("${ARCH}" STREQUAL "CUDA")
+#  set(KOKKOS_ENABLE_CUDA True)
+#  set(KOKKOS_ENABLE_CUDA_LAMBDA True)
+endif()
 add_subdirectory(kokkos)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/kokkos)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/kokkos/core/src)
@@ -101,8 +105,7 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ############################################################
 if ("${ARCH}" STREQUAL "CUDA")
   message(STATUS "Compiling YAKL code for CUDA")
-  set(EXE_DEFS "${EXE_DEFS} -D__USE_CUDA__")
-  set(TEST_DEFS "${TEST_DEFS} -D__USE_CUDA__")
+  set(CUDA_DEFS "-D__USE_CUDA__")
   set_source_files_properties(miniWeather_mpi_yakl.cpp PROPERTIES LANGUAGE CUDA)
   set_source_files_properties(miniWeather_mpi_yakl.cpp PROPERTIES COMPILE_FLAGS "${CUDA_FLAGS} -std=c++11 -ccbin=mpic++ --expt-extended-lambda")
 elseif("${ARCH}" STREQUAL "HIP")
@@ -111,40 +114,42 @@ endif()
 
 add_executable(yaklexe miniWeather_mpi_yakl.cpp)
 target_include_directories(yaklexe PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
+set_target_properties(yaklexe PROPERTIES COMPILE_FLAGS "${CUDA_DEFS} ${EXE_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
 set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS} ${OPENMP_FLAGS}")
 string(STRIP "${_LIBS}" _LIBS)
 target_link_libraries(yaklexe yakl "${_LIBS}")
 
 add_executable(yaklexe_test miniWeather_mpi_yakl.cpp)
 target_include_directories(yaklexe_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
+set_target_properties(yaklexe_test PROPERTIES COMPILE_FLAGS "${CUDA_DEFS} ${TEST_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
 target_link_libraries(yaklexe_test yakl "${_LIBS}")
 
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
 
 
 ############################################################
-## YAKL Parallel For Version
+## KOKKOS Parallel For Version
 ############################################################
-if ("${ARCH}" STREQUAL "CUDA")
-  message(STATUS "Compiling Kokkos code for CUDA")
-  set_source_files_properties(miniWeather_mpi_kokkos.cpp PROPERTIES LANGUAGE CUDA)
-  set_source_files_properties(miniWeather_mpi_kokkos.cpp PROPERTIES COMPILE_FLAGS "${CUDA_FLAGS} -std=c++11 -ccbin=mpic++ --expt-extended-lambda")
-elseif("${ARCH}" STREQUAL "HIP")
-  message(STATUS "WARNING: Kokkos has no HIP backend yet")
-endif()
+set(CUDA_DEFS )
+#if ("${ARCH}" STREQUAL "CUDA")
+#  message(STATUS "Compiling Kokkos code for CUDA")
+#  set(CUDA_DEFS "-D__USE_CUDA__")
+#  set_source_files_properties(miniWeather_mpi_kokkos.cpp PROPERTIES LANGUAGE CUDA)
+#  set_source_files_properties(miniWeather_mpi_kokkos.cpp PROPERTIES COMPILE_FLAGS "-std=c++11 -ccbin=mpic++ --expt-extended-lambda")
+#elseif("${ARCH}" STREQUAL "HIP")
+#  message(STATUS "WARNING: Kokkos has no HIP backend yet")
+#endif()
 
 add_executable(kokkosexe miniWeather_mpi_kokkos.cpp)
 target_include_directories(kokkosexe PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(kokkosexe PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
+set_target_properties(kokkosexe PROPERTIES COMPILE_FLAGS "${CUDA_DEFS} ${EXE_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
 set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS} ${OPENMP_FLAGS}")
 string(STRIP "${_LIBS}" _LIBS)
 target_link_libraries(kokkosexe kokkos "${_LIBS}")
 
 add_executable(kokkosexe_test miniWeather_mpi_kokkos.cpp)
 target_include_directories(kokkosexe_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(kokkosexe_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
+set_target_properties(kokkosexe_test PROPERTIES COMPILE_FLAGS "${CUDA_DEFS} ${TEST_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
 target_link_libraries(kokkosexe_test kokkos "${_LIBS}")
 
 add_test(NAME KOKKOS_TEST COMMAND ./check_output.sh ./kokkosexe_test 1e-9 4.5e-5 )
