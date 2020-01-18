@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include "const_kokkos.h"
+#include "const.h"
 #include "pnetcdf.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -27,11 +27,11 @@ int nranks, myrank;         //Number of MPI ranks and my rank id
 int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
 int masterproc;             //Am I the master process (rank == 0)?
 real data_spec_int;         //Which data initialization to use
-real1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
-real1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
-real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
-real1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
-real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+realArr hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
+realArr hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
+realArr hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
+realArr hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
+realArr hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are dynamics over the course of the simulation
@@ -39,16 +39,16 @@ real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions
 real etime;                 //Elapsed model time
 real output_counter;        //Helps determine when it's time to do output
 //Runtime variable arrays
-real3d state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-real3d state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-real3d flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
-real3d tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
+realArr state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
+realArr state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
+realArr flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
+realArr tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
 int  num_out = 0;           //The number of outputs performed so far
 int  direction_switch = 1;
-real3d sendbuf_l;           //Buffer to send data to the left MPI rank
-real3d sendbuf_r;           //Buffer to send data to the right MPI rank
-real3d recvbuf_l;           //Buffer to receive data from the left MPI rank
-real3d recvbuf_r;           //Buffer to receive data from the right MPI rank
+realArr sendbuf_l;           //Buffer to send data to the left MPI rank
+realArr sendbuf_r;           //Buffer to send data to the right MPI rank
+realArr recvbuf_l;           //Buffer to receive data from the left MPI rank
+realArr recvbuf_r;           //Buffer to receive data from the right MPI rank
 double mass0, te0;            //Initial domain totals for mass and total energy  
 double mass , te ;            //Domain totals for mass and total energy  
 ////////////////////////////////////////////////////////////
@@ -68,14 +68,14 @@ void collision            ( real x , real z , real &r , real &u , real &w , real
 void hydro_const_theta    ( real z                    , real &r , real &t );
 void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( real3d &state , real etime );
+void output               ( realArr &state , real etime );
 void ncwrap               ( int ierr , int line );
-void perform_timestep     ( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt );
-void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend );
-void compute_tendencies_x ( real3d &state , real3d &flux , real3d &tend );
-void compute_tendencies_z ( real3d &state , real3d &flux , real3d &tend );
-void set_halo_values_x    ( real3d &state );
-void set_halo_values_z    ( real3d &state );
+void perform_timestep     ( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt );
+void semi_discrete_step   ( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend );
+void compute_tendencies_x ( realArr &state , realArr &flux , realArr &tend );
+void compute_tendencies_z ( realArr &state , realArr &flux , realArr &tend );
+void set_halo_values_x    ( realArr &state );
+void set_halo_values_z    ( realArr &state );
 void reductions           ( double &mass , double &te );
 
 
@@ -83,7 +83,7 @@ void reductions           ( double &mass , double &te );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-  Kokkos::initialize();
+  yakl::init();
   {
     ///////////////////////////////////////////////////////////////////////////////////////
     // BEGIN USER-CONFIGURABLE PARAMETERS
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
 
     finalize();
   }
-  Kokkos::finalize();
+  yakl::finalize();
 }
 
 
@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt ) {
+void perform_timestep( realArr &state , realArr &state_tmp , realArr &flux , realArr &tend , real dt ) {
   if (direction_switch) {
     //x-direction first
     semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
@@ -175,7 +175,7 @@ void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend ) {
+void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr &state_out , real dt , int dir , realArr &flux , realArr &tend ) {
   int i, k, ll;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
@@ -207,7 +207,7 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
+void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
   SArray<real,4> stencil;
@@ -265,7 +265,7 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
+void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
   SArray<real,4> stencil;
@@ -328,7 +328,7 @@ void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( real3d &state ) {
+void set_halo_values_x( realArr &state ) {
   int k, ll, ind_r, ind_u, ind_t, i, s, ierr;
   double z;
   MPI_Request req_r[2], req_s[2];
@@ -408,7 +408,7 @@ void set_halo_values_x( real3d &state ) {
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
-void set_halo_values_z( real3d &state ) {
+void set_halo_values_z( realArr &state ) {
   int    i, ll;
   const real mnt_width = xlen/8;
   real       x, xloc, mnt_deriv;
@@ -472,19 +472,19 @@ void init( int *argc , char ***argv ) {
   masterproc = (myrank == 0);
 
   //Allocate the model data
-  state              = real3d( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
-  state_tmp          = real3d( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
-  flux               = real3d( "flux"      , NUM_VARS,nz+1   ,nx+1   );
-  tend               = real3d( "tend"      , NUM_VARS,nz     ,nx     );
-  hy_dens_cell       = real1d( "hy_dens_cell"       ,  nz+2*hs );
-  hy_dens_theta_cell = real1d( "hy_dens_theta_cell" ,  nz+2*hs );
-  hy_dens_int        = real1d( "hy_dens_int"        ,  nz+1    );
-  hy_dens_theta_int  = real1d( "hy_dens_theta_int"  ,  nz+1    );
-  hy_pressure_int    = real1d( "hy_pressure_int"    ,  nz+1    );
-  sendbuf_l          = real3d( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r          = real3d( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l          = real3d( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r          = real3d( "recvbuf_r" , NUM_VARS,nz,hs );
+  state              = realArr( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
+  state_tmp          = realArr( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
+  flux               = realArr( "flux"      , NUM_VARS,nz+1   ,nx+1   );
+  tend               = realArr( "tend"      , NUM_VARS,nz     ,nx     );
+  hy_dens_cell       = realArr( "hy_dens_cell"       ,  nz+2*hs );
+  hy_dens_theta_cell = realArr( "hy_dens_theta_cell" ,  nz+2*hs );
+  hy_dens_int        = realArr( "hy_dens_int"        ,  nz+1    );
+  hy_dens_theta_int  = realArr( "hy_dens_theta_int"  ,  nz+1    );
+  hy_pressure_int    = realArr( "hy_pressure_int"    ,  nz+1    );
+  sendbuf_l          = realArr( "sendbuf_l" , NUM_VARS,nz,hs );
+  sendbuf_r          = realArr( "sendbuf_r" , NUM_VARS,nz,hs );
+  recvbuf_l          = realArr( "recvbuf_l" , NUM_VARS,nz,hs );
+  recvbuf_r          = realArr( "recvbuf_r" , NUM_VARS,nz,hs );
   ////////////////////////////////////////////////////////////
   // TODO: ALLOCATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
   ////////////////////////////////////////////////////////////
@@ -730,21 +730,21 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( real3d &state , real etime ) {
+void output( realArr &state , real etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  real2d dens, uwnd, wwnd, theta;
-  real1d etimearr;
+  realArr dens, uwnd, wwnd, theta;
+  realArr etimearr;
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = real2d( "dens"     , nz,nx );
-  uwnd     = real2d( "uwnd"     , nz,nx );
-  wwnd     = real2d( "wwnd"     , nz,nx );
-  theta    = real2d( "theta"    , nz,nx );
-  etimearr = real1d( "etimearr" , 1     );
+  dens     = realArr( "dens"     , nz,nx );
+  uwnd     = realArr( "uwnd"     , nz,nx );
+  wwnd     = realArr( "wwnd"     , nz,nx );
+  theta    = realArr( "theta"    , nz,nx );
+  etimearr = realArr( "etimearr" , 1     );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -829,19 +829,19 @@ void ncwrap( int ierr , int line ) {
 void finalize() {
   int ierr;
   ierr = MPI_Finalize();
-  hy_dens_cell       = real1d();
-  hy_dens_theta_cell = real1d();
-  hy_dens_int        = real1d();
-  hy_dens_theta_int  = real1d();
-  hy_pressure_int    = real1d();
-  state              = real3d();
-  state_tmp          = real3d();
-  flux               = real3d();
-  tend               = real3d();
-  sendbuf_l          = real3d();
-  sendbuf_r          = real3d();
-  recvbuf_l          = real3d();
-  recvbuf_r          = real3d();
+  hy_dens_cell      .deallocate();
+  hy_dens_theta_cell.deallocate();
+  hy_dens_int       .deallocate();
+  hy_dens_theta_int .deallocate();
+  hy_pressure_int   .deallocate();
+  state             .deallocate();
+  state_tmp         .deallocate();
+  flux              .deallocate();
+  tend              .deallocate();
+  sendbuf_l         .deallocate();
+  sendbuf_r         .deallocate();
+  recvbuf_l         .deallocate();
+  recvbuf_r         .deallocate();
 }
 
 

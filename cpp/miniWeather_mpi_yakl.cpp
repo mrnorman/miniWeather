@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include "const_yakl.h"
+#include "const.h"
 #include "pnetcdf.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
