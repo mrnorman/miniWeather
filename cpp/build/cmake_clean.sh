@@ -2,5 +2,5 @@
 
 rm -rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake Testing mpi openacc \
        openmp serial openmp45 mpi_test openacc_test openmp_test serial_test openmp45_test YAKL kokkos \
-       output.nc yaklexe yaklexe_test kokkosexe kokkosexe_test
+       output.nc yaklexe yaklexe_test
 
