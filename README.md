@@ -94,6 +94,7 @@ Once the time tendency is computed, the fluid PDEs are essentially now cast as a
 * For OpenACC: An OpenACC-capable compiler (PGI, Cray, GNU)
 * For OpenMP: An OpenMP offload capable compiler (Cray, XL)
 * For C++ portability, Nvidia's CUB and AMD's hipCUB and rocPRIM are already included as submodules
+* CMake: https://cmake.org
 
 ## Basic Setup
 
@@ -107,21 +108,40 @@ git submodule update --init
 
 There are four main directories in the mini app: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. The C code is technically C++ code but only because I wanted to use the ampersand pass by reference notation rather than the hideious C asterisks.
 
+`miniWeather` uses the (https://cmake.org/)[CMake] build system, so you'll need to have `cmake` installed. Look at the `fortran/build/cmake_summit_[compiler].sh`, `c/build/cmake_summit_[compiler].sh`, and `cpp/build/cmake_summit_[compiler].sh` scripts for examples of how to run the `cmake` configuration in Fortra, C, and C++, respectively.
+
 ### C and Fortran
 
-To compile the code, first edit the `Makefile` and change the flags to point to your parallel-netcdf installation as well as change the flags based on which compiler you are using. There are five versions of the code in C and Fortran: serial, mpi, mpi+openmp, and mpi+openacc, mpi+openmp4.5. The filenames make it clear which file is associated with which programming paradigm. To make all of these at once, simply type `make`. To make them individually, you can type:
+To compile the code, first edit the `Makefile` and change the flags to point to your parallel-netcdf installation as well as change the flags based on which compiler you are using. There are five versions of the code in C and Fortran: serial, mpi, mpi+openmp, and mpi+openacc, mpi+openmp4.5. The filenames make it clear which file is associated with which programming paradigm.
 
+It's best to run the `cmake` configure from the `build` directories. For PGI, to enable OpenACC, and OpenMP, you'll need to specify:
+
+```bash
+cmake ... -DOPENACC_FLAGS="-ta=nvidia,cc??" # cc?? is, e.g. cc35, cc50, cc70, etc.
+                                            # It depends on what GPU you're using
+          -DOPENMP_FLAGS="-mp"
 ```
-make [serial|mpi|openmp|openacc|openmp45]
+
+For GNU, to enable OpenACC, OpenMP, and OpenMP offload, you'll need to specify:
+
+```bash
+cmake ... -DOPENACC_FLAGS="-fopenacc"
+          -DOPENMP45_FLAGS="-fopenmp"
+          -DOPENMP_FLAGS="-fopenmp"
 ```
+
+For IBM XL, to enable OpenMP and OpenMP offload, you'll need to specify:
+
+```bash
+cmake ... -DOPENMP45_FLAGS="-qsmp=omp -qoffload"
+          -DOPENMP_FLAGS="-qsmp=omp"
+```
+
+After the `cmake` configure, type `make -j` to build the code, and type `make test` to run the tests. The executables are named `serial`, `mpi`, `openmp`, `openmp45`, and `openacc`.
 
 ### C++
 
-For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel_for`. The latter uses the typical C++ kernel-launching approach, which is essentially CUDA with greater portability for multiple backends.
-
-```
-make [serial|mpi|parallefor]
-```
+For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel_for`. The latter uses a C++ kernel-launching approach, which is essentially CUDA with greater portability for multiple backends. This code also uses `cmake`, and you can use the summit scripts as examples. 
 
 ## Altering the Code's Configurations
 
@@ -349,7 +369,10 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
   //   for (int k=0; k<dom.nz; k++) {
   //     for (int j=0; j<dom.ny; j++) {
   //       for (int i=0; i<dom.nx; i++) {
-  yakl::parallel_for( numState,dom.nz,dom.ny,dom.nx , YAKL_LAMBDA (int l, int k, int j, int i) {
+  yakl::parallel_for( numState*dom.nz*dom.ny*dom.nx , YAKL_LAMBDA (int iGlob) {
+    int l, k, j, i;
+    yakl::unpackIndices(iGlob , numState,dom.nz,dom.ny,dom.nx , l,k,j,i);
+    
     state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
                                c1 * state1(l,hs+k,hs+j,hs+i) +
                                ct * dom.dt * tend(l,k,j,i);
@@ -364,7 +387,7 @@ https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-Open
 
 https://github.com/mrnorman/YAKL
 
-I strongly recommend moving to `parallel_for` while compiling for the CPU so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
+I strongly recommend moving to `parallel_for` while compiling for the **CPU** so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
 
 ### GPU Modifications
 
