@@ -200,7 +200,7 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
   //     for (i=0; i<nx; i++) {
   yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,num_vars,nz,nx,ll,k,i);
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
 
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
@@ -263,7 +263,7 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   //     for (i=0; i<nx; i++) {
   yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,num_vars,nz,nx,ll,k,i);
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
 
     tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
   });
@@ -331,7 +331,7 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   //     for (i=0; i<nx; i++) {
   yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,num_vars,nz,nx,ll,k,i);
+    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
 
     tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
     if (ll == ID_WMOM) {
@@ -443,7 +443,7 @@ void set_halo_values_z( realArr &state ) {
   //   for (i=0; i<nx+2*hs; i++) {
   yakl::parallel_for( NUM_VARS*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
     int ll, i;
-    yakl::unpackIndices(iGlob,NUM_VARS,nx+2*ns,ll,i);
+    yakl::unpackIndices(iGlob,NUM_VARS,nx+2*hs,ll,i);
 
     const real mnt_width = xlen/8;
     if (ll == ID_WMOM) {
@@ -906,6 +906,8 @@ void reductions( double &mass , double &te ) {
   auto &te2d               = ::te2d              ;
   auto &dx                 = ::dx                ;
   auto &dz                 = ::dz                ;
+  auto &nx                 = ::nx                ;
+  auto &nz                 = ::nz                ;
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
