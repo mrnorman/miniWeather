@@ -27,9 +27,9 @@ fi
 if [[ ! -f $1 ]]; then
   exit -1
 fi
-output=`$1`
+$1 > ${1}.output || exit -1
 
-dmass=`echo "$output" | grep d_mass | awk '{print $2}'`
+dmass=`grep d_mass ${1}.output | awk '{print $2}'`
 if [[ "$dmass" == "NaN" ]]; then
   printf "Mass change is NaN\n\n"
   exit -1
@@ -41,7 +41,7 @@ if (( `awk "BEGIN {val=$dmass; abs=val>0?val:-val; ret=abs<$2?0:-1; print ret}"`
   exit -1
 fi
 
-dte=`echo "$output" | grep d_te | awk '{print $2}'`
+dte=`grep d_te ${1}.output | awk '{print $2}'`
 if [[ "$dte" == "NaN" ]]; then
   printf "Total energy change is NaN\n\n"
   exit -1
@@ -56,4 +56,6 @@ if (( `awk "BEGIN {val=$dte; abs=val>0?val:-val; ret=abs<$3?0:-1; print ret}"` )
   printf "Total energy tolerance: $3"
   exit -1
 fi
+
+rm -f ${1}.output
 

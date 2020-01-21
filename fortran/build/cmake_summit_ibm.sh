@@ -8,5 +8,8 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DOPENMP45_FLAGS="-qsmp=omp -qoffload"        \
       -DFFLAGS="-O3"                                \
       -DLDFLAGS=""                                  \
+      -DNX=2000 \
+      -DNZ=1000 \
+      -DSIM_TIME=5 \
       ..
 

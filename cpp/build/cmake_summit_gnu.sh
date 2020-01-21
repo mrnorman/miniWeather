@@ -1,16 +1,17 @@
 #!/bin/bash
 
-##############################################################################
-## This requires gcc/8.1.1 on Summit right now
-##############################################################################
+# module load gcc cuda cmake netcdf netcdf-fortran
 
 ./cmake_clean.sh
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
-      -DCXXFLAGS="-O3"                              \
+      -DCXXFLAGS="-O3 -std=c++11"                   \
       -DARCH="CUDA"                                 \
-      -DCUDA_FLAGS="-arch sm_70"                    \
+      -DCUDA_FLAGS="-arch sm_70 -g"                 \
       -DLDFLAGS=""                                  \
+      -DNX=2000 \
+      -DNZ=1000 \
+      -DSIM_TIME=5 \
       ..
 

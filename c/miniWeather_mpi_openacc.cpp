@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <ctime>
+#include <iostream>
 #include <mpi.h>
 #include "pnetcdf.h"
 
@@ -149,6 +151,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
+  auto c_start = std::clock();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -165,6 +168,10 @@ int main(int argc, char **argv) {
 #pragma acc update host(state[0:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
       output(state,etime);
     }
+  }
+  auto c_end = std::clock();
+  if (masterproc) {
+    std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy
@@ -229,7 +236,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   }
 
   //Apply the tendencies to the fluid state
-#pragma acc parallel loop collapse(3) private(inds,indt) present(state_out,state_init,tend)
+#pragma acc parallel loop collapse(3) private(inds,indt)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -252,7 +259,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend ) {
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma acc parallel loop collapse(2) private(ll,s,inds,stencil,vals,d3_vals,r,u,w,t,p) present(flux,state)
+#pragma acc parallel loop collapse(2) private(ll,s,inds,stencil,vals,d3_vals,r,u,w,t,p)
   for (k=0; k<nz; k++) {
     for (i=0; i<nx+1; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -283,7 +290,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend ) {
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma acc parallel loop collapse(3) private(indt,indf1,indf2) present(tend,flux)
+#pragma acc parallel loop collapse(3) private(indt,indf1,indf2)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -307,7 +314,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma acc parallel loop collapse(2) private(ll,s,inds,stencil,vals,d3_vals,r,u,w,t,p) present(state,flux)
+#pragma acc parallel loop collapse(2) private(ll,s,inds,stencil,vals,d3_vals,r,u,w,t,p)
   for (k=0; k<nz+1; k++) {
     for (i=0; i<nx; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -343,7 +350,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend ) {
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma acc parallel loop collapse(3) private(indt,indf1,indf2) present(tend,flux,state)
+#pragma acc parallel loop collapse(3) private(indt,indf1,indf2)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -372,7 +379,7 @@ void set_halo_values_x( double *state ) {
   ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
-#pragma acc parallel loop collapse(3) present(sendbuf_l,sendbuf_r,state)
+#pragma acc parallel loop collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -394,7 +401,7 @@ void set_halo_values_x( double *state ) {
 #pragma acc update device(recvbuf_l[0:nz*hs*NUM_VARS],recvbuf_r[0:nz*hs*NUM_VARS])
 
   //Unpack the receive buffers
-#pragma acc parallel loop collapse(3) present(recvbuf_l,recvbuf_r,state)
+#pragma acc parallel loop collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -409,7 +416,7 @@ void set_halo_values_x( double *state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-#pragma acc parallel loop private(z,ind_r,ind_u,ind_t) collapse(2) present(state,hy_dens_cell,hy_dens_theta_cell)
+#pragma acc parallel loop private(z,ind_r,ind_u,ind_t) collapse(2)
       for (k=0; k<nz; k++) {
         for (i=0; i<hs; i++) {
           z = (k_beg + k+0.5)*dz;
@@ -433,7 +440,7 @@ void set_halo_values_z( double *state ) {
   int          i, ll;
   const double mnt_width = xlen/8;
   double       x, xloc, mnt_deriv;
-#pragma acc parallel loop collapse(2) private(x,xloc,mnt_deriv) present(state)
+#pragma acc parallel loop collapse(2) private(x,xloc,mnt_deriv)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (i=0; i<nx+2*hs; i++) {
       if (ll == ID_WMOM) {
@@ -864,7 +871,7 @@ void finalize() {
 void reductions( double &mass , double &te ) {
   double mass_loc = 0;
   double te_loc   = 0;
-  #pragma acc parallel loop collapse(2) reduction(+:mass_loc,te_loc) present(state)
+  #pragma acc parallel loop collapse(2) reduction(+:mass_loc,te_loc)
   for (int k=0; k<nz; k++) {
     for (int i=0; i<nx; i++) {
       int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;

@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <ctime>
+#include <iostream>
 #include <mpi.h>
 #include "pnetcdf.h"
 
@@ -149,6 +151,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
+  auto c_start = std::clock();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -165,6 +168,10 @@ int main(int argc, char **argv) {
 #pragma omp target update from(state[:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
       output(state,etime);
     }
+  }
+  auto c_end = std::clock();
+  if (masterproc) {
+    std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy

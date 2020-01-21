@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
+#include <ctime>
 #include "const.h"
 #include "pnetcdf.h"
 
@@ -103,6 +104,7 @@ int main(int argc, char **argv) {
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
     ////////////////////////////////////////////////////
+    auto c_start = std::clock();
     while (etime < sim_time) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
       if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -118,6 +120,10 @@ int main(int argc, char **argv) {
         output_counter = output_counter - output_freq;
         output(state,etime);
       }
+    }
+    auto c_end = std::clock();
+    if (masterproc) {
+      std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
     }
 
     //Final reductions for mass, kinetic energy, and total energy
@@ -693,16 +699,15 @@ void output( realArr &state , real etime ) {
   int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  realArr dens, uwnd, wwnd, theta;
-  realArr etimearr;
+  doubArr dens, uwnd, wwnd, theta;
+  double etimearr[1];
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = realArr( "dens"     , nz,nx );
-  uwnd     = realArr( "uwnd"     , nz,nx );
-  wwnd     = realArr( "wwnd"     , nz,nx );
-  theta    = realArr( "theta"    , nz,nx );
-  etimearr = realArr( "etimearr" , 1     );
+  dens     = doubArr( "dens"     , nz,nx );
+  uwnd     = doubArr( "uwnd"     , nz,nx );
+  wwnd     = doubArr( "wwnd"     , nz,nx );
+  theta    = doubArr( "theta"    , nz,nx );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -749,10 +754,10 @@ void output( realArr &state , real etime ) {
   //Write the grid data to file with all the processes writing collectively
   st3[0] = num_out; st3[1] = k_beg; st3[2] = i_beg;
   ct3[0] = 1      ; ct3[1] = nz   ; ct3[2] = nx   ;
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  dens_varid , st3 , ct3 , dens.data()  ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  uwnd_varid , st3 , ct3 , uwnd.data()  ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd.data()  ) , __LINE__ );
-  ncwrap( ncmpi_put_vara_float_all( ncid , theta_varid , st3 , ct3 , theta.data() ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_double_all( ncid ,  dens_varid , st3 , ct3 , dens.data()  ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_double_all( ncid ,  uwnd_varid , st3 , ct3 , uwnd.data()  ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_double_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd.data()  ) , __LINE__ );
+  ncwrap( ncmpi_put_vara_double_all( ncid , theta_varid , st3 , ct3 , theta.data() ) , __LINE__ );
 
   //Only the master process needs to write the elapsed time
   //Begin "independent" write mode
@@ -761,7 +766,7 @@ void output( realArr &state , real etime ) {
   if (masterproc) {
     st1[0] = num_out;
     ct1[0] = 1;
-    etimearr(0) = etime; ncwrap( ncmpi_put_vara_float( ncid , t_varid , st1 , ct1 , etimearr.data() ) , __LINE__ );
+    etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
   }
   //End "independent" write mode
   ncwrap( ncmpi_end_indep_data(ncid) , __LINE__ );

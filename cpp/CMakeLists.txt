@@ -99,6 +99,7 @@ if ("${ARCH}" STREQUAL "CUDA")
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${CUDA_FLAGS} -std=c++11 -ccbin=mpic++ --expt-extended-lambda")
 elseif("${ARCH}" STREQUAL "HIP")
   SET(EXE_DEFS "${EXE_DEFS} -D__USE_HIP__")
+  SET(EXE_DEFS "${TEST_DEFS} -D__USE_HIP__")
 endif()
 
 add_executable(yaklexe miniWeather_mpi_parallelfor.cpp)
