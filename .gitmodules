@@ -1,6 +1,3 @@
-[submodule "cpp/kokkos"]
-	path = cpp/kokkos
-	url = https://github.com/kokkos/kokkos.git
 [submodule "cpp/cub"]
 	path = cpp/cub
 	url = https://github.com/NVlabs/cub.git
