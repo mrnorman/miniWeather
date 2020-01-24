@@ -1,6 +1,9 @@
 #!/bin/bash
 
-# module load gcc cuda cmake netcdf netcdf-fortran
+# BEFORE RUNNING THIS SCRIPT ON LYRA:
+
+# module load rocm hip openmpi cmake
+# export OMPI_CXX=hipcc
 
 ./cmake_clean.sh
 
