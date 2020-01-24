@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(miniWeather CXX CUDA)
+project(miniWeather CXX)
 
 enable_testing()
 
@@ -84,6 +84,7 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ## YAKL Version
 ############################################################
 if ("${ARCH}" STREQUAL "CUDA")
+  enable_language(CUDA)
   message(STATUS "Compiling YAKL code for CUDA")
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS}  -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
