@@ -145,7 +145,17 @@ For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel
 
 ## Altering the Code's Configurations
 
-There are four aspects of the configuration you can edit easily, and they are clearly labeled in the code as “USER-CONFIGURABLE PARAMETERS”. These include: (1) the number of cells to use (`nx_glob` and `nz_glob`); (2) the amount of time to simulate (`sim_time`); (3) the frequency to output data to file ('output_freq'); and (4) the initial data to use (`data_spec_int`). 
+To alter the configuration of the code, you can control the number of cells in the x- and z-directions, the length of simulation time, the output frequency, and the initial data to use by passing the following variables to the CMake configuration:
+
+* `-D_NX=400`: Uses 400 cells in the x-direction
+* `-D_NZ=200`: Uses 200 cells in the z-direction
+* `-D_SIM_TIME=1000`: Simulates for 1,000 seconds model time
+* `-D_OUT_FREQ=10`: Outputs every 10 seconds model time
+* `-D_DATA_SPEC=DATA_SPEC_THERMAL`: Initializes a rising thermal
+
+It's best if you keep `_NX` exactly twice the value of `_NZ` since the domain is 20km x 10km. 
+
+The data specifications are `DATA_SPEC_COLLISION`, `DATA_SPEC_THERMAL`, `DATA_SPEC_MOUNTAIN`, `DATA_SPEC_DENSITY_CURRENT`, and `DATA_SPEC_INJECTION`, and each are described later on.
 
 ## Running the Code
 
@@ -155,7 +165,7 @@ To run the code, simply call:
 mpirun -n [# ranks] ./mini_weather_[version]
 ```
 
-Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Titan uses `aprun`).
+Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Summit uses `jsrun`).
 
 ## Viewing the Output
 
@@ -442,8 +452,9 @@ Because if you've refactored your code to use kernel launching (i.e., CUDA), you
 
 I chose not to use the mainline C++ portability frameworks for two main reasons.
 
-1. It's easier to compile and managed things with a C++ performance portability layer that's only 1K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
-2. With `YAKL.h` and `Array.h`, you can see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
+1. It's easier to compile and managed things with a C++ performance portability layer that's < 3K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
+2. Kokkos in particular would not play nicely with the rest of the code in the CMake project. Likely if a Kokkos version is added, it will need to be a completely separate project and directory.
+3. With `YAKL.h` and `Array.h`, you can see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
 
 # Numerical Experiments
 
@@ -621,6 +632,8 @@ If you wnat to do scaling studies with miniWeather, this section will be importa
   * More precisely, the time step is directly proportional to the minimum grid spacing. The x- and y-direction grid spacingsb are: `dx=20km/nx_glob` and `dz=10km/nz_glob`. So as you decrease the minimum grid spacing (by increasing `nx_glob` and/or `nz_glob`), you proportionally decrease the size of the time step and therefore proportionally increase the number of time steps you need to complete the simulation (thus proportionally increasing the expected walltime).
 * The larger the problem size, `nx_glob` and `nz_glob`, the lower the relative parallel overheads will be. You can get to a point where there isn't enough work on the accelerator to keep it busy and / or enough local work to amortize parallel overheads. At this point, you'll need to increase the problem size to see better scaling. This is a typical [Amdahl's Law](https://en.wikipedia.org/wiki/Amdahl%27s_law) situation.
 
+Remember that you can control each of these parameters through the CMake configure.
+
 # Checking for Correctness
 
 ## Domain-Integrated Mass and Total Energy
@@ -646,12 +659,17 @@ Also, it is assumed you have not changed any other default parameters such as `x
 
 From there, you can scale up to any problem size or node count you wish. The relative change in total energy should always be negative, and the magnitude should always be less than `4.5e-5`. If the magnitude is larger than this, or if the value is positive, then you have introduced a bug. As you increase the problem size, the energy is always better conserved. These total energy change values are valid for single precision in C++ as well.
 
+**You can run `make test` from the `build` directory of each language folder to run all of the available tests for a given compiler and compiler flags from the CMake configure, and it will automatically check mass and total energy change for you. The tests also automatically set the number of cells, the data specification, and the simulation time for you.**
+
 ## NetCDF Files
 
 Your other option is to create two baseline NetCDF files whose answers you trust: (1) with `-O0` optimizations; and (2) with `-O3` optimizations. Then, you can use the following python script to do a 3-way diff between the two baselines and the refactored code. The refactored diff should be of the same order of magnitude as the baseline compiler optimization diffs. Note that if you run for too long, non-linear chaotic amplification of the initially small differences will eventually be come too large to make for a useful comparison, so try to limit the simulation time to, say, 400 seconds or less.
 
 The reason you have to go to all of this trouble is because of chaotic amplification of initially small differences (the same reason you can't predict weather reliably past a few days). Therefore, you can't compare snapshots to machine precision tolerance.
 
+<details><summary>Click here to expand python script</summary>
+ <p>
+  
 ```python
 import netCDF4
 import sys
@@ -725,6 +743,8 @@ for v in nc1.variables.keys() :
     if (normRatio > 2) :
       print(v.ljust(20)+":  %20.10e  ,  %20.10e  ,  %20.10e"%(norm12,norm23,norm23/norm12))
 ```
+</p>
+</details>
 
 # Further Resources
 
