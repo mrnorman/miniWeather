@@ -56,16 +56,12 @@ include_directories(rocPRIM)
 ## Compile the serial version
 ############################################################
 add_executable(serial miniWeather_serial.cpp)
-target_include_directories(serial PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(serial PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
-set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
-string(STRIP "${_LIBS}" _LIBS)
-target_link_libraries(serial yakl "${_LIBS}")
+set_source_files_properties(miniWeather_serial.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
+target_link_libraries(serial yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(serial_test miniWeather_serial.cpp)
-target_include_directories(serial_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(serial_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(serial_test yakl "${_LIBS}")
+set_source_files_properties(miniWeather_serial.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
+target_link_libraries(serial_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 
@@ -74,16 +70,12 @@ add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 ## Compile the MPI version
 ############################################################
 add_executable(mpi miniWeather_mpi.cpp)
-target_include_directories(mpi PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(mpi PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
-set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
-string(STRIP "${_LIBS}" _LIBS)
-target_link_libraries(mpi yakl "${_LIBS}")
+set_source_files_properties(miniWeather_mpi.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
+target_link_libraries(mpi yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(mpi_test miniWeather_mpi.cpp)
-target_include_directories(mpi_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(mpi_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(mpi_test yakl "${_LIBS}")
+set_source_files_properties(miniWeather_mpi.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
+target_link_libraries(mpi_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 ) 
 
@@ -93,26 +85,20 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ############################################################
 if ("${ARCH}" STREQUAL "CUDA")
   message(STATUS "Compiling YAKL code for CUDA")
-  set(EXE_DEFS "${EXE_DEFS} -D__USE_CUDA__")
-  set(TEST_DEFS "${TEST_DEFS} -D__USE_CUDA__")
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${CUDA_FLAGS} -std=c++11 -ccbin=mpic++ --expt-extended-lambda")
+  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS}  -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 elseif("${ARCH}" STREQUAL "HIP")
-  SET(EXE_DEFS "${EXE_DEFS} -D__USE_HIP__")
-  SET(EXE_DEFS "${TEST_DEFS} -D__USE_HIP__")
+  message(STATUS "Compiling YAKL code for HIP")
+  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 endif()
 
 add_executable(yaklexe miniWeather_mpi_parallelfor.cpp)
-target_include_directories(yaklexe PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
-set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS} ${OPENMP_FLAGS}")
-string(STRIP "${_LIBS}" _LIBS)
-target_link_libraries(yaklexe yakl "${_LIBS}")
+set_target_properties(yaklexe PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(yaklexe yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(yaklexe_test miniWeather_mpi_parallelfor.cpp)
-target_include_directories(yaklexe_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${OPENMP_FLAGS}" LINKER_LANGUAGE CUDA)
-target_link_libraries(yaklexe_test yakl "${_LIBS}")
+set_target_properties(yaklexe_test PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(yaklexe_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
 
