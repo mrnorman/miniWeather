@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.0)
 project(miniWeather CXX)
 
 enable_testing()
@@ -83,23 +83,23 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ############################################################
 ## YAKL Version
 ############################################################
-if ("${ARCH}" STREQUAL "CUDA")
-  enable_language(CUDA)
-  message(STATUS "Compiling YAKL code for CUDA")
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS}  -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
-elseif("${ARCH}" STREQUAL "HIP")
-  message(STATUS "Compiling YAKL code for HIP")
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
-endif()
-
 add_executable(yaklexe miniWeather_mpi_parallelfor.cpp)
 set_target_properties(yaklexe PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(yaklexe yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
+if ("${ARCH}" STREQUAL "CUDA")
+  enable_language(CUDA)
+  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
+endif()
+set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 
 add_executable(yaklexe_test miniWeather_mpi_parallelfor.cpp)
 set_target_properties(yaklexe_test PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(yaklexe_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
+if ("${ARCH}" STREQUAL "CUDA")
+  enable_language(CUDA)
+  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
+endif()
+set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
 
