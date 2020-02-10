@@ -15,6 +15,10 @@
 #include <ctime>
 #include <iostream>
 
+using yakl::c::Bounds;
+using yakl::c::parallel_for;
+using yakl::SArray;
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are initialized but remain static over the coure of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -204,9 +208,9 @@ void semi_discrete_step( realArr &state_init , realArr &state_forcing , realArr 
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
+  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int const indices[] ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+    yakl::storeIndices( indices , ll,k,i );
 
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
@@ -228,9 +232,9 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
-  yakl::parallel_for( nz*(nx+1) , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(nz,nx+1) , YAKL_LAMBDA (int const indices[] ) {
     int k, i;
-    yakl::unpackIndices(iGlob,nz,nx+1,k,i);
+    yakl::storeIndices( indices , k,i );
 
     SArray<real,4> stencil;
     SArray<real,NUM_VARS> d3_vals;
@@ -267,9 +271,9 @@ void compute_tendencies_x( realArr &state , realArr &flux , realArr &tend ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
+  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int const indices[] ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+    yakl::storeIndices(indices , ll,k,i);
 
     tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
   });
@@ -292,9 +296,9 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( (nz+1)*nx , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(nz+1,nx) , YAKL_LAMBDA (int const indices[]) {
     int k, i;
-    yakl::unpackIndices(iGlob,nz+1,nx,k,i);
+    yakl::storeIndices(indices , k,i);
 
     SArray<real,4> stencil;
     SArray<real,NUM_VARS> d3_vals;
@@ -335,9 +339,9 @@ void compute_tendencies_z( realArr &state , realArr &flux , realArr &tend ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  yakl::parallel_for( NUM_VARS*nz*nx , YAKL_LAMBDA ( int iGlob ) {
+  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int const indices[] ) {
     int ll, k, i;
-    yakl::unpackIndices(iGlob,NUM_VARS,nz,nx,ll,k,i);
+    yakl::storeIndices(indices , ll,k,i);
 
     tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
     if (ll == ID_WMOM) {
@@ -375,9 +379,9 @@ void set_halo_values_x( realArr &state ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  yakl::parallel_for( NUM_VARS*nz*hs , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int const indices[]) {
     int ll, k, s;
-    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
+    yakl::storeIndices(indices , ll,k,s);
 
     sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
     sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
@@ -405,9 +409,9 @@ void set_halo_values_x( realArr &state ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  yakl::parallel_for( NUM_VARS*nz*hs , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int const indices[]) {
     int ll, k, s;
-    yakl::unpackIndices(iGlob,NUM_VARS,nz,hs,ll,k,s);
+    yakl::storeIndices(indices , ll,k,s);
 
     state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
     state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
@@ -427,9 +431,9 @@ void set_halo_values_x( realArr &state ) {
       
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
-      yakl::parallel_for( nz*hs , YAKL_LAMBDA (int iGlob) {
+      parallel_for( Bounds<2>(nz,hs) , YAKL_LAMBDA (int const indices[]) {
         int k, i;
-        yakl::unpackIndices(iGlob,nz,hs,k,i);
+        yakl::storeIndices(indices , k,i);
 
         double z = (k_beg + k+0.5)*dz;
         if (abs(z-3*zlen/4) <= zlen/16) {
@@ -454,9 +458,9 @@ void set_halo_values_z( realArr &state ) {
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  yakl::parallel_for( NUM_VARS*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(NUM_VARS,nx+2*hs) , YAKL_LAMBDA (int const indices[]) {
     int ll, i;
-    yakl::unpackIndices(iGlob,NUM_VARS,nx+2*hs,ll,i);
+    yakl::storeIndices(indices , ll,i);
 
     const real mnt_width = xlen/8;
     if (ll == ID_WMOM) {
@@ -576,9 +580,9 @@ void init( int *argc , char ***argv ) {
 
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  yakl::parallel_for( (nz+2*hs)*(nx+2*hs) , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(nz+2*hs,nx+2*hs) , YAKL_LAMBDA (int const indices[]) {
     int k, i;
-    yakl::unpackIndices(iGlob,nz+2*hs,nx+2*hs,k,i);
+    yakl::storeIndices(indices , k,i);
 
     //Initialize the state to zero
     for (int ll=0; ll<NUM_VARS; ll++) {
@@ -620,7 +624,10 @@ void init( int *argc , char ***argv ) {
 
   //Compute the hydrostatic background state over vertical cell averages
   // for (int k=0; k<nz+2*hs; k++) {
-  yakl::parallel_for( nz+2*hs , YAKL_LAMBDA (int k) {
+  parallel_for( Bounds<1>(nz+2*hs) , YAKL_LAMBDA (int const indices[]) {
+    int k;
+    yakl::storeIndices( indices , k );
+
     hy_dens_cell      (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
     for (int kk=0; kk<nqpoints; kk++) {
@@ -639,9 +646,12 @@ void init( int *argc , char ***argv ) {
   });
   //Compute the hydrostatic background state at vertical cell interfaces
   // for (int k=0; k<nz+1; k++) {
-  yakl::parallel_for( nz+1 , YAKL_LAMBDA (int k) {
+  parallel_for( Bounds<1>(nz+1) , YAKL_LAMBDA (int const indices[]) {
+    int k;
+    yakl::storeIndices( indices , k );
+
     real z = (k_beg + k)*dz;
-      real r, u, w, t, hr, ht;
+    real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
@@ -842,9 +852,9 @@ void output( realArr &state , real etime ) {
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( nz*nx , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(nz,nx) , YAKL_LAMBDA (int const indices[]) {
     int k, i;
-    yakl::unpackIndices(iGlob,nz,nx,k,i);
+    yakl::storeIndices(indices , k,i);
 
     dens (k,i) = state(ID_DENS,hs+k,hs+i);
     uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
@@ -924,9 +934,9 @@ void reductions( double &mass , double &te ) {
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  yakl::parallel_for( nz*nx , YAKL_LAMBDA (int iGlob) {
+  parallel_for( Bounds<2>(nz,nx) , YAKL_LAMBDA (int const indices[]) {
     int k, i;
-    yakl::unpackIndices(iGlob,nz,nx,k,i);
+    yakl::storeIndices(indices , k,i);
 
     double r  =   state(ID_DENS,hs+k,hs+i) + hy_dens_cell(hs+k);             // Density
     double u  =   state(ID_UMOM,hs+k,hs+i) / r;                              // U-wind
