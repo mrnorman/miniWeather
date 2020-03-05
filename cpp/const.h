@@ -4,7 +4,6 @@
 
 #include "YAKL.h"
 #include <cmath>
-#include "SArray.h"
 #include "Array.h"
 
 using yakl::SArray;
@@ -16,14 +15,26 @@ inline real operator"" _fp( long double x ) {
 }
 
 #if defined(__USE_CUDA__) || defined(__USE_HIP__)
-  typedef yakl::Array<real  ,yakl::memDevice> realArr;
-  typedef yakl::Array<double,yakl::memDevice> doubArr;
+  typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
+  typedef yakl::Array<real  ,2,yakl::memDevice> real2d;
+  typedef yakl::Array<real  ,3,yakl::memDevice> real3d;
+  typedef yakl::Array<double,1,yakl::memDevice> doub1d;
+  typedef yakl::Array<double,2,yakl::memDevice> doub2d;
+  typedef yakl::Array<double,3,yakl::memDevice> doub3d;
 #else
-  typedef yakl::Array<real  ,yakl::memHost> realArr;
-  typedef yakl::Array<double,yakl::memHost> doubArr;
+  typedef yakl::Array<real  ,1,yakl::memHost> real1d;
+  typedef yakl::Array<real  ,2,yakl::memHost> real2d;
+  typedef yakl::Array<real  ,3,yakl::memHost> real3d;
+  typedef yakl::Array<double,1,yakl::memHost> doub1d;
+  typedef yakl::Array<double,2,yakl::memHost> doub2d;
+  typedef yakl::Array<double,3,yakl::memHost> doub3d;
 #endif
-typedef yakl::Array<real  ,yakl::memHost> realArrHost;
-typedef yakl::Array<double,yakl::memHost> doubArrHost;
+  typedef yakl::Array<real  ,1,yakl::memHost> real1dHost;
+  typedef yakl::Array<real  ,2,yakl::memHost> real2dHost;
+  typedef yakl::Array<real  ,3,yakl::memHost> real3dHost;
+  typedef yakl::Array<double,1,yakl::memHost> doub1dHost;
+  typedef yakl::Array<double,2,yakl::memHost> doub2dHost;
+  typedef yakl::Array<double,3,yakl::memHost> doub3dHost;
 
 constexpr real pi        = 3.14159265358979323846264338327;   //Pi
 constexpr real grav      = 9.8;                               //Gravitational acceleration (m / s^2)
