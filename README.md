@@ -108,7 +108,7 @@ git submodule update --init
 
 There are four main directories in the mini app: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. The C code is technically C++ code but only because I wanted to use the ampersand pass by reference notation rather than the hideious C asterisks.
 
-`miniWeather` uses the (https://cmake.org/)[CMake] build system, so you'll need to have `cmake` installed. Look at the `fortran/build/cmake_summit_[compiler].sh`, `c/build/cmake_summit_[compiler].sh`, and `cpp/build/cmake_summit_[compiler].sh` scripts for examples of how to run the `cmake` configuration in Fortra, C, and C++, respectively.
+`miniWeather` uses the [CMake](https://cmake.org/) build system, so you'll need to have `cmake` installed. Look at the `fortran/build/cmake_summit_[compiler].sh`, `c/build/cmake_summit_[compiler].sh`, and `cpp/build/cmake_summit_[compiler].sh` scripts for examples of how to run the `cmake` configuration in Fortra, C, and C++, respectively.
 
 ### C and Fortran
 
