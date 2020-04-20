@@ -379,10 +379,7 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
   //   for (int k=0; k<dom.nz; k++) {
   //     for (int j=0; j<dom.ny; j++) {
   //       for (int i=0; i<dom.nx; i++) {
-  yakl::parallel_for( numState*dom.nz*dom.ny*dom.nx , YAKL_LAMBDA (int iGlob) {
-    int l, k, j, i;
-    yakl::unpackIndices(iGlob , numState,dom.nz,dom.ny,dom.nx , l,k,j,i);
-    
+  yakl::parallel_for( numState*dom.nz*dom.ny*dom.nx , YAKL_LAMBDA (int l, int k, int j, int i) {
     state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
                                c1 * state1(l,hs+k,hs+j,hs+i) +
                                ct * dom.dt * tend(l,k,j,i);
