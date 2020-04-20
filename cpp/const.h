@@ -4,7 +4,6 @@
 
 #include "YAKL.h"
 #include <cmath>
-#include "Array.h"
 
 using yakl::SArray;
 

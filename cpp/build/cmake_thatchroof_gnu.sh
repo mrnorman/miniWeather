@@ -10,6 +10,6 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DNX=2000 \
       -DNZ=1000 \
       -DSIM_TIME=5 \
+      -DARCH="CUDA"                                 \
       ..
 
-#     -DARCH="CUDA"                                 \

@@ -209,9 +209,9 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
-  SArray<real,4> stencil;
-  SArray<real,NUM_VARS> d3_vals;
-  SArray<real,NUM_VARS> vals;
+  SArray<real,1,4> stencil;
+  SArray<real,1,NUM_VARS> d3_vals;
+  SArray<real,1,NUM_VARS> vals;
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   /////////////////////////////////////////////////
@@ -267,9 +267,9 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
 void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
-  SArray<real,4> stencil;
-  SArray<real,NUM_VARS> d3_vals;
-  SArray<real,NUM_VARS> vals;
+  SArray<real,1,4> stencil;
+  SArray<real,1,NUM_VARS> d3_vals;
+  SArray<real,1,NUM_VARS> vals;
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   /////////////////////////////////////////////////
@@ -470,8 +470,8 @@ void init( int *argc , char ***argv ) {
 
   // Define quadrature weights and points
   const int nqpoints = 3;
-  SArray<real,nqpoints> qpoints;
-  SArray<real,nqpoints> qweights;
+  SArray<real,1,nqpoints> qpoints;
+  SArray<real,1,nqpoints> qweights;
 
   qpoints(0) = 0.112701665379258311482073460022;
   qpoints(1) = 0.500000000000000000000000000000;
