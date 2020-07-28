@@ -878,6 +878,8 @@ void finalize() {
   sendbuf_r         .deallocate();
   recvbuf_l         .deallocate();
   recvbuf_r         .deallocate();
+  mass2d            .deallocate();
+  te2d              .deallocate();
 }
 
 
