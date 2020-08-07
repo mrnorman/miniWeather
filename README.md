@@ -122,6 +122,8 @@ make
 make test
 ```
 
+To run the code after confirming the tests pass, you can launch the executable of your choice with `mpirun -n [# tasks] ./executable_name`.
+
 **Summit**: On OLCF's Summit computer (and several other computers), you need to have an allocation loaded in order to run the code. You cannot run the code on the login nodes because the code is compiled for `spectrum-mpi`, which will give a segmentation fault unless you run the executable with `jsrun`. It's easiest to grab an interactive allocation on one node for two hours. Each Summit node has six GPUs and 42 CPU cores.
 
 ### C and Fortran
