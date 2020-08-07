@@ -20,6 +20,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
   * [Software Dependencies](#software-dependencies)
   * [Basic Setup](#basic-setup)
   * [Directories and Compiling](#directories-and-compiling)
+  * [Building and Testing Workflow](#building-and-testing-workflow)
   * [Altering the Code's Configurations](#altering-the-codes-configurations)
   * [Running the Code](#running-the-code)
   * [Viewing the Output](#viewing-the-output)
@@ -109,6 +110,19 @@ git submodule update --init
 There are four main directories in the mini app: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. The C code is technically C++ code but only because I wanted to use the ampersand pass by reference notation rather than the hideious C asterisks.
 
 `miniWeather` uses the (https://cmake.org/)[CMake] build system, so you'll need to have `cmake` installed. Look at the `fortran/build/cmake_summit_[compiler].sh`, `c/build/cmake_summit_[compiler].sh`, and `cpp/build/cmake_summit_[compiler].sh` scripts for examples of how to run the `cmake` configuration in Fortra, C, and C++, respectively.
+
+## Building and Testing Workflow
+
+Note that you must source the cmake scripts in the `build/` directores because they do module loading and set a `TEST_MPI_COMMAND` environment variable becaus it will differ from machine to machine.
+
+```bash
+cd miniWeather/c/build
+source cmake_[machine]_[compiler].sh
+make
+make test
+```
+
+**Summit**: On OLCF's Summit computer (and several other computers), you need to have an allocation loaded in order to run the code. You cannot run the code on the login nodes because the code is compiled for `spectrum-mpi`, which will give a segmentation fault unless you run the executable with `jsrun`. It's easiest to grab an interactive allocation on one node for two hours. Each Summit node has six GPUs and 42 CPU cores.
 
 ### C and Fortran
 
