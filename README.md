@@ -116,7 +116,7 @@ There are four main directories in the mini app: (1) a Fortran source directory;
 Note that you must source the cmake scripts in the `build/` directores because they do module loading and set a `TEST_MPI_COMMAND` environment variable becaus it will differ from machine to machine.
 
 ```bash
-cd miniWeather/c/build
+cd miniWeather/[language]/build
 source cmake_[machine]_[compiler].sh
 make
 make test
