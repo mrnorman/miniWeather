@@ -71,6 +71,10 @@ template<class T> inline T min( T val1 , T val2 ) {
   return val1 < val2 ? val1 : val2 ;
 }
 
+template<class T> inline T abs( T val ) {
+  return val > 0 ? val : -val;
+}
+
 
 #endif
 
