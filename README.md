@@ -122,7 +122,14 @@ make
 make test
 ```
 
-To run the code after confirming the tests pass, you can launch the executable of your choice with `mpirun -n [# tasks] ./executable_name`.
+To run the code after confirming the tests pass, you can launch the executable of your choice with `mpirun -n [# tasks] ./executable_name` on most machines.
+
+On Summit, it gets more complicated, unfortunately. You need to deal with so-called ``resource sets''. The following are single-node options:
+
+* MPI-only: `jsrun -n 6 -a 7 -c 7 ./executable_name`
+* MPI + GPU: `jsrun -n 6 -a 1 -c 1 -g 1 ./executable_name`
+
+For more nodes on Summit, just multiply the `-n` parameter by the number of nodes.
 
 **Summit**: On OLCF's Summit computer (and several other computers), you need to have an allocation loaded in order to run the code. You cannot run the code on the login nodes because the code is compiled for `spectrum-mpi`, which will give a segmentation fault unless you run the executable with `jsrun`. It's easiest to grab an interactive allocation on one node for two hours. Each Summit node has six GPUs and 42 CPU cores.
 
