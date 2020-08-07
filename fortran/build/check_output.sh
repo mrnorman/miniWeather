@@ -27,7 +27,7 @@ fi
 if [[ ! -f $1 ]]; then
   exit -1
 fi
-$1 > ${1}.output || exit -1
+${TEST_MPI_COMMAND} $1 > ${1}.output || exit -1
 
 dmass=`grep d_mass ${1}.output | awk '{print $2}'`
 if [[ "$dmass" == "NaN" ]]; then
