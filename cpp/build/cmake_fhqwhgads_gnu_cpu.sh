@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export TEST_MPI_COMMAND="mpirun -n 1"
+
 ./cmake_clean.sh
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
