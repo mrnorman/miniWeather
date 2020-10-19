@@ -685,6 +685,10 @@ From there, you can scale up to any problem size or node count you wish. The rel
 
 **You can run `make test` from the `build` directory of each language folder to run all of the available tests for a given compiler and compiler flags from the CMake configure, and it will automatically check mass and total energy change for you. The tests also automatically set the number of cells, the data specification, and the simulation time for you.**
 
+#### Notes on Summit
+
+On Summit, you need to have the miniWeather repo cloned in /gpfs space, and you need to have an active interactive job for `make test` to work.
+
 ## NetCDF Files
 
 Your other option is to create two baseline NetCDF files whose answers you trust: (1) with `-O0` optimizations; and (2) with `-O3` optimizations. Then, you can use the following python script to do a 3-way diff between the two baselines and the refactored code. The refactored diff should be of the same order of magnitude as the baseline compiler optimization diffs. Note that if you run for too long, non-linear chaotic amplification of the initially small differences will eventually be come too large to make for a useful comparison, so try to limit the simulation time to, say, 400 seconds or less.
