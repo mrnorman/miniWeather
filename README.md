@@ -133,6 +133,8 @@ For more nodes on Summit, just multiply the `-n` parameter by the number of node
 
 **Summit**: On OLCF's Summit computer (and several other computers), you need to have an allocation loaded in order to run the code. You cannot run the code on the login nodes because the code is compiled for `spectrum-mpi`, which will give a segmentation fault unless you run the executable with `jsrun`. It's easiest to grab an interactive allocation on one node for two hours. Each Summit node has six GPUs and 42 CPU cores.
 
+Also, on Summit, it's best to clone the entire repo in `/gpfs` space because the unit tests require writing files, which can only be done in GPFS space.
+
 ### Compiler Considerations
 
 To use OpenACC and OpenMP offloading, look at the `miniWeather/[c | fortran]/cmake_summit_gnu.sh` files for guidance in terms of compiler options. Also, you need to use GNU version 8.1 or higher for OpenACC and OpenMP offloading to work. PGI should compile OpenACC fine with any reasonably modern version, and the same is true for IBM XL with OpenMP offload.
