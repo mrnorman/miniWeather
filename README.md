@@ -102,7 +102,7 @@ Once the time tendency is computed, the fluid PDEs are essentially now cast as a
 ```bash
 git clone git@github.com:mrnorman/miniWeather.git
 cd miniWeather
-git submodule update --init
+git submodule update --init --recursive
 ```
 
 ## Directories and Compiling
