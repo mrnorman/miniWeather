@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.8)
 project(miniWeather CXX)
 
+if ("${ARCH}" STREQUAL "CUDA")
+  enable_language(CUDA)
+endif()
+
 enable_testing()
 
 
@@ -95,7 +99,6 @@ if ("${ARCH}" STREQUAL "CUDA")
     set_property(TARGET yaklexe PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET yaklexe PROPERTY CUDA_STANDARD 11)
   endif()
-  enable_language(CUDA)
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
 endif()
 set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
@@ -108,7 +111,6 @@ if ("${ARCH}" STREQUAL "CUDA")
     set_property(TARGET yaklexe_test PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET yaklexe_test PROPERTY CUDA_STANDARD 11)
   endif()
-  enable_language(CUDA)
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
 endif()
 set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
