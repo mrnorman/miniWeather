@@ -201,8 +201,8 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
     compute_tendencies_z(state_forcing,flux,tend);
   }
 
-  auto &nx = ::nx;
-  auto &nz = ::nz;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
 
   //Apply the tendencies to the fluid state
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -219,12 +219,12 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dt = ::dt;
-  auto &dx = ::dx;
-  auto &hy_dens_cell = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(dt,::dt);
+  YAKL_SCOPE(dx,::dx);
+  YAKL_SCOPE(hy_dens_cell,::hy_dens_cell);
+  YAKL_SCOPE(hy_dens_theta_cell,::hy_dens_theta_cell);
 
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
@@ -276,13 +276,13 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dt = ::dt;
-  auto &dz = ::dz;
-  auto &hy_dens_int = ::hy_dens_int;
-  auto &hy_dens_theta_int = ::hy_dens_theta_int;
-  auto &hy_pressure_int = ::hy_pressure_int;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(dt,::dt);
+  YAKL_SCOPE(dz,::dz);
+  YAKL_SCOPE(hy_dens_int,::hy_dens_int);
+  YAKL_SCOPE(hy_dens_theta_int,::hy_dens_theta_int);
+  YAKL_SCOPE(hy_pressure_int,::hy_pressure_int);
 
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
@@ -353,12 +353,12 @@ void set_halo_values_x( real3d &state ) {
   ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
   ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &sendbuf_l = ::sendbuf_l;
-  auto &sendbuf_r = ::sendbuf_r;
-  auto &recvbuf_l = ::recvbuf_l;
-  auto &recvbuf_r = ::recvbuf_r;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(sendbuf_l,::sendbuf_l);
+  YAKL_SCOPE(sendbuf_r,::sendbuf_r);
+  YAKL_SCOPE(recvbuf_l,::recvbuf_l);
+  YAKL_SCOPE(recvbuf_r,::recvbuf_r);
 
   //Pack the send buffers
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -402,11 +402,11 @@ void set_halo_values_x( real3d &state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-      auto &dz = ::dz;
-      auto &zlen = ::zlen;
-      auto &k_beg = ::k_beg;
-      auto &hy_dens_cell = ::hy_dens_cell;
-      auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+      YAKL_SCOPE(dz,::dz);
+      YAKL_SCOPE(zlen,::zlen);
+      YAKL_SCOPE(k_beg,::k_beg);
+      YAKL_SCOPE(hy_dens_cell,::hy_dens_cell);
+      YAKL_SCOPE(hy_dens_theta_cell,::hy_dens_theta_cell);
       
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
@@ -425,12 +425,12 @@ void set_halo_values_x( real3d &state ) {
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
 void set_halo_values_z( real3d &state ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &xlen = ::xlen;
-  auto &data_spec_int = ::data_spec_int;
-  auto &i_beg = ::i_beg;
-  auto &dx = ::dx;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(xlen,::xlen);
+  YAKL_SCOPE(data_spec_int,::data_spec_int);
+  YAKL_SCOPE(i_beg,::i_beg);
+  YAKL_SCOPE(dx,::dx);
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
@@ -525,6 +525,9 @@ void init( int *argc , char ***argv ) {
   //Want to make sure this info is displayed before further output
   ierr = MPI_Barrier(MPI_COMM_WORLD);
 
+  if (masterproc) {
+    printf( "debug\n");
+  }
   // Define quadrature weights and points
   const int nqpoints = 3;
   SArray<real,1,nqpoints> qpoints;
@@ -541,15 +544,18 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dx = ::dx;
-  auto &dz = ::dz;
-  auto &i_beg = ::i_beg;
-  auto &k_beg = ::k_beg;
-  auto &state = ::state;
-  auto &state_tmp = ::state_tmp;
-  auto &data_spec_int = ::data_spec_int;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(dx,::dx);
+  YAKL_SCOPE(dz,::dz);
+  YAKL_SCOPE(i_beg,::i_beg);
+  YAKL_SCOPE(k_beg,::k_beg);
+  YAKL_SCOPE(state,::state);
+  YAKL_SCOPE(state_tmp,::state_tmp);
+  YAKL_SCOPE(data_spec_int,::data_spec_int);
+  if (masterproc) {
+    printf( "debug\n");
+  }
 
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
@@ -585,12 +591,18 @@ void init( int *argc , char ***argv ) {
       state_tmp(ll,k,i) = state(ll,k,i);
     }
   });
+  if (masterproc) {
+    printf( "debug\n");
+  }
 
-  auto &hy_dens_cell = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-  auto &hy_dens_int = ::hy_dens_int;
-  auto &hy_dens_theta_int = ::hy_dens_theta_int;
-  auto &hy_pressure_int = ::hy_pressure_int;
+  YAKL_SCOPE(hy_dens_cell,::hy_dens_cell);
+  YAKL_SCOPE(hy_dens_theta_cell,::hy_dens_theta_cell);
+  YAKL_SCOPE(hy_dens_int,::hy_dens_int);
+  YAKL_SCOPE(hy_dens_theta_int,::hy_dens_theta_int);
+  YAKL_SCOPE(hy_pressure_int,::hy_pressure_int);
+  if (masterproc) {
+    printf( "debug\n");
+  }
 
   //Compute the hydrostatic background state over vertical cell averages
   // for (int k=0; k<nz+2*hs; k++) {
@@ -808,10 +820,10 @@ void output( real3d &state , real etime ) {
     ncwrap( ncmpi_inq_varid( ncid , "t"     ,     &t_varid ) , __LINE__ );
   }
 
-  auto &nx                 = ::nx;
-  auto &nz                 = ::nz;
-  auto &hy_dens_cell       = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
+  YAKL_SCOPE(hy_dens_cell,::hy_dens_cell);
+  YAKL_SCOPE(hy_dens_theta_cell,::hy_dens_theta_cell);
 
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
@@ -885,15 +897,15 @@ void finalize() {
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
 void reductions( double &mass , double &te ) {
-  auto &state              = ::state             ;
-  auto &hy_dens_cell       = ::hy_dens_cell      ;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-  auto &mass2d             = ::mass2d            ;
-  auto &te2d               = ::te2d              ;
-  auto &dx                 = ::dx                ;
-  auto &dz                 = ::dz                ;
-  auto &nx                 = ::nx                ;
-  auto &nz                 = ::nz                ;
+  YAKL_SCOPE(state,::state);
+  YAKL_SCOPE(hy_dens_cell,::hy_dens_cell);
+  YAKL_SCOPE(hy_dens_theta_cell,::hy_dens_theta_cell);
+  YAKL_SCOPE(mass2d,::mass2d);
+  YAKL_SCOPE(te2d,::te2d);
+  YAKL_SCOPE(dx,::dx);
+  YAKL_SCOPE(dz,::dz);
+  YAKL_SCOPE(nx,::nx);
+  YAKL_SCOPE(nz,::nz);
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
