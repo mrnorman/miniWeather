@@ -176,13 +176,13 @@ For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel
 
 To alter the configuration of the code, you can control the number of cells in the x- and z-directions, the length of simulation time, the output frequency, and the initial data to use by passing the following variables to the CMake configuration:
 
-* `-D_NX=400`: Uses 400 cells in the x-direction
-* `-D_NZ=200`: Uses 200 cells in the z-direction
-* `-D_SIM_TIME=1000`: Simulates for 1,000 seconds model time
-* `-D_OUT_FREQ=10`: Outputs every 10 seconds model time
-* `-D_DATA_SPEC=DATA_SPEC_THERMAL`: Initializes a rising thermal
+* `-DNX=400`: Uses 400 cells in the x-direction
+* `-DNZ=200`: Uses 200 cells in the z-direction
+* `-DSIM_TIME=1000`: Simulates for 1,000 seconds model time
+* `-DOUT_FREQ=10`: Outputs every 10 seconds model time
+* `-DDATA_SPEC=DATA_SPEC_THERMAL`: Initializes a rising thermal
 
-It's best if you keep `_NX` exactly twice the value of `_NZ` since the domain is 20km x 10km. 
+It's best if you keep `NX` exactly twice the value of `NZ` since the domain is 20km x 10km. 
 
 The data specifications are `DATA_SPEC_COLLISION`, `DATA_SPEC_THERMAL`, `DATA_SPEC_MOUNTAIN`, `DATA_SPEC_DENSITY_CURRENT`, and `DATA_SPEC_INJECTION`, and each are described later on.
 
