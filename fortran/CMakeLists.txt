@@ -232,4 +232,49 @@ else()
 endif()
 
 
+############################################################
+## Check to see if the compiler supports DO CONCURRENT
+############################################################
+# If user didn't specify an OpenACC-capable compiler list, then create one
+if ("${CONCURRENT_LIST}" STREQUAL "")
+  SET(CONCURRENT_LIST PGI)
+  MESSAGE(STATUS "Concurrent-capable list is: ${CONCURRENT_LIST}")
+endif()
+
+# Check compiler against openacc-capable list
+SET(DO_CONCURRENT FALSE)
+list(FIND CONCURRENT_LIST ${CMAKE_Fortran_COMPILER_ID} _ind)
+if( ${_ind} GREATER -1 )
+  SET(DO_CONCURRENT TRUE)
+  #if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI" )
+  #  SET(CONCURRENT_FLAGS "-stdpar=gpu -Minfo=accel")
+  #else()
+  #  SET(DO_CONCURRENT FALSE)
+  #endif()
+  # If CONCURRENT_FLAGS isn't set, then do not compile the DO CONCURRENT code
+  if ("${CONCURRENT_FLAGS}" STREQUAL "")
+    MESSAGE(STATUS "WARNING: CONCURRENT_FLAGS CMake variable must be set to compile DO CONCURRENT code.")
+    MESSAGE(STATUS "    Add -DCONCURRENT_FLAGS=\"...\" to your cmake configure line to enable DO CONCURRENT compilation.")
+    SET(DO_CONCURRENT FALSE)
+  endif()
+
+endif()
+
+if (${DO_CONCURRENT})
+  add_executable(concurrent miniWeather_mpi_concurrent.F90)
+  target_include_directories(concurrent PUBLIC ${PNETCDF_PATH}/include)
+  set_target_properties(concurrent PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${CONCURRENT_FLAGS}")
+  set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${CONCURRENT_FLAGS} ${LDFLAGS}")
+  string(STRIP "${_LIBS}" _LIBS)
+  target_link_libraries(concurrent "${_LIBS}")
+
+  add_executable(concurrent_test miniWeather_mpi_concurrent.F90)
+  target_include_directories(concurrent_test PUBLIC ${PNETCDF_PATH}/include)
+  set_target_properties(concurrent_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${CONCURRENT_FLAGS}")
+  set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${CONCURRENT_FLAGS} ${LDFLAGS}")
+  string(STRIP "${_LIBS}" _LIBS)
+  target_link_libraries(concurrent_test "${_LIBS}")
+
+  add_test(NAME CONCURRENT_TEST COMMAND ./check_output.sh ./concurrent_test 1e-13 4.5e-5 ) 
+endif()
 
