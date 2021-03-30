@@ -235,13 +235,13 @@ endif()
 ############################################################
 ## Check to see if the compiler supports DO CONCURRENT
 ############################################################
-# If user didn't specify an OpenACC-capable compiler list, then create one
+# If user didn't specify an Concurrent-capable compiler list, then create one
 if ("${CONCURRENT_LIST}" STREQUAL "")
   SET(CONCURRENT_LIST PGI)
   MESSAGE(STATUS "Concurrent-capable list is: ${CONCURRENT_LIST}")
 endif()
 
-# Check compiler against openacc-capable list
+# Check compiler against concurrent-capable list
 SET(DO_CONCURRENT FALSE)
 list(FIND CONCURRENT_LIST ${CMAKE_Fortran_COMPILER_ID} _ind)
 if( ${_ind} GREATER -1 )
