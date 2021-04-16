@@ -98,7 +98,10 @@ Once the time tendency is computed, the fluid PDEs are essentially now cast as a
 * For C++ portability, Nvidia's CUB and AMD's hipCUB and rocPRIM are already included as submodules
 * CMake: https://cmake.org
 
-On Ubuntu, the pnetcdf, ncview, mpi, and cmake dependencies can be installed  with `sudo apt-get install cmake libopenmpi-dev libpnetcdf-dev ncview`. 
+On Ubuntu, the pnetcdf, ncview, mpi, and cmake dependencies can be installed  with:
+```bash
+sudo apt-get install cmake libopenmpi-dev libpnetcdf-dev ncview
+```
 
 ## Basic Setup
 
