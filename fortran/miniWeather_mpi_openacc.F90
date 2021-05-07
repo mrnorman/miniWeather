@@ -229,7 +229,7 @@ contains
     endif
 
     !Apply the tendencies to the fluid state
-    !$acc parallel loop collapse(3) async(1)
+    !$acc parallel loop collapse(3) async(1) default(present)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -254,7 +254,7 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dx / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$acc parallel loop gang async(1)
+    !$acc parallel loop gang async(1) default(present)
     do k = 1 , nz
       !$acc loop vector private(stencil,vals,d3_vals)
       do i = 1 , nx+1
@@ -285,7 +285,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$acc parallel loop collapse(3) async(1)
+    !$acc parallel loop collapse(3) async(1) default(present)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -310,7 +310,7 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$acc parallel loop gang async(1)
+    !$acc parallel loop gang async(1) default(present)
     do k = 1 , nz+1
       !$acc loop vector private(stencil,vals,d3_vals)
       do i = 1 , nx
@@ -346,7 +346,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$acc parallel loop collapse(3) async(1)
+    !$acc parallel loop collapse(3) async(1) default(present)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -372,7 +372,7 @@ contains
     call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
 
     !Pack the send buffers
-    !$acc parallel loop collapse(3) async(1)
+    !$acc parallel loop collapse(3) async(1) default(present)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -395,7 +395,7 @@ contains
     !$acc update device(recvbuf_l,recvbuf_r) async(1)
 
     !Unpack the receive buffers
-    !$acc parallel loop collapse(3) async(1)
+    !$acc parallel loop collapse(3) async(1) default(present)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -410,7 +410,7 @@ contains
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
-        !$acc parallel loop async(1)
+        !$acc parallel loop async(1) default(present)
         do k = 1 , nz
           z = (k_beg-1 + k-0.5_rp)*dz
           if (abs(z-3*zlen/4) <= zlen/16) then
@@ -431,7 +431,7 @@ contains
     integer :: i, ll
     real(rp), parameter :: mnt_width = xlen/8
     real(rp) :: x, xloc, mnt_deriv
-    !$acc parallel loop collapse(2) async(1) private(xloc,mnt_deriv,x)
+    !$acc parallel loop collapse(2) async(1) private(xloc,mnt_deriv,x) default(present)
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
@@ -874,7 +874,7 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    !$acc parallel loop collapse(2) reduction(+:mass,te)
+    !$acc parallel loop collapse(2) reduction(+:mass,te) default(present)
     do k = 1 , nz
       do i = 1 , nx
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
