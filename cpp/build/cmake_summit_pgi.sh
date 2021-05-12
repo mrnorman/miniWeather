@@ -14,8 +14,8 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DCXXFLAGS="-O3 --c++11"                      \
       -DARCH="CUDA"                                 \
       -DCUDA_FLAGS="-arch sm_70 -ccbin mpic++"      \
-      -DNX=2000 \
-      -DNZ=1000 \
-      -DSIM_TIME=5 \
+      -DNX=200 \
+      -DNZ=100 \
+      -DSIM_TIME=1000 \
       ..
 
