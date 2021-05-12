@@ -11,6 +11,7 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
   * C++ code works on CPU, Nvidia GPUs (CUDA), and AMD GPUs (HIP)
 
 Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
+
 Contributors:
 * Matt Norman (ORNL)
 * Isaac Lyngaas (ORNL)
