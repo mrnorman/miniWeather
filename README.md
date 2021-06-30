@@ -204,7 +204,7 @@ To run the code, simply call:
 mpirun -n [# ranks] ./[parallel_id]
 ```
 
-where `[parallel_id]` is `serial`, `mpi`, `openmp`, `openacc`, `openmp45`, or `yaklexe`. You'll notice some `[parallel_id]_test` executables as well. These use fixed values for `nx`, `nz`, `sim_time`, `out_freq`, and `data_spec` for unit testing whereas the `[parallel_id]` executables use the values you specified to CMake through the `-D` definitions.
+where `[parallel_id]` is `serial`, `mpi`, `openmp`, `openacc`, `openmp45`, or `parallelfor`. You'll notice some `[parallel_id]_test` executables as well. These use fixed values for `nx`, `nz`, `sim_time`, `out_freq`, and `data_spec` for unit testing whereas the `[parallel_id]` executables use the values you specified to CMake through the `-D` definitions.
 
 Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Summit uses `jsrun`).
 

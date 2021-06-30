@@ -14,6 +14,14 @@
 #include "const.h"
 #include "pnetcdf.h"
 
+// We're going to define all arrays on the host because this doesn't use parallel_for
+typedef yakl::Array<real  ,1,yakl::memHost> real1d;
+typedef yakl::Array<real  ,2,yakl::memHost> real2d;
+typedef yakl::Array<real  ,3,yakl::memHost> real3d;
+typedef yakl::Array<double,1,yakl::memHost> doub1d;
+typedef yakl::Array<double,2,yakl::memHost> doub2d;
+typedef yakl::Array<double,3,yakl::memHost> doub3d;
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are initialized but remain static over the coure of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////

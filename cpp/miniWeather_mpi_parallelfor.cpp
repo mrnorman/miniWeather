@@ -15,6 +15,21 @@
 #include <ctime>
 #include <iostream>
 
+// We're going to define all arrays on the device because this uses parallel_for
+typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
+typedef yakl::Array<real  ,2,yakl::memDevice> real2d;
+typedef yakl::Array<real  ,3,yakl::memDevice> real3d;
+typedef yakl::Array<double,1,yakl::memDevice> doub1d;
+typedef yakl::Array<double,2,yakl::memDevice> doub2d;
+typedef yakl::Array<double,3,yakl::memDevice> doub3d;
+// Some arrays still need to be on the host, so we will explicitly create Host Array typedefs
+typedef yakl::Array<real  ,1,yakl::memHost> real1dHost;
+typedef yakl::Array<real  ,2,yakl::memHost> real2dHost;
+typedef yakl::Array<real  ,3,yakl::memHost> real3dHost;
+typedef yakl::Array<double,1,yakl::memHost> doub1dHost;
+typedef yakl::Array<double,2,yakl::memHost> doub2dHost;
+typedef yakl::Array<double,3,yakl::memHost> doub3dHost;
+
 using yakl::c::Bounds;
 using yakl::c::parallel_for;
 using yakl::SArray;

@@ -1,6 +1,5 @@
 
-#ifndef __CONST_H__
-#define __CONST_H__
+#pragma once
 
 #include "YAKL.h"
 #include <cmath>
@@ -12,28 +11,6 @@ typedef float real;
 inline real operator"" _fp( long double x ) {
   return static_cast<real>(x);
 }
-
-#if defined(__USE_CUDA__) || defined(__USE_HIP__)
-  typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
-  typedef yakl::Array<real  ,2,yakl::memDevice> real2d;
-  typedef yakl::Array<real  ,3,yakl::memDevice> real3d;
-  typedef yakl::Array<double,1,yakl::memDevice> doub1d;
-  typedef yakl::Array<double,2,yakl::memDevice> doub2d;
-  typedef yakl::Array<double,3,yakl::memDevice> doub3d;
-#else
-  typedef yakl::Array<real  ,1,yakl::memHost> real1d;
-  typedef yakl::Array<real  ,2,yakl::memHost> real2d;
-  typedef yakl::Array<real  ,3,yakl::memHost> real3d;
-  typedef yakl::Array<double,1,yakl::memHost> doub1d;
-  typedef yakl::Array<double,2,yakl::memHost> doub2d;
-  typedef yakl::Array<double,3,yakl::memHost> doub3d;
-#endif
-  typedef yakl::Array<real  ,1,yakl::memHost> real1dHost;
-  typedef yakl::Array<real  ,2,yakl::memHost> real2dHost;
-  typedef yakl::Array<real  ,3,yakl::memHost> real3dHost;
-  typedef yakl::Array<double,1,yakl::memHost> doub1dHost;
-  typedef yakl::Array<double,2,yakl::memHost> doub2dHost;
-  typedef yakl::Array<double,3,yakl::memHost> doub3dHost;
 
 constexpr real pi        = 3.14159265358979323846264338327;   //Pi
 constexpr real grav      = 9.8;                               //Gravitational acceleration (m / s^2)
@@ -74,7 +51,4 @@ template<class T> inline T min( T val1 , T val2 ) {
 template<class T> inline T abs( T val ) {
   return val > 0 ? val : -val;
 }
-
-
-#endif
 
