@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.8)
-project(miniWeather CXX)
+project(miniWeather)
 
-if ("${ARCH}" STREQUAL "CUDA")
+enable_language(CXX)
+if ("${YAKL_ARCH}" STREQUAL "CUDA")
   enable_language(CUDA)
 endif()
 
 enable_testing()
+
+include_directories(${PNETCDF_PATH}/include)
 
 
 ############################################################
@@ -55,23 +58,18 @@ if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
   set_property(TARGET yakl PROPERTY CUDA_STANDARD 14)
 endif()
 include_directories(YAKL)
-include_directories(cub)
-include_directories(hipCUB)
-include_directories(rocPRIM)
+
+link_libraries(yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 
 ############################################################
 ## Compile the serial version
 ############################################################
 add_executable(serial miniWeather_serial.cpp)
-target_include_directories(serial PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(serial PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
-target_link_libraries(serial yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(serial_test miniWeather_serial.cpp)
-target_include_directories(serial_test PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(serial_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(serial_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 
@@ -80,14 +78,10 @@ add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 ## Compile the MPI version
 ############################################################
 add_executable(mpi miniWeather_mpi.cpp)
-target_include_directories(mpi PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(mpi PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
-target_link_libraries(mpi yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(mpi_test miniWeather_mpi.cpp)
-target_include_directories(mpi_test PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(mpi_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
-target_link_libraries(mpi_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 ) 
 
@@ -95,33 +89,27 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 ############################################################
 ## YAKL Version
 ############################################################
-add_executable(yaklexe miniWeather_mpi_parallelfor.cpp)
-set_target_properties(yaklexe PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(yaklexe yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
-if ("${ARCH}" STREQUAL "CUDA")
-  if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
-    set_property(TARGET yaklexe PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET yaklexe PROPERTY CUDA_STANDARD 11)
-  endif()
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
-endif()
-target_include_directories(yaklexe PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${YAKL_CXX_FLAGS}")
+add_executable(parallelfor miniWeather_mpi_parallelfor.cpp)
+set_target_properties(parallelfor PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
 
-add_executable(yaklexe_test miniWeather_mpi_parallelfor.cpp)
-set_target_properties(yaklexe_test PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(yaklexe_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
-if ("${ARCH}" STREQUAL "CUDA")
-  if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
-    set_property(TARGET yaklexe_test PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET yaklexe_test PROPERTY CUDA_STANDARD 11)
-  endif()
-  set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
-endif()
-target_include_directories(yaklexe_test PUBLIC ${PNETCDF_PATH}/include)
-set_target_properties(yaklexe_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${YAKL_CXX_FLAGS}")
+add_executable(parallelfor_test miniWeather_mpi_parallelfor.cpp)
+set_target_properties(parallelfor_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 
-add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
+add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5 )
+
+
+include(YAKL/process_cxx_source_files.cmake)
+process_cxx_source_files(miniWeather_serial.cpp)
+process_cxx_source_files(miniWeather_mpi.cpp)
+process_cxx_source_files(miniWeather_mpi_parallelfor.cpp)
+
+
+if ("${YAKL_ARCH}" STREQUAL "CUDA")
+  set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test PROPERTIES LINKER_LANGUAGE CXX)
+  if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
+    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test PROPERTIES CUDA_ARCHITECTURES OFF CUDA_STANDARD 14)
+  endif()
+endif()
 
 
 
