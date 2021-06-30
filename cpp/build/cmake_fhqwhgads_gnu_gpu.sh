@@ -7,11 +7,10 @@ unset CUDAFLAGS
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DPNETCDF_PATH=${PNETCDF_PATH}                \
-      -DCXXFLAGS="-O3 -std=c++11"                   \
-      -DCUDA_FLAGS="-arch sm_50 -ccbin mpic++"      \
+      -DYAKL_CUDA_FLAGS="-arch sm_50 -ccbin mpic++"      \
       -DNX=200                                      \
       -DNZ=100                                      \
       -DSIM_TIME=1000                               \
-      -DARCH="CUDA"                                 \
+      -DYAKL_ARCH="CUDA"                                 \
       ..
 

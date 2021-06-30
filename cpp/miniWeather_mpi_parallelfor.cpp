@@ -909,9 +909,8 @@ void reductions( double &mass , double &te ) {
     mass2d(k,i) = r        *dx*dz; // Accumulate domain mass
     te2d  (k,i) = (ke + ie)*dx*dz; // Accumulate domain total energy
   });
-  yakl::ParallelSum<double,yakl::memDevice> psum( nx*nz );
-  mass = psum( mass2d.data() );
-  te   = psum( te2d  .data() );
+  mass = yakl::intrinsics::sum( mass2d );
+  te   = yakl::intrinsics::sum( te2d   );
 
   double glob[2], loc[2];
   loc[0] = mass;
