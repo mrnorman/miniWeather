@@ -841,9 +841,7 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    !$acc parallel loop collapse(2) reduction(+:mass,te)
-    do k = 1 , nz
-      do i = 1 , nx
+    do concurrent (k=1:nz,i=1:nx) reduce(+:mass,te)
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
         u  =   state(i,k,ID_UMOM) / r                           ! U-wind
         w  =   state(i,k,ID_WMOM) / r                           ! W-wind
@@ -854,8 +852,7 @@ contains
         ie = r*cv*t                ! Internal Energy
         mass = mass + r            *dx*dz ! Accumulate domain mass
         te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
-      enddo
-    enddo
+    end do
     call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
     mass = glob(1)
     te   = glob(2)
