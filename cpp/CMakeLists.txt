@@ -55,7 +55,7 @@ if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
   set_property(TARGET yakl PROPERTY CUDA_STANDARD 14)
 endif()
 include_directories(YAKL)
-include_directories(cub)
+#include_directories(cub)
 include_directories(hipCUB)
 include_directories(rocPRIM)
 
@@ -117,5 +117,27 @@ set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_F
 
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
 
+############################################################
+## Compile the C++17 Parallel Agorithms version
+############################################################
+SET(DO_STDPAR FALSE)
+if("${STDPAR_FLAGS}" STREQUAL "")
+  MESSAGE(STATUS "No flags provided for C++ standard parallelism, default C++ flags will be used.")
+  MESSAGE(STATUS "    Add -DSTDPAR_FLAGS=\"...\" to your cmake configure line to add flags.")
+endif()
+add_executable(mpistdpar miniWeather_mpi_stdpar.cpp)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "PGI" AND "${STDPAR_FLAGS}" STREQUAL "")
+  set(STDPAR_FLAGS "-stdpar=gpu")
+  MESSAGE(STATUS "    Detected NVIDIA compiler, adding \"-stdpar=gpu\" to CXX flags. Set STDPAR_FLAGS to override.")
+endif()
+set_source_files_properties(miniWeather_mpi_stdpar.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include ${STDPAR_FLAGS}")
+target_link_libraries(mpistdpar "-L${PNETCDF_PATH}/lib -lpnetcdf ${STDPAR_FLAGS}")
 
+add_executable(mpistdpar_test miniWeather_mpi_stdpar.cpp)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "PGI" AND "${STDPAR_FLAGS}" STREQUAL "")
+  set(STDPAR_FLAGS "-stdpar=gpu")
+endif()
+set_source_files_properties(miniWeather_mpi_stdpar.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${STDPAR_FLAGS}")
+target_link_libraries(mpistdpar_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf ${STDPAR_FLAGS}")
 
+add_test(NAME MPISTDPAR_TEST COMMAND ./check_output.sh ./mpistdpar_test 1e-9 4.5e-5 ) 
