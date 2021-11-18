@@ -85,6 +85,10 @@ double *state;                //Fluid state.             Dimensions: (1-hs:nx+hs
 double *state_tmp;            //Fluid state.             Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
 double *flux;                 //Cell interface fluxes.   Dimensions: (nx+1,nz+1,NUM_VARS)
 double *tend;                 //Fluid state tendencies.  Dimensions: (nx,nz,NUM_VARS)
+double *sendbuf_l;            //Buffer to send data to the left MPI rank
+double *sendbuf_r;            //Buffer to send data to the right MPI rank
+double *recvbuf_l;            //Buffer to receive data from the left MPI rank
+double *recvbuf_r;            //Buffer to receive data from the right MPI rank
 int    num_out = 0;           //The number of outputs performed so far
 int    direction_switch = 1;
 double mass0, te0;            //Initial domain totals for mass and total energy  
@@ -228,7 +232,6 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
     compute_tendencies_z(state_forcing,flux,tend,hy_dens_int, hy_dens_theta_int, hy_pressure_int);
   }
 
-  //Apply the tendencies to the fluid state
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
   std::for_each(std::execution::par,begin,end,[=](int idx)
       {
@@ -310,13 +313,11 @@ void compute_tendencies_z( double *state , double *flux , double *tend ,
   nvtxRangePushA("compute_tendencies_z");
   //Compute the hyperviscosity coeficient
   double hv_coef = -hv_beta * dz / (16*dt);
-  //Compute fluxes in the x-direction for each cell
   thrust::counting_iterator<int> begin1(0),end1(nx*(nz+1));
   std::for_each(std::execution::par,begin1,end1,[=](int idx)
       {
         int i = idx%nx;
         int k = idx/nx;
-        int s;
         double stencil[4] = {1,1,1,1}, d3_vals[NUM_VARS] = {1,1,1,1}, vals[NUM_VARS] = {1,1,1,1};
         //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
         for (int ll=0; ll<NUM_VARS; ll++) {
@@ -369,32 +370,45 @@ void compute_tendencies_z( double *state , double *flux , double *tend ,
 }
 
 
-
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
 void set_halo_values_x( double *state ) {
   nvtxRangePushA("set_halo_values_x");
-  ////////////////////////////////////////////////////////////////////////
-  // TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
-  // (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
-  // (2) receive state(1-hs:0,1:nz,1:NUM_VARS)     from my left  neighbor
-  // (3) give    state(nx-hs+1:nx,1:nz,1:NUM_VARS) to   my right neighbor
-  // (4) receive state(nx+1:nx+hs,1:nz,1:NUM_VARS) from my right neighbor
-  ////////////////////////////////////////////////////////////////////////
+  MPI_Request req_r[2], req_s[2];
+  int ierr;
 
-  //////////////////////////////////////////////////////
-  // DELETE THE SERIAL CODE BELOW AND REPLACE WITH MPI
-  //////////////////////////////////////////////////////
-  thrust::counting_iterator<int> begin1(0),end1(NUM_VARS*nz);
-  std::for_each(std::execution::par,begin1,end1,[=](int idx)
-      {
-        int k = idx % nz;
-        int ll = idx / nz;
-      state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + 0      ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs-2];
-      state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + 1      ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs-1];
-      state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs  ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs     ];
-      state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+1] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+1   ];
-      });
-  ////////////////////////////////////////////////////
+  //Prepost receives
+  ierr = MPI_Irecv(recvbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+  ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+
+  //Pack the send buffers
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
+      for (int s=0; s<hs; s++) {
+        sendbuf_l[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+s];
+        sendbuf_r[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+s];
+      }
+    }
+  }
+
+  //Fire off the sends
+  ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+  ierr = MPI_Isend(sendbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+
+  //Wait for receives to finish
+  ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
+
+  //Unpack the receive buffers
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
+      for (int s=0; s<hs; s++) {
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + s      ] = recvbuf_l[ll*nz*hs + k*hs + s];
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+s] = recvbuf_r[ll*nz*hs + k*hs + s];
+      }
+    }
+  }
+
+  //Wait for sends to finish
+  ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
@@ -457,8 +471,8 @@ void set_halo_values_z( double *state ) {
 
 
 void init( int *argc , char ***argv ) {
-  int    i, k, ii, kk, ll, ierr, inds;
-  double x, z, r, u, w, t, hr, ht;
+  int    i, k, ii, kk, ll, ierr, inds, i_end;
+  double x, z, r, u, w, t, hr, ht, nper;
 
   ierr = MPI_Init(argc,argv);
 
@@ -466,23 +480,16 @@ void init( int *argc , char ***argv ) {
   dx = xlen / nx_glob;
   dz = zlen / nz_glob;
 
-  /////////////////////////////////////////////////////////////
-  // BEGIN MPI DUMMY SECTION
-  // TODO: (1) GET NUMBER OF MPI RANKS
-  //       (2) GET MY MPI RANK ID (RANKS ARE ZERO-BASED INDEX)
-  //       (3) COMPUTE MY BEGINNING "I" INDEX (1-based index)
-  //       (4) COMPUTE HOW MANY X-DIRECTION CELLS MY RANK HAS
-  //       (5) FIND MY LEFT AND RIGHT NEIGHBORING RANK IDs
-  /////////////////////////////////////////////////////////////
-  nranks = 1;
-  myrank = 0;
-  i_beg = 0;
-  nx = nx_glob;
-  left_rank = 0;
-  right_rank = 0;
-  //////////////////////////////////////////////
-  // END MPI DUMMY SECTION
-  //////////////////////////////////////////////
+  ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+  nper = ( (double) nx_glob ) / nranks;
+  i_beg = round( nper* (myrank)    );
+  i_end = round( nper*((myrank)+1) )-1;
+  nx = i_end - i_beg + 1;
+  left_rank  = myrank - 1;
+  if (left_rank == -1) left_rank = nranks-1;
+  right_rank = myrank + 1;
+  if (right_rank == nranks) right_rank = 0;
 
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -506,6 +513,10 @@ void init( int *argc , char ***argv ) {
   hy_dens_int        = (double *) malloc( (nz+1)*sizeof(double) );
   hy_dens_theta_int  = (double *) malloc( (nz+1)*sizeof(double) );
   hy_pressure_int    = (double *) malloc( (nz+1)*sizeof(double) );
+  sendbuf_l          = (double *) malloc( hs*nz*NUM_VARS*sizeof(double) );
+  sendbuf_r          = (double *) malloc( hs*nz*NUM_VARS*sizeof(double) );
+  recvbuf_l          = (double *) malloc( hs*nz*NUM_VARS*sizeof(double) );
+  recvbuf_r          = (double *) malloc( hs*nz*NUM_VARS*sizeof(double) );
 
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = dmin(dx,dz) / max_speed * cfl;
@@ -847,13 +858,16 @@ void finalize() {
   free( hy_dens_int );
   free( hy_dens_theta_int );
   free( hy_pressure_int );
+  free( sendbuf_l );
+  free( sendbuf_r );
+  free( recvbuf_l );
+  free( recvbuf_r );
   ierr = MPI_Finalize();
 }
 
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
 void reductions( double &mass , double &te ) {
-  nvtxRangePushA("reductions");
   mass = 0;
   te   = 0;
   for (int k=0; k<nz; k++) {
@@ -880,7 +894,6 @@ void reductions( double &mass , double &te ) {
   int ierr = MPI_Allreduce(loc,glob,2,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   mass = glob[0];
   te   = glob[1];
-  nvtxRangePop();
 }
 
 
