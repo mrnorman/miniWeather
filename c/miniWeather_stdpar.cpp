@@ -110,8 +110,8 @@ void   output               ( double *state , double etime );
 void   ncwrap               ( int ierr , int line );
 void   perform_timestep     ( double *state , double *state_tmp , double *flux , double *tend , double dt );
 void   semi_discrete_step   ( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend );
-void   compute_tendencies_x ( double *state , double *flux , double *tend );
-void   compute_tendencies_z ( double *state , double *flux , double *tend );
+void   compute_tendencies_x ( double *state , double *flux , double *tend , double *hy_dens_cell , double *hy_dens_theta_cell);
+void   compute_tendencies_z ( double *state , double *flux , double *tend , double *hy_dens_int , double *hy_dens_theta_int , double *hy_pressure_int);
 void   set_halo_values_x    ( double *state );
 void   set_halo_values_z    ( double *state );
 void   reductions           ( double &mass , double &te );
@@ -221,12 +221,12 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend);
+    compute_tendencies_x(state_forcing,flux,tend,hy_dens_cell,hy_dens_theta_cell);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
     set_halo_values_z(state_forcing);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend);
+    compute_tendencies_z(state_forcing,flux,tend,hy_dens_int, hy_dens_theta_int, hy_pressure_int);
   }
 
   //Apply the tendencies to the fluid state
@@ -248,72 +248,43 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( double *state , double *flux , double *tend ) {
+void compute_tendencies_x( double *state , double *flux , double *tend , 
+                           double *hy_dens_cell , double *hy_dens_theta_cell) {
   nvtxRangePushA("compute_tendencies_x");
   //Compute the hyperviscosity coeficient
   double hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
   thrust::counting_iterator<int> begin1(0),end1((nx+1)*nz);
-  //std::for_each(std::execution::par,begin1,end1,[=](int idx)
-  //    {
-  //      int i = idx%(nx+1);
-  //      int k = idx/(nx+1);
-  //      double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
-  //      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-  //      for (int ll=0; ll<NUM_VARS; ll++) {
-  //        for (int s=0; s < sten_size; s++) {
-  //          int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
-  //          stencil[s] = state[inds];
-  //        }
-  //        //Fourth-order-accurate interpolation of the state
-  //        vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-  //        //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-  //        d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
-  //      }
-
-  //      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-  //      double r = vals[ID_DENS] + hy_dens_cell[k+hs];
-  //      double u = vals[ID_UMOM] / r;
-  //      double w = vals[ID_WMOM] / r;
-  //      double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
-  //      double p = C0*pow((r*t),gamm);
-
-  //      //Compute the flux vector
-  //      flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
-  //      flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
-  //      flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
-  //      flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
-  //    });
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
-  for (int k=0; k<nz; k++) {
-    for (int i=0; i<nx+1; i++) {
-      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (int ll=0; ll<NUM_VARS; ll++) {
-        for (int s=0; s < sten_size; s++) {
-          int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
-          stencil[s] = state[inds];
+  std::for_each(std::execution::par,begin1,end1,[=](int idx)
+      {
+        int i = idx%(nx+1);
+        int k = idx/(nx+1);
+        double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
+        //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+        for (int ll=0; ll<NUM_VARS; ll++) {
+          for (int s=0; s < sten_size; s++) {
+            int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
+            stencil[s] = state[inds];
+          }
+          //Fourth-order-accurate interpolation of the state
+          vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
+          //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
+          d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
         }
-        //Fourth-order-accurate interpolation of the state
-        vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-        //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-        d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
-      }
 
-      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      double r = vals[ID_DENS] + hy_dens_cell[k+hs];
-      double u = vals[ID_UMOM] / r;
-      double w = vals[ID_WMOM] / r;
-      double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
-      double p = C0*pow((r*t),gamm);
+        //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+        double r = vals[ID_DENS] + hy_dens_cell[k+hs];
+        double u = vals[ID_UMOM] / r;
+        double w = vals[ID_WMOM] / r;
+        double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
+        double p = C0*pow((r*t),gamm);
 
-      //Compute the flux vector
-      flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
-      flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
-      flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
-      flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
-    }
-  }
-
+        //Compute the flux vector
+        flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
+        flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
+        flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
+        flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
+      });
 
   //Use the fluxes to compute tendencies for each cell
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
@@ -335,83 +306,50 @@ void compute_tendencies_x( double *state , double *flux , double *tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( double *state , double *flux , double *tend ) {
+void compute_tendencies_z( double *state , double *flux , double *tend , 
+                           double *hy_dens_int , double *hy_dens_theta_int , double *hy_pressure_int) {
   nvtxRangePushA("compute_tendencies_z");
   double hv_coef;
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
   thrust::counting_iterator<int> begin1(0),end1(nx*(nz+1));
-  //std::for_each(std::execution::par,begin1,end1,[=](int idx)
-  //    {
-  //      int i = idx%nx;
-  //      int k = idx/nx;
-  //      int s;
-  //      double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
-  //      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-  //      for (int ll=0; ll<NUM_VARS; ll++) {
-  //        for (int s=0; s<sten_size; s++) {
-  //          int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+s)*(nx+2*hs) + i+hs;
-  //          stencil[s] = state[inds];
-  //        }
-  //        //Fourth-order-accurate interpolation of the state
-  //        vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-  //        //First-order-accurate interpolation of the third spatial derivative of the state
-  //        d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
-  //      }
-
-  //      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-  //      double r = vals[ID_DENS] + hy_dens_int[k];
-  //      double u = vals[ID_UMOM] / r;
-  //      double w = vals[ID_WMOM] / r;
-  //      double t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
-  //      double p = C0*pow((r*t),gamm) - hy_pressure_int[k];
-  //      //Enforce vertical boundary condition and exact mass conservation
-  //      if (k == 0 || k == nz) {
-  //        w                = 0;
-  //        d3_vals[ID_DENS] = 0;
-  //      }
-
-  //      //Compute the flux vector with hyperviscosity
-  //      flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
-  //      flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*u   - hv_coef*d3_vals[ID_UMOM];
-  //      flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*w+p - hv_coef*d3_vals[ID_WMOM];
-  //      flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*t   - hv_coef*d3_vals[ID_RHOT];
-  //    });
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
-  for (int k=0; k<nz+1; k++) {
-    for (int i=0; i<nx; i++) {
-      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (int ll=0; ll<NUM_VARS; ll++) {
-        for (int s=0; s<sten_size; s++) {
-          int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+s)*(nx+2*hs) + i+hs;
-          stencil[s] = state[inds];
+  std::for_each(std::execution::par,begin1,end1,[=](int idx)
+      {
+        int i = idx%nx;
+        int k = idx/nx;
+        int s;
+        double stencil[4] = {1,1,1,1}, d3_vals[NUM_VARS] = {1,1,1,1}, vals[NUM_VARS] = {1,1,1,1};
+        //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+        for (int ll=0; ll<NUM_VARS; ll++) {
+          for (int s=0; s<sten_size; s++) {
+            int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+s)*(nx+2*hs) + i+hs;
+            stencil[s] = state[inds];
+          }
+          //Fourth-order-accurate interpolation of the state
+          vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
+          //First-order-accurate interpolation of the third spatial derivative of the state
+          d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
         }
-        //Fourth-order-accurate interpolation of the state
-        vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-        //First-order-accurate interpolation of the third spatial derivative of the state
-        d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
-      }
 
-      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      double r = vals[ID_DENS] + hy_dens_int[k];
-      double u = vals[ID_UMOM] / r;
-      double w = vals[ID_WMOM] / r;
-      double t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
-      double p = C0*pow((r*t),gamm) - hy_pressure_int[k];
-      //Enforce vertical boundary condition and exact mass conservation
-      if (k == 0 || k == nz) {
-        w                = 0;
-        d3_vals[ID_DENS] = 0;
-      }
+        //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+        double r = vals[ID_DENS] + hy_dens_int[k];
+        double u = vals[ID_UMOM] / r;
+        double w = vals[ID_WMOM] / r;
+        double t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
+        double p = C0*pow((r*t),gamm) - hy_pressure_int[k];
+        //Enforce vertical boundary condition and exact mass conservation
+        if (k == 0 || k == nz) {
+          w                = 0;
+          d3_vals[ID_DENS] = 0;
+        }
 
-      //Compute the flux vector with hyperviscosity
-      flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
-      flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*u   - hv_coef*d3_vals[ID_UMOM];
-      flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*w+p - hv_coef*d3_vals[ID_WMOM];
-      flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*t   - hv_coef*d3_vals[ID_RHOT];
-    }
-  }
+        //Compute the flux vector with hyperviscosity
+        flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
+        flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*u   - hv_coef*d3_vals[ID_UMOM];
+        flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*w+p - hv_coef*d3_vals[ID_WMOM];
+        flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*t   - hv_coef*d3_vals[ID_RHOT];
+      });
 
   //Use the fluxes to compute tendencies for each cell
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
