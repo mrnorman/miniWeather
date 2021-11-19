@@ -15,9 +15,9 @@
 #include <mpi.h>
 #include <algorithm>
 #include <execution>
+#include <numeric>
 #include <thrust/iterator/counting_iterator.h>
 #include "pnetcdf.h"
-#include <nvtx3/nvToolsExt.h>
 
 const double pi        = 3.14159265358979323846264338327;   //Pi
 const double grav      = 9.8;                               //Gravitational acceleration (m / s^2)
@@ -116,9 +116,9 @@ void   perform_timestep     ( double *state , double *state_tmp , double *flux ,
 void   semi_discrete_step   ( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend );
 void   compute_tendencies_x ( double *state , double *flux , double *tend , double *hy_dens_cell , double *hy_dens_theta_cell);
 void   compute_tendencies_z ( double *state , double *flux , double *tend , double *hy_dens_int , double *hy_dens_theta_int , double *hy_pressure_int);
-void   set_halo_values_x    ( double *state );
+void   set_halo_values_x    ( double *state , double *hy_dens_cell, double *hy_dens_theta_cell);
 void   set_halo_values_z    ( double *state );
-void   reductions           ( double &mass , double &te );
+void   reductions           ( double &mass , double &te , double *state, double *hy_dens_cell, double *hy_dens_theta_cell);
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
   init( &argc , &argv );
 
   //Initial reductions for mass, kinetic energy, and total energy
-  reductions(mass0,te0);
+  reductions(mass0,te0, state, hy_dens_cell, hy_dens_theta_cell);
 
   //Output the initial state
   output(state,etime);
@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
   }
 
   //Final reductions for mass, kinetic energy, and total energy
-  reductions(mass,te);
+  reductions(mass,te, state, hy_dens_cell, hy_dens_theta_cell);
 
   if (masterproc) {
     printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
@@ -219,10 +219,9 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend ) {
-  nvtxRangePushA("semi_discrete_step");
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
-    set_halo_values_x(state_forcing);
+    set_halo_values_x(state_forcing, hy_dens_cell, hy_dens_theta_cell);
     //Compute the time tendencies for the fluid state in the x-direction
     compute_tendencies_x(state_forcing,flux,tend,hy_dens_cell,hy_dens_theta_cell);
   } else if (dir == DIR_Z) {
@@ -232,17 +231,20 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
     compute_tendencies_z(state_forcing,flux,tend,hy_dens_int, hy_dens_theta_int, hy_pressure_int);
   }
 
+  int _nx = nx,
+      _nz = nz;
+  double _dt = dt;
+  //Apply the tendencies to the fluid state
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
   std::for_each(std::execution::par,begin,end,[=](int idx)
       {
-        int ll= idx / (nx*nz);
-        int k = (idx/nx) % nz;
-        int i = idx % nx;
-        int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-        int indt = ll*nz*nx + k*nx + i;
-        state_out[inds] = state_init[inds] + dt * tend[indt];
+        int ll= idx / (_nx*_nz);
+        int k = (idx/_nx) % _nz;
+        int i = idx % _nx;
+        int inds = ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
+        int indt = ll*_nz*_nx + k*_nx + i;
+        state_out[inds] = state_init[inds] + _dt * tend[indt];
       });
-  nvtxRangePop();
 }
 
 
@@ -252,20 +254,22 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_x( double *state , double *flux , double *tend , 
                            double *hy_dens_cell , double *hy_dens_theta_cell) {
-  nvtxRangePushA("compute_tendencies_x");
   //Compute the hyperviscosity coeficient
   double hv_coef = -hv_beta * dx / (16*dt);
+  int _nx = nx;
+  int _nz = nz;
+  double _dx = dx;
   //Compute fluxes in the x-direction for each cell
   thrust::counting_iterator<int> begin1(0),end1((nx+1)*nz);
   std::for_each(std::execution::par,begin1,end1,[=](int idx)
       {
-        int i = idx%(nx+1);
-        int k = idx/(nx+1);
+        int i = idx%(_nx+1);
+        int k = idx/(_nx+1);
         double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
         //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
         for (int ll=0; ll<NUM_VARS; ll++) {
           for (int s=0; s < sten_size; s++) {
-            int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
+            int inds = ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+s;
             stencil[s] = state[inds];
           }
           //Fourth-order-accurate interpolation of the state
@@ -282,25 +286,24 @@ void compute_tendencies_x( double *state , double *flux , double *tend ,
         double p = C0*pow((r*t),gamm);
 
         //Compute the flux vector
-        flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
-        flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
-        flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
-        flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
+        flux[ID_DENS*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
+        flux[ID_UMOM*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
+        flux[ID_WMOM*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
+        flux[ID_RHOT*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
       });
 
   //Use the fluxes to compute tendencies for each cell
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
   std::for_each(std::execution::par,begin,end,[=](int idx)
       {
-        int ll= idx / (nx*nz);
-        int k = (idx/nx) % nz;
-        int i = idx % nx;
-        int indt  = ll* nz   * nx    + k* nx    + i  ;
-        int indf1 = ll*(nz+1)*(nx+1) + k*(nx+1) + i  ;
-        int indf2 = ll*(nz+1)*(nx+1) + k*(nx+1) + i+1;
-        tend[indt] = -( flux[indf2] - flux[indf1] ) / dx;
+        int ll= idx / (_nx*_nz);
+        int k = (idx/_nx) % _nz;
+        int i = idx % _nx;
+        int indt  = ll* _nz   * _nx    + k* _nx    + i  ;
+        int indf1 = ll*(_nz+1)*(_nx+1) + k*(_nx+1) + i  ;
+        int indf2 = ll*(_nz+1)*(_nx+1) + k*(_nx+1) + i+1;
+        tend[indt] = -( flux[indf2] - flux[indf1] ) / _dx;
       });
-  nvtxRangePop();
 }
 
 
@@ -310,19 +313,22 @@ void compute_tendencies_x( double *state , double *flux , double *tend ,
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_z( double *state , double *flux , double *tend , 
                            double *hy_dens_int , double *hy_dens_theta_int , double *hy_pressure_int) {
-  nvtxRangePushA("compute_tendencies_z");
   //Compute the hyperviscosity coeficient
   double hv_coef = -hv_beta * dz / (16*dt);
+  int _nx = nx,
+      _nz = nz;
+  double _dz = dz;
+  //Compute fluxes in the x-direction for each cell
   thrust::counting_iterator<int> begin1(0),end1(nx*(nz+1));
   std::for_each(std::execution::par,begin1,end1,[=](int idx)
       {
-        int i = idx%nx;
-        int k = idx/nx;
-        double stencil[4] = {1,1,1,1}, d3_vals[NUM_VARS] = {1,1,1,1}, vals[NUM_VARS] = {1,1,1,1};
+        int i = idx%_nx;
+        int k = idx/_nx;
+        double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
         //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
         for (int ll=0; ll<NUM_VARS; ll++) {
           for (int s=0; s<sten_size; s++) {
-            int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+s)*(nx+2*hs) + i+hs;
+            int inds = ll*(_nz+2*hs)*(_nx+2*hs) + (k+s)*(_nx+2*hs) + i+hs;
             stencil[s] = state[inds];
           }
           //Fourth-order-accurate interpolation of the state
@@ -338,43 +344,44 @@ void compute_tendencies_z( double *state , double *flux , double *tend ,
         double t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
         double p = C0*pow((r*t),gamm) - hy_pressure_int[k];
         //Enforce vertical boundary condition and exact mass conservation
-        if (k == 0 || k == nz) {
+        if (k == 0 || k == _nz) {
           w                = 0;
           d3_vals[ID_DENS] = 0;
         }
 
         //Compute the flux vector with hyperviscosity
-        flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
-        flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*u   - hv_coef*d3_vals[ID_UMOM];
-        flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*w+p - hv_coef*d3_vals[ID_WMOM];
-        flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*w*t   - hv_coef*d3_vals[ID_RHOT];
+        flux[ID_DENS*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*w     - hv_coef*d3_vals[ID_DENS];
+        flux[ID_UMOM*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*w*u   - hv_coef*d3_vals[ID_UMOM];
+        flux[ID_WMOM*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*w*w+p - hv_coef*d3_vals[ID_WMOM];
+        flux[ID_RHOT*(_nz+1)*(_nx+1) + k*(_nx+1) + i] = r*w*t   - hv_coef*d3_vals[ID_RHOT];
       });
 
   //Use the fluxes to compute tendencies for each cell
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*nz*nx);
   std::for_each(std::execution::par,begin,end,[=](int idx)
       {
-        int ll= idx / (nx*nz);
-        int k = (idx/nx) % nz;
-        int i = idx % nx;
-        int indt  = ll* nz   * nx    + k* nx    + i  ;
-        int indf1 = ll*(nz+1)*(nx+1) + (k  )*(nx+1) + i;
-        int indf2 = ll*(nz+1)*(nx+1) + (k+1)*(nx+1) + i;
-        tend[indt] = -( flux[indf2] - flux[indf1] ) / dz;
+        int ll= idx / (_nx*_nz);
+        int k = (idx/_nx) % _nz;
+        int i = idx % _nx;
+        int indt  = ll* _nz   * _nx    + k* _nx    + i  ;
+        int indf1 = ll*(_nz+1)*(_nx+1) + (k  )*(_nx+1) + i;
+        int indf2 = ll*(_nz+1)*(_nx+1) + (k+1)*(_nx+1) + i;
+        tend[indt] = -( flux[indf2] - flux[indf1] ) / _dz;
         if (ll == ID_WMOM) {
-          int inds = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+          int inds = ID_DENS*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
           tend[indt] = tend[indt] - state[inds]*grav;
         }
       });
-  nvtxRangePop();
 }
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( double *state ) {
-  nvtxRangePushA("set_halo_values_x");
+void set_halo_values_x( double *state, double *hy_dens_cell, double *hy_dens_theta_cell ) {
   MPI_Request req_r[2], req_s[2];
   int ierr;
+  int _nx = nx,
+      _nz = nz;
+  double _dz = dz;
 
   //Prepost receives
   ierr = MPI_Irecv(recvbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
@@ -417,56 +424,57 @@ void set_halo_values_x( double *state ) {
           {
             int k = idx / hs;
             int i = idx % hs;
-            double z = (k_beg + k+0.5)*dz;
+            double z = (k_beg + k+0.5)*_dz;
             if (fabs(z-3*zlen/4) <= zlen/16) {
-              int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
-              int ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
-              int ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
+              int ind_r = ID_DENS*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i;
+              int ind_u = ID_UMOM*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i;
+              int ind_t = ID_RHOT*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i;
               state[ind_u] = (state[ind_r]+hy_dens_cell[k+hs]) * 50.;
               state[ind_t] = (state[ind_r]+hy_dens_cell[k+hs]) * 298. - hy_dens_theta_cell[k+hs];
             }
           });
     }
   }
-  nvtxRangePop();
 }
 
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
 void set_halo_values_z( double *state ) {
-  nvtxRangePushA("set_halo_values_z");
   const double mnt_width = xlen/8;
+  int _nx = nx,
+      _nz = nz,
+      _i_beg = i_beg;
+  double _dx = dx;
   thrust::counting_iterator<int> begin(0),end(NUM_VARS*(nx+2*hs));
   std::for_each(std::execution::par,begin,end,[=](int idx)
       {
-        int ll = idx / (nx+2*hs);
-        int i  = idx % (nx+2*hs);
+        int ll = idx / (_nx+2*hs);
+        int i  = idx % (_nx+2*hs);
         if (ll == ID_WMOM) {
-          state[ll*(nz+2*hs)*(nx+2*hs) + (0      )*(nx+2*hs) + i] = 0.;
-          state[ll*(nz+2*hs)*(nx+2*hs) + (1      )*(nx+2*hs) + i] = 0.;
-          state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs  )*(nx+2*hs) + i] = 0.;
-          state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs+1)*(nx+2*hs) + i] = 0.;
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (0       )*(_nx+2*hs) + i] = 0.;
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (1       )*(_nx+2*hs) + i] = 0.;
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs  )*(_nx+2*hs) + i] = 0.;
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs+1)*(_nx+2*hs) + i] = 0.;
           //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
           if (data_spec_int == DATA_SPEC_MOUNTAIN) {
-            double x = (i_beg+i-hs+0.5)*dx;
+            double x = (_i_beg+i-hs+0.5)*_dx;
             if ( fabs(x-xlen/4) < mnt_width ) {
               double xloc = (x-(xlen/4)) / mnt_width;
               //Compute the derivative of the fake mountain
-              double mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
+              double mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/_dx;
               //w = (dz/dx)*u
-              state[ID_WMOM*(nz+2*hs)*(nx+2*hs) + (0)*(nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(nz+2*hs)*(nx+2*hs) + hs*(nx+2*hs) + i];
-              state[ID_WMOM*(nz+2*hs)*(nx+2*hs) + (1)*(nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(nz+2*hs)*(nx+2*hs) + hs*(nx+2*hs) + i];
+              state[ID_WMOM*(_nz+2*hs)*(_nx+2*hs) + (0)*(_nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(_nz+2*hs)*(_nx+2*hs) + hs*(_nx+2*hs) + i];
+              state[ID_WMOM*(_nz+2*hs)*(_nx+2*hs) + (1)*(_nx+2*hs) + i] = mnt_deriv*state[ID_UMOM*(_nz+2*hs)*(_nx+2*hs) + hs*(_nx+2*hs) + i];
             }
           }
         } else {
-          state[ll*(nz+2*hs)*(nx+2*hs) + (0      )*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (hs     )*(nx+2*hs) + i];
-          state[ll*(nz+2*hs)*(nx+2*hs) + (1      )*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (hs     )*(nx+2*hs) + i];
-          state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs  )*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs-1)*(nx+2*hs) + i];
-          state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs+1)*(nx+2*hs) + i] = state[ll*(nz+2*hs)*(nx+2*hs) + (nz+hs-1)*(nx+2*hs) + i];
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (0       )*(_nx+2*hs) + i] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (hs      )*(_nx+2*hs) + i];
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (1       )*(_nx+2*hs) + i] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (hs      )*(_nx+2*hs) + i];
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs  )*(_nx+2*hs) + i] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs-1)*(_nx+2*hs) + i];
+          state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs+1)*(_nx+2*hs) + i] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (_nz+hs-1)*(_nx+2*hs) + i];
         }
       });
-  nvtxRangePop();
 }
 
 
@@ -867,15 +875,28 @@ void finalize() {
 
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
-void reductions( double &mass , double &te ) {
-  mass = 0;
-  te   = 0;
-  for (int k=0; k<nz; k++) {
-    for (int i=0; i<nx; i++) {
-      int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_w = ID_WMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+void reductions( double &mass , double &te , double *state, double *hy_dens_cell, double *hy_dens_theta_cell) {
+  //mass = 0.0;
+  //te   = 0.0;
+  int _nx = nx, 
+      _nz = nz;
+  double _dx = dx,
+	 _dz = dz;
+  auto start = std::make_pair(0.0,0.0);
+  thrust::counting_iterator<int> begin(0),end(nz*nx);
+  auto results = std::transform_reduce( std::execution::par, begin, end, start,
+    [=](auto a, auto b)
+    {
+      return std::make_pair(a.first + b.first, a.second + b.second);
+    },
+    [=](int idx) 
+    {
+      int k = idx/_nx;
+      int i = idx%_nx;
+      int ind_r = ID_DENS*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
+      int ind_u = ID_UMOM*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
+      int ind_w = ID_WMOM*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
+      int ind_t = ID_RHOT*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + i+hs;
       double r  =   state[ind_r] + hy_dens_cell[hs+k];             // Density
       double u  =   state[ind_u] / r;                              // U-wind
       double w  =   state[ind_w] / r;                              // W-wind
@@ -884,10 +905,11 @@ void reductions( double &mass , double &te ) {
       double t  = th / pow(p0/p,rd/cp);                            // Temperature
       double ke = r*(u*u+w*w);                                     // Kinetic Energy
       double ie = r*cv*t;                                          // Internal Energy
-      mass += r        *dx*dz; // Accumulate domain mass
-      te   += (ke + ie)*dx*dz; // Accumulate domain total energy
-    }
-  }
+      return std::make_pair(r        *_dx*_dz,  // domain mass
+                           (ke + ie)*_dx*_dz); // domain total energy
+    });
+  mass = results.first;
+  te   = results.second;
   double glob[2], loc[2];
   loc[0] = mass;
   loc[1] = te;
