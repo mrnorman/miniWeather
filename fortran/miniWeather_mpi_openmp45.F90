@@ -8,8 +8,8 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 program miniweather
+  use mpi
   implicit none
-  include "mpif.h"
   !Declare the precision for the real constants (at least 15 digits of accuracy = double precision)
   integer , parameter :: rp = selected_real_kind(15)
   !Define some physical constants to use throughout the simulation
@@ -47,8 +47,8 @@ program miniweather
 
   !Gauss-Legendre quadrature points and weights on the domain [0:1]
   integer , parameter :: nqpoints = 3
-  real(rp) :: qpoints (nqpoints) = (/ 0.112701665379258311482073460022E0_rp , 0.500000000000000000000000000000E0_rp , 0.887298334620741688517926539980E0_rp /)
-  real(rp) :: qweights(nqpoints) = (/ 0.277777777777777777777777777779E0_rp , 0.444444444444444444444444444444E0_rp , 0.277777777777777777777777777779E0_rp /)
+  real(rp), parameter :: qpoints (nqpoints) = (/ 0.112701665379258311482073460022E0_rp , 0.500000000000000000000000000000E0_rp , 0.887298334620741688517926539980E0_rp /)
+  real(rp), parameter :: qweights(nqpoints) = (/ 0.277777777777777777777777777779E0_rp , 0.444444444444444444444444444444E0_rp , 0.277777777777777777777777777779E0_rp /)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! Variables that are initialized but remain static over the coure of the simulation

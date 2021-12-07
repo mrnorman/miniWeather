@@ -47,8 +47,8 @@ program miniweather
 
   !Gauss-Legendre quadrature points and weights on the domain [0:1]
   integer , parameter :: nqpoints = 3
-  real(rp) :: qpoints (nqpoints) = (/ 0.112701665379258311482073460022E0_rp , 0.500000000000000000000000000000E0_rp , 0.887298334620741688517926539980E0_rp /)
-  real(rp) :: qweights(nqpoints) = (/ 0.277777777777777777777777777779E0_rp , 0.444444444444444444444444444444E0_rp , 0.277777777777777777777777777779E0_rp /)
+  real(rp), parameter :: qpoints (nqpoints) = (/ 0.112701665379258311482073460022E0_rp , 0.500000000000000000000000000000E0_rp , 0.887298334620741688517926539980E0_rp /)
+  real(rp), parameter :: qweights(nqpoints) = (/ 0.277777777777777777777777777779E0_rp , 0.444444444444444444444444444444E0_rp , 0.277777777777777777777777777779E0_rp /)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! Variables that are initialized but remain static over the coure of the simulation
@@ -85,8 +85,8 @@ program miniweather
   real(rp), allocatable :: recvbuf_l(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   real(rp), allocatable :: recvbuf_r(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   integer(8) :: t1, t2, rate                    !For CPU Timings
-  real(rp) :: mass0, te0                              !Initial domain totals for mass and total energy  
-  real(rp) :: mass ,te                                !Domain totals for mass and total energy  
+  real(rp) :: mass0, te0                        !Initial domain totals for mass and total energy  
+  real(rp) :: mass , te                         !Domain totals for mass and total energy  
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! THE MAIN PROGRAM STARTS HERE
