@@ -26,9 +26,9 @@ constexpr double gamm      = 1.40027894002789400278940027894;   //gamma=cp/Rd , 
 //Define domain and stability-related constants
 constexpr double xlen      = 2.e4;    //Length of the domain in the x-direction (meters)
 constexpr double zlen      = 1.e4;    //Length of the domain in the z-direction (meters)
-constexpr double hv_beta   = 0.25;     //How strong to diffuse the solution: hv_beta \in [0:1]
+constexpr double hv_beta   = 0.05;    //How strong to diffuse the solution: hv_beta \in [0:1]
 constexpr double cfl       = 1.50;    //"Courant, Friedrichs, Lewy" number (for numerical stability)
-constexpr double max_speed = 450;        //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
+constexpr double max_speed = 450;     //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
 constexpr int hs        = 2;          //"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
 constexpr int sten_size = 4;          //Size of the stencil used for interpolation
 
@@ -121,8 +121,8 @@ void   output               ( double *state , double etime );
 void   ncwrap               ( int ierr , int line );
 void   perform_timestep     ( double *state , double *state_tmp , double *flux , double *tend , double dt );
 void   semi_discrete_step   ( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend );
-void   compute_tendencies_x ( double *state , double *flux , double *tend );
-void   compute_tendencies_z ( double *state , double *flux , double *tend );
+void   compute_tendencies_x ( double *state , double *flux , double *tend , double dt);
+void   compute_tendencies_z ( double *state , double *flux , double *tend , double dt);
 void   set_halo_values_x    ( double *state );
 void   set_halo_values_z    ( double *state );
 void   reductions           ( double &mass , double &te );
@@ -218,12 +218,12 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend);
+    compute_tendencies_x(state_forcing,flux,tend,dt);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
     set_halo_values_z(state_forcing);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend);
+    compute_tendencies_z(state_forcing,flux,tend,dt);
   }
 
   /////////////////////////////////////////////////
@@ -246,7 +246,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( double *state , double *flux , double *tend ) {
+void compute_tendencies_x( double *state , double *flux , double *tend , double dt) {
   int    i,k,ll,s,inds,indf1,indf2,indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
   //Compute the hyperviscosity coeficient
@@ -305,7 +305,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( double *state , double *flux , double *tend ) {
+void compute_tendencies_z( double *state , double *flux , double *tend , double dt) {
   int    i,k,ll,s, inds, indf1, indf2, indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
   //Compute the hyperviscosity coeficient
