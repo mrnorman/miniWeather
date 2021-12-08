@@ -25,17 +25,11 @@ typedef yakl::Array<double,3,yakl::memHost> doub3d;
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are initialized but remain static over the coure of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
-real sim_time;              //total simulation time in seconds
-real output_freq;           //frequency to perform output in seconds
-real dt;                    //Model time step (seconds)
 int nx, nz;                 //Number of local grid cells in the x- and z- dimensions for this MPI task
-real dx, dz;                //Grid space length in x- and z-dimension (meters)
-int nx_glob, nz_glob;       //Number of total grid cells in the x- and z- dimensions
 int i_beg, k_beg;           //beginning index in the x- and z-directions for this MPI task
 int nranks, myrank;         //Number of MPI ranks and my rank id
 int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
 int masterproc;             //Am I the master process (rank == 0)?
-real data_spec_int;         //Which data initialization to use
 real1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
 real1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
 real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -45,6 +39,7 @@ real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are dynamics over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
+real dt;                    //Model time step (seconds)
 real etime;                 //Elapsed model time
 real output_counter;        //Helps determine when it's time to do output
 //Runtime variable arrays
@@ -59,7 +54,7 @@ double mass , te ;            //Domain totals for mass and total energy
 
 
 //Declaring the functions defined after "main"
-void init                 ( int *argc , char ***argv );
+void init                 ( );
 void finalize             ( );
 void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
@@ -74,8 +69,8 @@ void output               ( real3d &state , real etime );
 void ncwrap               ( int ierr , int line );
 void perform_timestep     ( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt );
 void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend );
-void compute_tendencies_x ( real3d &state , real3d &flux , real3d &tend );
-void compute_tendencies_z ( real3d &state , real3d &flux , real3d &tend );
+void compute_tendencies_x ( real3d &state , real3d &flux , real3d &tend , real dt);
+void compute_tendencies_z ( real3d &state , real3d &flux , real3d &tend , real dt);
 void set_halo_values_x    ( real3d &state );
 void set_halo_values_z    ( real3d &state );
 void reductions           ( double &mass , double &te );
@@ -85,23 +80,10 @@ void reductions           ( double &mass , double &te );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
+  MPI_Init(&argc,&argv);
   yakl::init();
   {
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // BEGIN USER-CONFIGURABLE PARAMETERS
-    ///////////////////////////////////////////////////////////////////////////////////////
-    //The x-direction length is twice as long as the z-direction length
-    //So, you'll want to have nx_glob be twice as large as nz_glob
-    nx_glob = _NX;        // Number of total cells in the x-dirction
-    nz_glob = _NZ;        // Number of total cells in the z-dirction
-    sim_time = _SIM_TIME; // How many seconds to run the simulation
-    output_freq = _OUT_FREQ;  // How frequently to output data to file (in seconds)
-    data_spec_int = _DATA_SPEC; // How to initialize the data
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // END USER-CONFIGURABLE PARAMETERS
-    ///////////////////////////////////////////////////////////////////////////////////////
-
-    init( &argc , &argv );
+    init( );
 
     //Initial reductions for mass, kinetic energy, and total energy
     reductions(mass0,te0);
@@ -145,6 +127,7 @@ int main(int argc, char **argv) {
     finalize();
   }
   yakl::finalize();
+  MPI_Finalize();
 }
 
 
@@ -188,12 +171,12 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend);
+    compute_tendencies_x(state_forcing,flux,tend,dt);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
     set_halo_values_z(state_forcing);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend);
+    compute_tendencies_z(state_forcing,flux,tend,dt);
   }
 
   /////////////////////////////////////////////////
@@ -214,7 +197,7 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
+void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend , real dt ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
   SArray<real,1,4> stencil;
@@ -272,7 +255,7 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
+void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend , real dt ) {
   int  i,k,ll,s;
   real r,u,w,t,p, hv_coef;
   SArray<real,1,4> stencil;
@@ -417,15 +400,9 @@ void set_halo_values_z( real3d &state ) {
 }
 
 
-void init( int *argc , char ***argv ) {
+void init( ) {
   int  i, k, ii, kk, ll, ierr;
   real x, z, r, u, w, t, hr, ht;
-
-  ierr = MPI_Init(argc,argv);
-
-  //Set the cell grid size
-  dx = xlen / nx_glob;
-  dz = zlen / nz_glob;
 
   /////////////////////////////////////////////////////////////
   // BEGIN MPI DUMMY SECTION
@@ -798,8 +775,6 @@ void ncwrap( int ierr , int line ) {
 
 
 void finalize() {
-  int ierr;
-  ierr = MPI_Finalize();
   hy_dens_cell      .deallocate();
   hy_dens_theta_cell.deallocate();
   hy_dens_int       .deallocate();
