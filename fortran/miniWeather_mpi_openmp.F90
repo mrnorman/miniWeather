@@ -24,7 +24,7 @@ program miniweather
   !Define domain and stability-related constants
   real(rp), parameter :: xlen      = 2.e4_rp    !Length of the domain in the x-direction (meters)
   real(rp), parameter :: zlen      = 1.e4_rp    !Length of the domain in the z-direction (meters)
-  real(rp), parameter :: hv_beta   = 0.25_rp    !How strong to diffuse the solution: hv_beta \in [0:1]
+  real(rp), parameter :: hv_beta   = 0.05_rp    !How strong to diffuse the solution: hv_beta \in [0:1]
   real(rp), parameter :: cfl       = 1.50_rp    !"Courant, Friedrichs, Lewy" number (for numerical stability)
   real(rp), parameter :: max_speed = 450        !Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
   integer , parameter :: hs        = 2          !"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
@@ -40,7 +40,7 @@ program miniweather
   integer , parameter :: DIR_Z = 2              !Integer constant to express that this operation is in the z-direction
   integer , parameter :: DATA_SPEC_COLLISION       = 1
   integer , parameter :: DATA_SPEC_THERMAL         = 2
-  integer , parameter :: DATA_SPEC_MOUNTAIN        = 3
+  integer , parameter :: DATA_SPEC_GRAVITY_WAVES   = 3
   integer , parameter :: DATA_SPEC_TURBULENCE      = 4
   integer , parameter :: DATA_SPEC_DENSITY_CURRENT = 5
   integer , parameter :: DATA_SPEC_INJECTION       = 6
@@ -425,18 +425,11 @@ contains
           state(i,0   ,ll) = 0
           state(i,nz+1,ll) = 0
           state(i,nz+2,ll) = 0
-          !Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-          if (data_spec_int == DATA_SPEC_MOUNTAIN) then
-            x = (i_beg-1+i-0.5_rp)*dx
-            if ( abs(x-xlen/4) < mnt_width ) then
-              xloc = (x-(xlen/4)) / mnt_width
-              !Compute the derivative of the fake mountain
-              mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx
-              !w = (dz/dx)*u
-              state(i,-1,ID_WMOM) = mnt_deriv*state(i,1,ID_UMOM)
-              state(i,0 ,ID_WMOM) = mnt_deriv*state(i,1,ID_UMOM)
-            endif
-          endif
+        else if (ll == ID_UMOM) then
+          state(i,-1  ,ll) = state(i,1 ,ll) / hy_dens_cell( 1) * hy_dens_cell(-1  )
+          state(i,0   ,ll) = state(i,1 ,ll) / hy_dens_cell( 1) * hy_dens_cell( 0  )
+          state(i,nz+1,ll) = state(i,nz,ll) / hy_dens_cell(nz) * hy_dens_cell(nz+1)
+          state(i,nz+2,ll) = state(i,nz,ll) / hy_dens_cell(nz) * hy_dens_cell(nz+2)
         else
           state(i,-1  ,ll) = state(i,1 ,ll)
           state(i,0   ,ll) = state(i,1 ,ll)
@@ -535,7 +528,7 @@ contains
             !Set the fluid state based on the user's specification
             if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (x,z,r,u,w,t,hr,ht)
-            if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (x,z,r,u,w,t,hr,ht)
+            if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (x,z,r,u,w,t,hr,ht)
@@ -562,7 +555,7 @@ contains
         !Set the fluid state based on the user's specification
         if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (0._rp,z,r,u,w,t,hr,ht)
-        if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (0._rp,z,r,u,w,t,hr,ht)
+        if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
@@ -576,7 +569,7 @@ contains
       z = (k_beg-1 + k-1) * dz
       if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (0._rp,z,r,u,w,t,hr,ht)
-      if (data_spec_int == DATA_SPEC_MOUNTAIN       ) call mountain_waves (0._rp,z,r,u,w,t,hr,ht)
+      if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
@@ -629,17 +622,21 @@ contains
   end subroutine turbulence
 
 
-  subroutine mountain_waves(x,z,r,u,w,t,hr,ht)
+  subroutine gravity_waves(x,z,r,u,w,t,hr,ht)
     implicit none
     real(rp), intent(in   ) :: x, z        !x- and z- location of the point being sampled
     real(rp), intent(  out) :: r, u, w, t  !Density, uwind, wwind, and potential temperature
     real(rp), intent(  out) :: hr, ht      !Hydrostatic density and potential temperature
-    call hydro_const_bvfreq(z,0.02_rp,hr,ht)
+    real(rp) :: zterm, xterm
+    zterm = sin(pi*z/zlen)
+    xterm = (x - xlen/2)*(x-xlen/2) / (100*100)
+    call hydro_const_bvfreq(z,0.01_rp,hr,ht)
     r = 0
-    t = 0
-    u = 15
+    t = sample_ellipse_cosine(x,z, 1._rp ,xlen/2,zlen/2,2000._rp,2000._rp)
+    u = 0
     w = 0
-  end subroutine mountain_waves
+    r = hr*ht / (ht+t) - hr
+  end subroutine gravity_waves
 
 
   !Rising thermal
