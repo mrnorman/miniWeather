@@ -43,7 +43,6 @@ constexpr int DIR_Z = 2;              //Integer constant to express that this op
 constexpr int DATA_SPEC_COLLISION       = 1;
 constexpr int DATA_SPEC_THERMAL         = 2;
 constexpr int DATA_SPEC_GRAVITY_WAVES   = 3;
-constexpr int DATA_SPEC_TURBULENCE      = 4;
 constexpr int DATA_SPEC_DENSITY_CURRENT = 5;
 constexpr int DATA_SPEC_INJECTION       = 6;
 
@@ -106,7 +105,6 @@ void   init                 ( int *argc , char ***argv );
 void   finalize             ( );
 void   injection            ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   density_current      ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
-void   turbulence           ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   gravity_waves        ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   thermal              ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   collision            ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
@@ -525,7 +523,6 @@ void init( int *argc , char ***argv ) {
           if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
 
@@ -556,7 +553,6 @@ void init( int *argc , char ***argv ) {
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
       hy_dens_cell      [k] = hy_dens_cell      [k] + hr    * qweights[kk];
@@ -569,7 +565,6 @@ void init( int *argc , char ***argv ) {
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
     hy_dens_int      [k] = hr;
@@ -603,22 +598,6 @@ void density_current( double x , double z , double &r , double &u , double &w , 
   u = 0.;
   w = 0.;
   t = t + sample_ellipse_cosine(x,z,-20. ,xlen/2,5000.,4000.,2000.);
-}
-
-
-//x and z are input coordinates at which to sample
-//r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
-//hr and ht are output background hydrostatic density and potential temperature at that location
-void turbulence( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht ) {
-  hydro_const_theta(z,hr,ht);
-  r = 0.;
-  t = 0.;
-  u = 0.;
-  w = 0.;
-  // call random_number(u);
-  // call random_number(w);
-  // u = (u-0.5)*20;
-  // w = (w-0.5)*20;
 }
 
 

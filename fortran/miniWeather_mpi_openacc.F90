@@ -41,7 +41,6 @@ program miniweather
   integer , parameter :: DATA_SPEC_COLLISION       = 1
   integer , parameter :: DATA_SPEC_THERMAL         = 2
   integer , parameter :: DATA_SPEC_GRAVITY_WAVES   = 3
-  integer , parameter :: DATA_SPEC_TURBULENCE      = 4
   integer , parameter :: DATA_SPEC_DENSITY_CURRENT = 5
   integer , parameter :: DATA_SPEC_INJECTION       = 6
 
@@ -540,7 +539,6 @@ contains
             if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (x,z,r,u,w,t,hr,ht)
-            if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(x,z,r,u,w,t,hr,ht)
             if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (x,z,r,u,w,t,hr,ht)
 
@@ -566,7 +564,6 @@ contains
         if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (0._rp,z,r,u,w,t,hr,ht)
-        if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
         if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
         hy_dens_cell(k)       = hy_dens_cell(k)       + hr    * qweights(kk)
@@ -579,7 +576,6 @@ contains
       if (data_spec_int == DATA_SPEC_COLLISION      ) call collision      (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_THERMAL        ) call thermal        (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) call gravity_waves  (0._rp,z,r,u,w,t,hr,ht)
-      if (data_spec_int == DATA_SPEC_TURBULENCE     ) call turbulence     (0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) call density_current(0._rp,z,r,u,w,t,hr,ht)
       if (data_spec_int == DATA_SPEC_INJECTION      ) call injection      (0._rp,z,r,u,w,t,hr,ht)
       hy_dens_int      (k) = hr
@@ -614,21 +610,6 @@ contains
     w = 0
     t = t + sample_ellipse_cosine(x,z,-20._rp ,xlen/2,5000._rp,4000._rp,2000._rp)
   end subroutine density_current
-
-
-  subroutine turbulence(x,z,r,u,w,t,hr,ht)
-    implicit none
-    real(rp), intent(in   ) :: x, z        !x- and z- location of the point being sampled
-    real(rp), intent(  out) :: r, u, w, t  !Density, uwind, wwind, and potential temperature
-    real(rp), intent(  out) :: hr, ht      !Hydrostatic density and potential temperature
-    call hydro_const_theta(z,hr,ht)
-    r = 0
-    t = 0
-    call random_number(u)
-    call random_number(w)
-    u = (u-0.5)*20
-    w = (w-0.5)*20
-  end subroutine turbulence
 
 
   subroutine gravity_waves(x,z,r,u,w,t,hr,ht)
