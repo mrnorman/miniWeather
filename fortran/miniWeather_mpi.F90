@@ -24,7 +24,7 @@ program miniweather
   !Define domain and stability-related constants
   real(rp), parameter :: xlen      = 2.e4_rp    !Length of the domain in the x-direction (meters)
   real(rp), parameter :: zlen      = 1.e4_rp    !Length of the domain in the z-direction (meters)
-  real(rp), parameter :: hv_beta   = 0.25_rp     !How strong to diffuse the solution: hv_beta \in [0:1]
+  real(rp), parameter :: hv_beta   = 0.25_rp    !How strong to diffuse the solution: hv_beta \in [0:1]
   real(rp), parameter :: cfl       = 1.50_rp    !"Courant, Friedrichs, Lewy" number (for numerical stability)
   real(rp), parameter :: max_speed = 450        !Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
   integer , parameter :: hs        = 2          !"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
@@ -67,29 +67,29 @@ program miniweather
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! Variables that are initialized but remain static over the coure of the simulation
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  real(rp) :: dt                                !Model time step (seconds)
-  integer  :: nx, nz                            !Number of local grid cells in the x- and z- dimensions for this MPI task
-  real(rp) :: dx, dz                            !Grid space length in x- and z-dimension (meters)
-  integer  :: i_beg, k_beg                      !beginning index in the x- and z-directions for this MPI task
-  integer  :: nranks, myrank                    !Number of MPI ranks and my rank id
-  integer  :: left_rank, right_rank             !MPI Rank IDs that exist to my left and right in the global domain
-  logical  :: masterproc                        !Am I the master process (rank == 0)?
-  real(rp), allocatable :: hy_dens_cell      (:)      !hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
-  real(rp), allocatable :: hy_dens_theta_cell(:)      !hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
-  real(rp), allocatable :: hy_dens_int       (:)      !hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
-  real(rp), allocatable :: hy_dens_theta_int (:)      !hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
-  real(rp), allocatable :: hy_pressure_int   (:)      !hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+  real(rp) :: dt                                  !Model time step (seconds)
+  integer  :: nx, nz                              !Number of local grid cells in the x- and z- dimensions for this MPI task
+  real(rp) :: dx, dz                              !Grid space length in x- and z-dimension (meters)
+  integer  :: i_beg, k_beg                        !beginning index in the x- and z-directions for this MPI task
+  integer  :: nranks, myrank                      !Number of MPI ranks and my rank id
+  integer  :: left_rank, right_rank               !MPI Rank IDs that exist to my left and right in the global domain
+  logical  :: masterproc                          !Am I the master process (rank == 0)?
+  real(rp), allocatable :: hy_dens_cell      (:)  !hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
+  real(rp), allocatable :: hy_dens_theta_cell(:)  !hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
+  real(rp), allocatable :: hy_dens_int       (:)  !hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
+  real(rp), allocatable :: hy_dens_theta_int (:)  !hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
+  real(rp), allocatable :: hy_pressure_int   (:)  !hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !! Variables that are dynamics over the course of the simulation
+  !! Variables that are dynamic over the course of the simulation
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   real(rp) :: etime                             !Elapsed model time
   real(rp) :: output_counter                    !Helps determine when it's time to do output
   !Runtime variable arrays
-  real(rp), allocatable :: state             (:,:,:)  !Fluid state.                            Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
-  real(rp), allocatable :: state_tmp         (:,:,:)  !Fluid state.                            Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
-  real(rp), allocatable :: flux              (:,:,:)  !Cell interface fluxes.                  Dimensions: (nx+1,nz+1,NUM_VARS)
-  real(rp), allocatable :: tend              (:,:,:)  !Fluid state tendencies.                 Dimensions: (nx,nz,NUM_VARS)
+  real(rp), allocatable :: state    (:,:,:)     !Fluid state.                            Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
+  real(rp), allocatable :: state_tmp(:,:,:)     !Fluid state.                            Dimensions: (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
+  real(rp), allocatable :: flux     (:,:,:)     !Cell interface fluxes.                  Dimensions: (nx+1,nz+1,NUM_VARS)
+  real(rp), allocatable :: tend     (:,:,:)     !Fluid state tendencies.                 Dimensions: (nx,nz,NUM_VARS)
   real(rp), allocatable :: sendbuf_l(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   real(rp), allocatable :: sendbuf_r(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
   real(rp), allocatable :: recvbuf_l(:,:,:)     !buffers for MPI data exchanges. Dimensions: (hs,nz,NUM_VARS)
@@ -404,6 +404,9 @@ contains
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        !! TODO: THREAD ME
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         do k = 1 , nz
           z = (k_beg-1 + k-0.5_rp)*dz
           if (abs(z-3*zlen/4) <= zlen/16) then
