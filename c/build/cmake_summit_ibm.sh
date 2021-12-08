@@ -14,8 +14,8 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DOPENMP45_FLAGS="-qsmp=omp -qoffload"        \
       -DCXXFLAGS="-O3 -std=c+=11"                   \
       -DLDFLAGS=""                                  \
-      -DNX=2000 \
-      -DNZ=1000 \
-      -DSIM_TIME=5 \
+      -DNX=200 \
+      -DNZ=100 \
+      -DSIM_TIME=1000 \
       ..
 

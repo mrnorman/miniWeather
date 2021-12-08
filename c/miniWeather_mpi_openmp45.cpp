@@ -42,7 +42,7 @@ constexpr int DIR_X = 1;              //Integer constant to express that this op
 constexpr int DIR_Z = 2;              //Integer constant to express that this operation is in the z-direction
 constexpr int DATA_SPEC_COLLISION       = 1;
 constexpr int DATA_SPEC_THERMAL         = 2;
-constexpr int DATA_SPEC_MOUNTAIN        = 3;
+constexpr int DATA_SPEC_GRAVITY_WAVES   = 3;
 constexpr int DATA_SPEC_TURBULENCE      = 4;
 constexpr int DATA_SPEC_DENSITY_CURRENT = 5;
 constexpr int DATA_SPEC_INJECTION       = 6;
@@ -111,7 +111,7 @@ void   finalize             ( );
 void   injection            ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   density_current      ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   turbulence           ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
-void   mountain_waves       ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
+void   gravity_waves        ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   thermal              ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   collision            ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht );
 void   hydro_const_theta    ( double z                   , double &r , double &t );
@@ -541,7 +541,7 @@ void init( int *argc , char ***argv ) {
           //Set the fluid state based on the user's specification
           if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
-          if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
+          if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
           if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
@@ -572,7 +572,7 @@ void init( int *argc , char ***argv ) {
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
+      if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
@@ -585,7 +585,7 @@ void init( int *argc , char ***argv ) {
     z = (k_beg + k)*dz;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
+    if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
@@ -642,12 +642,13 @@ void turbulence( double x , double z , double &r , double &u , double &w , doubl
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-void mountain_waves( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht ) {
-  hydro_const_bvfreq(z,0.02,hr,ht);
+void gravity_waves ( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht ) {
+  hydro_const_bvfreq(z,0.01,hr,ht);
   r = 0.;
-  t = 0.;
-  u = 15.;
+  t = sample_ellipse_cosine(x,z,1.,xlen/2,zlen/2,2000.,2000.);
+  u = 0.;
   w = 0.;
+  r = hr*ht / (ht+t) - hr;
 }
 
 
