@@ -8,8 +8,13 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 program miniweather
+#ifndef __ibmxl__
   use mpi
+#endif
   implicit none
+#ifdef __ibmxl__
+  include "mpif.h"
+#endif
   !Declare the precision for the real constants (at least 15 digits of accuracy = double precision)
   integer , parameter :: rp = selected_real_kind(15)
   !Define some physical constants to use throughout the simulation
