@@ -15,56 +15,67 @@
 #include <mpi.h>
 #include "pnetcdf.h"
 
-const double pi        = 3.14159265358979323846264338327;   //Pi
-const double grav      = 9.8;                               //Gravitational acceleration (m / s^2)
-const double cp        = 1004.;                             //Specific heat of dry air at constant pressure
-const double cv        = 717.;                              //Specific heat of dry air at constant volume
-const double rd        = 287.;                              //Dry air constant for equation of state (P=rho*rd*T)
-const double p0        = 1.e5;                              //Standard pressure at the surface in Pascals
-const double C0        = 27.5629410929725921310572974482;   //Constant to translate potential temperature into pressure (P=C0*(rho*theta)**gamma)
-const double gamm      = 1.40027894002789400278940027894;   //gamma=cp/Rd , have to call this gamm because "gamma" is taken (I hate C so much)
+constexpr double pi        = 3.14159265358979323846264338327;   //Pi
+constexpr double grav      = 9.8;                               //Gravitational acceleration (m / s^2)
+constexpr double cp        = 1004.;                             //Specific heat of dry air at constant pressure
+constexpr double cv        = 717.;                              //Specific heat of dry air at constant volume
+constexpr double rd        = 287.;                              //Dry air constant for equation of state (P=rho*rd*T)
+constexpr double p0        = 1.e5;                              //Standard pressure at the surface in Pascals
+constexpr double C0        = 27.5629410929725921310572974482;   //Constant to translate potential temperature into pressure (P=C0*(rho*theta)**gamma)
+constexpr double gamm      = 1.40027894002789400278940027894;   //gamma=cp/Rd , have to call this gamm because "gamma" is taken (I hate C so much)
 //Define domain and stability-related constants
-const double xlen      = 2.e4;    //Length of the domain in the x-direction (meters)
-const double zlen      = 1.e4;    //Length of the domain in the z-direction (meters)
-const double hv_beta   = 0.25;     //How strong to diffuse the solution: hv_beta \in [0:1]
-const double cfl       = 1.50;    //"Courant, Friedrichs, Lewy" number (for numerical stability)
-const double max_speed = 450;        //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
-const int hs        = 2;          //"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
-const int sten_size = 4;          //Size of the stencil used for interpolation
+constexpr double xlen      = 2.e4;    //Length of the domain in the x-direction (meters)
+constexpr double zlen      = 1.e4;    //Length of the domain in the z-direction (meters)
+constexpr double hv_beta   = 0.25;     //How strong to diffuse the solution: hv_beta \in [0:1]
+constexpr double cfl       = 1.50;    //"Courant, Friedrichs, Lewy" number (for numerical stability)
+constexpr double max_speed = 450;        //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
+constexpr int hs        = 2;          //"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
+constexpr int sten_size = 4;          //Size of the stencil used for interpolation
 
 //Parameters for indexing and flags
-const int NUM_VARS = 4;           //Number of fluid state variables
-const int ID_DENS  = 0;           //index for density ("rho")
-const int ID_UMOM  = 1;           //index for momentum in the x-direction ("rho * u")
-const int ID_WMOM  = 2;           //index for momentum in the z-direction ("rho * w")
-const int ID_RHOT  = 3;           //index for density * potential temperature ("rho * theta")
-const int DIR_X = 1;              //Integer constant to express that this operation is in the x-direction
-const int DIR_Z = 2;              //Integer constant to express that this operation is in the z-direction
-const int DATA_SPEC_COLLISION       = 1;
-const int DATA_SPEC_THERMAL         = 2;
-const int DATA_SPEC_MOUNTAIN        = 3;
-const int DATA_SPEC_TURBULENCE      = 4;
-const int DATA_SPEC_DENSITY_CURRENT = 5;
-const int DATA_SPEC_INJECTION       = 6;
+constexpr int NUM_VARS = 4;           //Number of fluid state variables
+constexpr int ID_DENS  = 0;           //index for density ("rho")
+constexpr int ID_UMOM  = 1;           //index for momentum in the x-direction ("rho * u")
+constexpr int ID_WMOM  = 2;           //index for momentum in the z-direction ("rho * w")
+constexpr int ID_RHOT  = 3;           //index for density * potential temperature ("rho * theta")
+constexpr int DIR_X = 1;              //Integer constant to express that this operation is in the x-direction
+constexpr int DIR_Z = 2;              //Integer constant to express that this operation is in the z-direction
+constexpr int DATA_SPEC_COLLISION       = 1;
+constexpr int DATA_SPEC_THERMAL         = 2;
+constexpr int DATA_SPEC_MOUNTAIN        = 3;
+constexpr int DATA_SPEC_TURBULENCE      = 4;
+constexpr int DATA_SPEC_DENSITY_CURRENT = 5;
+constexpr int DATA_SPEC_INJECTION       = 6;
 
-const int nqpoints = 3;
-double qpoints [] = { 0.112701665379258311482073460022E0 , 0.500000000000000000000000000000E0 , 0.887298334620741688517926539980E0 };
-double qweights[] = { 0.277777777777777777777777777779E0 , 0.444444444444444444444444444444E0 , 0.277777777777777777777777777779E0 };
+constexpr int nqpoints = 3;
+constexpr double qpoints [] = { 0.112701665379258311482073460022E0 , 0.500000000000000000000000000000E0 , 0.887298334620741688517926539980E0 };
+constexpr double qweights[] = { 0.277777777777777777777777777779E0 , 0.444444444444444444444444444444E0 , 0.277777777777777777777777777779E0 };
+
+///////////////////////////////////////////////////////////////////////////////////////
+// BEGIN USER-CONFIGURABLE PARAMETERS
+///////////////////////////////////////////////////////////////////////////////////////
+//The x-direction length is twice as long as the z-direction length
+//So, you'll want to have nx_glob be twice as large as nz_glob
+int    constexpr nx_glob       = _NX;            //Number of total cells in the x-dirction
+int    constexpr nz_glob       = _NZ;            //Number of total cells in the z-dirction
+double constexpr sim_time      = _SIM_TIME;      //How many seconds to run the simulation
+double constexpr output_freq   = _OUT_FREQ;      //How frequently to output data to file (in seconds)
+int    constexpr data_spec_int = _DATA_SPEC;     //How to initialize the data
+double constexpr dx            = xlen / nx_glob; // grid spacing in the x-direction
+double constexpr dz            = zlen / nz_glob; // grid spacing in the x-direction
+///////////////////////////////////////////////////////////////////////////////////////
+// END USER-CONFIGURABLE PARAMETERS
+///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are initialized but remain static over the coure of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
-double sim_time;              //total simulation time in seconds
-double output_freq;           //frequency to perform output in seconds
 double dt;                    //Model time step (seconds)
 int    nx, nz;                //Number of local grid cells in the x- and z- dimensions for this MPI task
-double dx, dz;                //Grid space length in x- and z-dimension (meters)
-int    nx_glob, nz_glob;      //Number of total grid cells in the x- and z- dimensions
 int    i_beg, k_beg;          //beginning index in the x- and z-directions for this MPI task
 int    nranks, myrank;        //Number of MPI ranks and my rank id
 int    left_rank, right_rank; //MPI Rank IDs that exist to my left and right in the global domain
 int    masterproc;            //Am I the master process (rank == 0)?
-double data_spec_int;         //Which data initialization to use
 double *hy_dens_cell;         //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
 double *hy_dens_theta_cell;   //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
 double *hy_dens_int;          //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -121,19 +132,6 @@ void   reductions           ( double &mass , double &te );
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
-  ///////////////////////////////////////////////////////////////////////////////////////
-  // BEGIN USER-CONFIGURABLE PARAMETERS
-  ///////////////////////////////////////////////////////////////////////////////////////
-  //The x-direction length is twice as long as the z-direction length
-  //So, you'll want to have nx_glob be twice as large as nz_glob
-  nx_glob = _NX;      //Number of total cells in the x-dirction
-  nz_glob = _NZ;       //Number of total cells in the z-dirction
-  sim_time = _SIM_TIME;     //How many seconds to run the simulation
-  output_freq = _OUT_FREQ;   //How frequently to output data to file (in seconds)
-  data_spec_int = _DATA_SPEC;  //How to initialize the data
-  ///////////////////////////////////////////////////////////////////////////////////////
-  // END USER-CONFIGURABLE PARAMETERS
-  ///////////////////////////////////////////////////////////////////////////////////////
 
   init( &argc , &argv );
 
@@ -474,10 +472,6 @@ void init( int *argc , char ***argv ) {
   double x, z, r, u, w, t, hr, ht, nper;
 
   ierr = MPI_Init(argc,argv);
-
-  //Set the cell grid size
-  dx = xlen / nx_glob;
-  dz = zlen / nz_glob;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
