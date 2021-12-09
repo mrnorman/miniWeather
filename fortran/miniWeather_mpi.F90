@@ -205,6 +205,7 @@ contains
     real(rp), intent(in   ) :: dt
     integer , intent(in   ) :: dir
     integer :: i,k,ll
+    real(rp) :: x, z, wpert
 
     if     (dir == DIR_X) then
       !Set the halo values for this MPI task's fluid state in the x-direction
@@ -225,6 +226,12 @@ contains
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
+          if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) then
+            x = (i_beg-1 + i-0.5_rp) * dx
+            z = (k_beg-1 + k-0.5_rp) * dz
+            wpert = sample_ellipse_cosine( x,z , 0.01_rp , xlen/8,1000._rp, 500._rp,500._rp )
+            tend(i,k,ID_WMOM) = tend(i,k,ID_WMOM) + wpert*hy_dens_cell(k)
+          endif
           state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
         enddo
       enddo
@@ -617,15 +624,11 @@ contains
     real(rp), intent(in   ) :: x, z        !x- and z- location of the point being sampled
     real(rp), intent(  out) :: r, u, w, t  !Density, uwind, wwind, and potential temperature
     real(rp), intent(  out) :: hr, ht      !Hydrostatic density and potential temperature
-    real(rp) :: zterm, xterm
-    zterm = sin(pi*z/zlen)
-    xterm = (x - xlen/2)*(x-xlen/2) / (100*100)
-    call hydro_const_bvfreq(z,0.01_rp,hr,ht)
+    call hydro_const_bvfreq(z,0.02_rp,hr,ht)
     r = 0
-    t = sample_ellipse_cosine(x,z, 1._rp ,xlen/2,zlen/2,2000._rp,2000._rp)
-    u = 0
+    t = 0
+    u = 15
     w = 0
-    r = hr*ht / (ht+t) - hr
   end subroutine gravity_waves
 
 
