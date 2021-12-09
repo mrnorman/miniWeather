@@ -212,7 +212,7 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend ) {
   int i, k, ll, inds, indt, indw;
-  double x, z, wpert;
+  double x, z, wpert, dist, x0, z0, xrad, zrad, amp;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -233,7 +233,24 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
         if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
           x = (i_beg + i+0.5)*dx;
           z = (k_beg + k+0.5)*dz;
-          wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+          // Using sample_ellipse_cosine requires "acc routine" in OpenACC and "declare target" in OpenMP offload
+          // Neither of these are particularly well supported. So I'm manually inlining here
+          // wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+          {
+            x0   = xlen/8;
+            z0   = 1000;
+            xrad = 500;
+            zrad = 500;
+            amp  = 0.01;
+            //Compute distance from bubble center
+            dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
+            //If the distance from bubble center is less than the radius, create a cos**2 profile
+            if (dist <= pi / 2.) {
+              wpert = amp * pow(cos(dist),2.);
+            } else {
+              wpert = 0.;
+            }
+          }
           indw = ID_WMOM*nz*nx + k*nx + i;
           tend[indw] += wpert*hy_dens_cell[hs+k];
         }
