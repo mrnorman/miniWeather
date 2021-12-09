@@ -226,7 +226,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   }
 
   //Apply the tendencies to the fluid state
-#pragma omp parallel for private(inds,indt,i) collapse(2)
+#pragma omp parallel for private(inds,indt,x,z,x0,z0,xrad,zrad,amp,dist,wpert,indw) collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -273,7 +273,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s,i)
+#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
   for (k=0; k<nz; k++) {
     for (i=0; i<nx+1; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -304,7 +304,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp parallel for private(i,indt,indf1,indf2) collapse(2)
+#pragma omp parallel for private(indt,indf1,indf2) collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -328,7 +328,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s,i)
+#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
   for (k=0; k<nz+1; k++) {
     for (i=0; i<nx; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -364,7 +364,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp parallel for private(i,indt,indf1,indf2) collapse(2)
+#pragma omp parallel for private(indt,indf1,indf2,inds) collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -393,7 +393,7 @@ void set_halo_values_x( double *state ) {
   ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
-#pragma omp parallel for private(s) collapse(2)
+#pragma omp parallel for collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -411,7 +411,7 @@ void set_halo_values_x( double *state ) {
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
   //Unpack the receive buffers
-#pragma omp parallel for private(s) collapse(2)
+#pragma omp parallel for collapse(3)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -448,9 +448,7 @@ void set_halo_values_x( double *state ) {
 //decomposition in the vertical direction
 void set_halo_values_z( double *state ) {
   int          i, ll;
-  const double mnt_width = xlen/8;
-  double       x, xloc, mnt_deriv;
-#pragma omp parallel for private(x,xloc,mnt_deriv) collapse(2)
+#pragma omp parallel for collapse(2)
   for (ll=0; ll<NUM_VARS; ll++) {
     for (i=0; i<nx+2*hs; i++) {
       if (ll == ID_WMOM) {
@@ -536,7 +534,7 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-#pragma omp parallel for private(i,ll,kk,ii,inds,x,z,r,u,w,t,hr,ht)
+#pragma omp parallel for private(ll,kk,ii,inds,x,z,r,u,w,t,hr,ht) collapse(2)
   for (k=0; k<nz+2*hs; k++) {
     for (i=0; i<nx+2*hs; i++) {
       //Initialize the state to zero
@@ -773,7 +771,7 @@ void output( double *state , double etime ) {
   }
 
   //Store perturbed values in the temp arrays for output
-#pragma omp parallel for private(i,ind_r,ind_u,ind_w,ind_t)
+#pragma omp parallel for private(ind_r,ind_u,ind_w,ind_t) collapse(2)
   for (k=0; k<nz; k++) {
     for (i=0; i<nx; i++) {
       ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;

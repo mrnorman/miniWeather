@@ -210,7 +210,7 @@ contains
     real(rp), intent(in   ) :: dt
     integer , intent(in   ) :: dir
     integer :: i,k,ll
-    real(rp) :: x, z, wpert
+    real(rp) :: x, z, wpert, dist, x0, z0, xrad, zrad, amp
 
     if     (dir == DIR_X) then
       !Set the halo values for this MPI task's fluid state in the x-direction
@@ -232,7 +232,22 @@ contains
           if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) then
             x = (i_beg-1 + i-0.5_rp) * dx
             z = (k_beg-1 + k-0.5_rp) * dz
-            wpert = sample_ellipse_cosine( x,z , 0.01_rp , xlen/8,1000._rp, 500._rp,500._rp )
+            ! The following requires "acc routine" in OpenACC and "declare target" in OpenMP offload
+            ! Neither of these are particularly well supported by compilers, so I'm manually inlining
+            ! wpert = sample_ellipse_cosine( x,z , 0.01_rp , xlen/8,1000._rp, 500._rp,500._rp )
+            x0 = xlen/8
+            z0 = 1000
+            xrad = 500
+            zrad = 500
+            amp = 0.01_rp
+            !Compute distance from bubble center
+            dist = sqrt( ((x-x0)/xrad)**2 + ((z-z0)/zrad)**2 ) * pi / 2._rp
+            !If the distance from bubble center is less than the radius, create a cos**2 profile
+            if (dist <= pi / 2._rp) then
+              wpert = amp * cos(dist)**2
+            else
+              wpert = 0._rp
+            endif
             tend(i,k,ID_WMOM) = tend(i,k,ID_WMOM) + wpert*hy_dens_cell(k)
           endif
           state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
@@ -698,7 +713,6 @@ contains
   !Sample from an ellipse of a specified center, radius, and amplitude at a specified location
   function sample_ellipse_cosine( x , z , amp , x0 , z0 , xrad , zrad )   result(val)
     implicit none
-    !$acc routine seq
     real(rp), intent(in) :: x , z         !Location to sample
     real(rp), intent(in) :: amp           !Amplitude of the bubble
     real(rp), intent(in) :: x0 , z0       !Center of the bubble
