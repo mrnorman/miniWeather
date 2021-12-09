@@ -448,9 +448,7 @@ contains
     implicit none
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer :: i, ll
-    real(rp), parameter :: mnt_width = xlen/8
-    real(rp) :: x, xloc, mnt_deriv
-    !$acc parallel loop collapse(2) async(1) private(xloc,mnt_deriv,x)
+    !$acc parallel loop collapse(2) async(1)
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then

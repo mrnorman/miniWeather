@@ -220,7 +220,7 @@ contains
     endif
 
     !Apply the tendencies to the fluid state
-    !$omp parallel do collapse(2)
+    !$omp parallel do collapse(3) private(x,z,x0,z0,xrad,zrad,amp,dist,wpert)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -267,7 +267,7 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dx / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp parallel do private(stencil,vals,d3_vals,r,u,w,t,p)
+    !$omp parallel do private(stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
     do k = 1 , nz
       do i = 1 , nx+1
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -297,7 +297,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp parallel do collapse(2)
+    !$omp parallel do collapse(3)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -323,7 +323,7 @@ contains
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp parallel do private(stencil,vals,d3_vals,r,u,w,t,p)
+    !$omp parallel do private(stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
     do k = 1 , nz+1
       do i = 1 , nx
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -358,7 +358,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp parallel do collapse(2)
+    !$omp parallel do collapse(3)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -384,7 +384,7 @@ contains
     call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
 
     !Pack the send buffers
-    !$omp parallel do collapse(2)
+    !$omp parallel do collapse(3)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -402,7 +402,7 @@ contains
     call mpi_waitall(2,req_r,status,ierr)
 
     !Unpack the receive buffers
-    !$omp parallel do collapse(2)
+    !$omp parallel do collapse(3)
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -436,9 +436,7 @@ contains
     implicit none
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer :: i, ll
-    real(rp), parameter :: mnt_width = xlen/8
-    real(rp) :: x, xloc, mnt_deriv
-    !$omp parallel do collapse(2) private(mnt_deriv,xloc,x)
+    !$omp parallel do collapse(2)
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
@@ -535,7 +533,7 @@ contains
     !! Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     state = 0
-    !$omp parallel do private(x,z,r,u,w,t,hr,ht)
+    !$omp parallel do private(x,z,r,u,w,t,hr,ht,kk,ii,ll) collapse(2)
     do k = 1-hs , nz+hs
       do i = 1-hs , nx+hs
         !Initialize the state to zero
@@ -568,7 +566,7 @@ contains
     !Compute the hydrostatic background state over vertical cell averages
     hy_dens_cell = 0
     hy_dens_theta_cell = 0
-    !$omp parallel do private(z,r,u,w,t,hr,ht)
+    !$omp parallel do private(z,r,u,w,t,hr,ht,kk)
     do k = 1-hs , nz+hs
       do kk = 1 , nqpoints
         z = (k_beg-1 + k-0.5_rp) * dz + (qpoints(kk)-0.5_rp)*dz
@@ -857,7 +855,7 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    !$omp parallel do collapse(2) reduction(+:mass,te)
+    !$omp parallel do collapse(2) reduction(+:mass,te) private(r,u,w,th,p,t,ke,ie)
     do k = 1 , nz
       do i = 1 , nx
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density

@@ -461,9 +461,7 @@ contains
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer , intent(in   ) :: asyncid
     integer :: i, ll
-    real(rp), parameter :: mnt_width = xlen/8
-    real(rp) :: x, xloc, mnt_deriv
-    !$omp target teams distribute parallel do collapse(2) private(xloc,mnt_deriv,x) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do collapse(2) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
