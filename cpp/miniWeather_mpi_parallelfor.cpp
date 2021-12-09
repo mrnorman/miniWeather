@@ -195,12 +195,22 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 
   auto &nx = ::nx;
   auto &nz = ::nz;
+  auto &i_beg = ::i_beg;
+  auto &k_beg = ::k_beg;
+  auto &xlen = ::xlen;
+  auto &hy_dens_cell = ::hy_dens_cell;
 
   //Apply the tendencies to the fluid state
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
   parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+    if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
+      real x = (i_beg + i+0.5)*dx;
+      real z = (k_beg + k+0.5)*dz;
+      real wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+      tend(ID_WMOM,k,i) += wpert*hy_dens_cell(hs+k);
+    }
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
 }
@@ -623,12 +633,11 @@ YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w 
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
 YAKL_INLINE void gravity_waves ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
-  hydro_const_bvfreq(z,0.01,hr,ht);
+  hydro_const_bvfreq(z,0.02,hr,ht);
   r = 0.;
-  t = sample_ellipse_cosine(x,z,1.,xlen/2,zlen/2,2000.,2000.);
-  u = 0.;
+  t = 0.;
+  u = 15.;
   w = 0.;
-  r = hr*ht / (ht+t) - hr;
 }
 
 

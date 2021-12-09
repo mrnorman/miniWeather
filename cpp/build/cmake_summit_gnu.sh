@@ -18,7 +18,7 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DYAKL_CUDA_FLAGS="-DHAVE_MPI -O3 --use_fast_math -arch sm_70 -ccbin mpic++" \
       -DNX=200                                      \
       -DNZ=100                                      \
-      -DDATA_SPEC="DATA_SPEC_THERMAL"               \
+      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"         \
       -DSIM_TIME=1000                               \
       ..
 
