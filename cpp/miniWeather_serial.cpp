@@ -365,8 +365,6 @@ void set_halo_values_x( real3d &state ) {
 //decomposition in the vertical direction
 void set_halo_values_z( real3d &state ) {
   int    i, ll;
-  const real mnt_width = xlen/8;
-  real       x, xloc, mnt_deriv;
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
@@ -377,18 +375,11 @@ void set_halo_values_z( real3d &state ) {
         state(ll,1      ,i) = 0.;
         state(ll,nz+hs  ,i) = 0.;
         state(ll,nz+hs+1,i) = 0.;
-        //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-        if (data_spec_int == DATA_SPEC_MOUNTAIN) {
-          x = (i_beg+i-hs+0.5)*dx;
-          if ( fabs(x-xlen/4) < mnt_width ) {
-            xloc = (x-(xlen/4)) / mnt_width;
-            //Compute the derivative of the fake mountain
-            mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
-            //w = (dz/dx)*u
-            state(ID_WMOM,0,i) = mnt_deriv*state(ID_UMOM,hs,i);
-            state(ID_WMOM,1,i) = mnt_deriv*state(ID_UMOM,hs,i);
-          }
-        }
+      } else if (ll == ID_UMOM) {
+        state(ll,0      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(0      );
+        state(ll,1      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(1      );
+        state(ll,nz+hs  ,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs  );
+        state(ll,nz+hs+1,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs+1);
       } else {
         state(ll,0      ,i) = state(ll,hs     ,i);
         state(ll,1      ,i) = state(ll,hs     ,i);

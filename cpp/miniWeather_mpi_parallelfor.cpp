@@ -391,7 +391,6 @@ void set_halo_values_x( real3d &state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-      auto &zlen = ::zlen;
       auto &k_beg = ::k_beg;
       auto &hy_dens_cell = ::hy_dens_cell;
       auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
@@ -415,31 +414,21 @@ void set_halo_values_x( real3d &state ) {
 void set_halo_values_z( real3d &state ) {
   auto &nx = ::nx;
   auto &nz = ::nz;
-  auto &xlen = ::xlen;
-  auto &data_spec_int = ::data_spec_int;
-  auto &i_beg = ::i_beg;
+  auto &hy_dens_cell = ::hy_dens_cell;
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
   parallel_for( Bounds<2>(NUM_VARS,nx+2*hs) , YAKL_LAMBDA (int ll, int i) {
-    const real mnt_width = xlen/8;
     if (ll == ID_WMOM) {
       state(ll,0      ,i) = 0.;
       state(ll,1      ,i) = 0.;
       state(ll,nz+hs  ,i) = 0.;
       state(ll,nz+hs+1,i) = 0.;
-      //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-      if (data_spec_int == DATA_SPEC_MOUNTAIN) {
-        real x = (i_beg+i-hs+0.5)*dx;
-        if ( fabs(x-xlen/4) < mnt_width ) {
-          real xloc = (x-(xlen/4)) / mnt_width;
-          //Compute the derivative of the fake mountain
-          real mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
-          //w = (dz/dx)*u
-          state(ID_WMOM,0,i) = mnt_deriv*state(ID_UMOM,hs,i);
-          state(ID_WMOM,1,i) = mnt_deriv*state(ID_UMOM,hs,i);
-        }
-      }
+    } else if (ll == ID_UMOM) {
+      state(ll,0      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(0      );
+      state(ll,1      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(1      );
+      state(ll,nz+hs  ,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs  );
+      state(ll,nz+hs+1,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs+1);
     } else {
       state(ll,0      ,i) = state(ll,hs     ,i);
       state(ll,1      ,i) = state(ll,hs     ,i);
@@ -528,7 +517,6 @@ void init( ) {
   auto &k_beg = ::k_beg;
   auto &state = ::state;
   auto &state_tmp = ::state_tmp;
-  auto &data_spec_int = ::data_spec_int;
 
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
