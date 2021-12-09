@@ -165,7 +165,6 @@ void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend ) {
-  int i, k, ll;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -182,9 +181,9 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
+      for (int i=0; i<nx; i++) {
         if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
           real x = (i_beg + i+0.5)*dx;
           real z = (k_beg + k+0.5)*dz;
@@ -203,22 +202,20 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend , real dt ) {
-  int  i,k,ll,s;
-  real r,u,w,t,p, hv_coef;
-  SArray<real,1,4> stencil;
-  SArray<real,1,NUM_VARS> d3_vals;
-  SArray<real,1,NUM_VARS> vals;
   //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dx / (16*dt);
+  real hv_coef = -hv_beta * dx / (16*dt);
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx+1; i++) {
+  for (int k=0; k<nz; k++) {
+    for (int i=0; i<nx+1; i++) {
+      SArray<real,1,4> stencil;
+      SArray<real,1,NUM_VARS> d3_vals;
+      SArray<real,1,NUM_VARS> vals;
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (ll=0; ll<NUM_VARS; ll++) {
-        for (s=0; s < sten_size; s++) {
+      for (int ll=0; ll<NUM_VARS; ll++) {
+        for (int s=0; s < sten_size; s++) {
           stencil(s) = state(ll,hs+k,i+s);
         }
         //Fourth-order-accurate interpolation of the state
@@ -228,11 +225,11 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend , real dt
       }
 
       //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      r = vals(ID_DENS) + hy_dens_cell(hs+k);
-      u = vals(ID_UMOM) / r;
-      w = vals(ID_WMOM) / r;
-      t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
-      p = C0*pow((r*t),gamm);
+      real r = vals(ID_DENS) + hy_dens_cell(hs+k);
+      real u = vals(ID_UMOM) / r;
+      real w = vals(ID_WMOM) / r;
+      real t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
+      real p = C0*pow((r*t),gamm);
 
       //Compute the flux vector
       flux(ID_DENS,k,i) = r*u     - hv_coef*d3_vals(ID_DENS);
@@ -246,9 +243,9 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend , real dt
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Use the fluxes to compute tendencies for each cell
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
+      for (int i=0; i<nx; i++) {
         tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
       }
     }
@@ -261,22 +258,20 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend , real dt
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend , real dt ) {
-  int  i,k,ll,s;
-  real r,u,w,t,p, hv_coef;
-  SArray<real,1,4> stencil;
-  SArray<real,1,NUM_VARS> d3_vals;
-  SArray<real,1,NUM_VARS> vals;
   //Compute the hyperviscosity coeficient
-  hv_coef = -hv_beta * dz / (16*dt);
+  real hv_coef = -hv_beta * dz / (16*dt);
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Compute fluxes in the x-direction for each cell
-  for (k=0; k<nz+1; k++) {
-    for (i=0; i<nx; i++) {
+  for (int k=0; k<nz+1; k++) {
+    for (int i=0; i<nx; i++) {
+      SArray<real,1,4> stencil;
+      SArray<real,1,NUM_VARS> d3_vals;
+      SArray<real,1,NUM_VARS> vals;
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (ll=0; ll<NUM_VARS; ll++) {
-        for (s=0; s<sten_size; s++) {
+      for (int ll=0; ll<NUM_VARS; ll++) {
+        for (int s=0; s<sten_size; s++) {
           stencil(s) = state(ll,k+s,hs+i);
         }
         //Fourth-order-accurate interpolation of the state
@@ -286,11 +281,11 @@ void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend , real dt
       }
 
       //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      r = vals(ID_DENS) + hy_dens_int(k);
-      u = vals(ID_UMOM) / r;
-      w = vals(ID_WMOM) / r;
-      t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
-      p = C0*pow((r*t),gamm) - hy_pressure_int(k);
+      real r = vals(ID_DENS) + hy_dens_int(k);
+      real u = vals(ID_UMOM) / r;
+      real w = vals(ID_WMOM) / r;
+      real t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
+      real p = C0*pow((r*t),gamm) - hy_pressure_int(k);
       if (k == 0 || k == nz) {
         w                = 0;
         d3_vals(ID_DENS) = 0;
@@ -308,9 +303,9 @@ void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend , real dt
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (i=0; i<nx; i++) {
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
+      for (int i=0; i<nx; i++) {
         tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
         if (ll == ID_WMOM) {
           tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
@@ -324,8 +319,6 @@ void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend , real dt
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
 void set_halo_values_x( real3d &state ) {
-  int k, ll, i;
-  real z;
   ////////////////////////////////////////////////////////////////////////
   // TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
   // (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
@@ -337,8 +330,8 @@ void set_halo_values_x( real3d &state ) {
   //////////////////////////////////////////////////////
   // DELETE THE SERIAL CODE BELOW AND REPLACE WITH MPI
   //////////////////////////////////////////////////////
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int k=0; k<nz; k++) {
       state(ll,hs+k,0      ) = state(ll,hs+k,nx+hs-2);
       state(ll,hs+k,1      ) = state(ll,hs+k,nx+hs-1);
       state(ll,hs+k,nx+hs  ) = state(ll,hs+k,hs     );
@@ -352,9 +345,9 @@ void set_halo_values_x( real3d &state ) {
       /////////////////////////////////////////////////
       // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
       /////////////////////////////////////////////////
-      for (k=0; k<nz; k++) {
-        for (i=0; i<hs; i++) {
-          z = (k_beg + k+0.5)*dz;
+      for (int k=0; k<nz; k++) {
+        for (int i=0; i<hs; i++) {
+          real z = (k_beg + k+0.5)*dz;
           if (abs(z-3*zlen/4) <= zlen/16) {
             state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
             state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298. - hy_dens_theta_cell(hs+k);
@@ -369,12 +362,11 @@ void set_halo_values_x( real3d &state ) {
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
 void set_halo_values_z( real3d &state ) {
-  int    i, ll;
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (i=0; i<nx+2*hs; i++) {
+  for (int ll=0; ll<NUM_VARS; ll++) {
+    for (int i=0; i<nx+2*hs; i++) {
       if (ll == ID_WMOM) {
         state(ll,0      ,i) = 0.;
         state(ll,1      ,i) = 0.;
@@ -397,8 +389,7 @@ void set_halo_values_z( real3d &state ) {
 
 
 void init( ) {
-  int  i, k, ii, kk, ll, ierr;
-  real x, z, r, u, w, t, hr, ht;
+  int ierr;
 
   /////////////////////////////////////////////////////////////
   // BEGIN MPI DUMMY SECTION
@@ -468,18 +459,19 @@ void init( ) {
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (k=0; k<nz+2*hs; k++) {
-    for (i=0; i<nx+2*hs; i++) {
+  for (int k=0; k<nz+2*hs; k++) {
+    for (int i=0; i<nx+2*hs; i++) {
       //Initialize the state to zero
-      for (ll=0; ll<NUM_VARS; ll++) {
+      for (int ll=0; ll<NUM_VARS; ll++) {
         state(ll,k,i) = 0.;
       }
       //Use Gauss-Legendre quadrature to initialize a hydrostatic balance + temperature perturbation
-      for (kk=0; kk<nqpoints; kk++) {
-        for (ii=0; ii<nqpoints; ii++) {
+      for (int kk=0; kk<nqpoints; kk++) {
+        for (int ii=0; ii<nqpoints; ii++) {
           //Compute the x,z location within the global domain based on cell and quadrature index
-          x = (i_beg + i-hs+0.5)*dx + (qpoints(ii)-0.5)*dx;
-          z = (k_beg + k-hs+0.5)*dz + (qpoints(kk)-0.5)*dz;
+          real x = (i_beg + i-hs+0.5)*dx + (qpoints(ii)-0.5)*dx;
+          real z = (k_beg + k-hs+0.5)*dz + (qpoints(kk)-0.5)*dz;
+          real r, u, w, t, hr, ht;
 
           //Set the fluid state based on the user's specification
           if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
@@ -495,7 +487,7 @@ void init( ) {
           state(ID_RHOT,k,i) += ( (r+hr)*(t+ht) - hr*ht ) * qweights(ii)*qweights(kk);
         }
       }
-      for (ll=0; ll<NUM_VARS; ll++) {
+      for (int ll=0; ll<NUM_VARS; ll++) {
         state_tmp(ll,k,i) = state(ll,k,i);
       }
     }
@@ -504,11 +496,12 @@ void init( ) {
   /////////////////////////////////////////////////
   // TODO: MAKE THIS LOOP A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (k=0; k<nz+2*hs; k++) {
+  for (int k=0; k<nz+2*hs; k++) {
     hy_dens_cell      (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
-    for (kk=0; kk<nqpoints; kk++) {
-      z = (k_beg + k-hs+0.5)*dz;
+    for (int kk=0; kk<nqpoints; kk++) {
+      real z = (k_beg + k-hs+0.5)*dz;
+      real r, u, w, t, hr, ht;
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
@@ -523,8 +516,9 @@ void init( ) {
   /////////////////////////////////////////////////
   // TODO: MAKE THIS LOOP A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (k=0; k<nz+1; k++) {
-    z = (k_beg + k)*dz;
+  for (int k=0; k<nz+1; k++) {
+    real z = (k_beg + k)*dz;
+    real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
@@ -611,12 +605,11 @@ void collision( real x , real z , real &r , real &u , real &w , real &t , real &
 void hydro_const_theta( real z , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p,exner,rt;
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
-  exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                 //Pressure at z
-  rt = pow((p / C0),(1. / gamm));             //rho*theta at z
+  real exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                 //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));             //rho*theta at z
   r = rt / t;                                  //Density at z
 }
 
@@ -628,11 +621,10 @@ void hydro_const_theta( real z , real &r , real &t ) {
 void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
-  exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
-  rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
+  real exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
   r = rt / t;                                                                          //Density at z
 }
 
@@ -641,9 +633,8 @@ void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
-  real dist;
   //Compute distance from bubble center
-  dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
+  real dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
   //If the distance from bubble center is less than the radius, create a cos**2 profile
   if (dist <= pi / 2.) {
     return amp * pow(cos(dist),2.);
@@ -658,18 +649,15 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
 void output( real3d &state , real etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
-  int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  doub2d dens, uwnd, wwnd, theta;
-  double etimearr[1];
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = doub2d( "dens"     , nz,nx );
-  uwnd     = doub2d( "uwnd"     , nz,nx );
-  wwnd     = doub2d( "wwnd"     , nz,nx );
-  theta    = doub2d( "theta"    , nz,nx );
+  doub2d dens ( "dens"     , nz,nx );
+  doub2d uwnd ( "uwnd"     , nz,nx );
+  doub2d wwnd ( "wwnd"     , nz,nx );
+  doub2d theta( "theta"    , nz,nx );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -704,8 +692,8 @@ void output( real3d &state , real etime ) {
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
+  for (int k=0; k<nz; k++) {
+    for (int i=0; i<nx; i++) {
       dens (k,i) = state(ID_DENS,hs+k,hs+i);
       uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
       wwnd (k,i) = state(ID_WMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
@@ -728,6 +716,7 @@ void output( real3d &state , real etime ) {
   if (masterproc) {
     st1[0] = num_out;
     ct1[0] = 1;
+    double etimearr[1];
     etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
   }
   //End "independent" write mode

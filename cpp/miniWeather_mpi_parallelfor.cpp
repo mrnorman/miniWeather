@@ -450,11 +450,10 @@ void set_halo_values_z( real3d &state ) {
 
 void init( ) {
   int  ierr, i_end;
-  real nper;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-  nper = ( (double) nx_glob ) / nranks;
+  real nper = ( (double) nx_glob ) / nranks;
   i_beg = round( nper* (myrank)    );
   i_end = round( nper*((myrank)+1) )-1;
   nx = i_end - i_beg + 1;
@@ -676,12 +675,11 @@ YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real
 YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p,exner,rt;
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
-  exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                 //Pressure at z
-  rt = pow((p / C0),(1. / gamm));             //rho*theta at z
+  real exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                 //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));             //rho*theta at z
   r = rt / t;                                  //Density at z
 }
 
@@ -693,11 +691,10 @@ YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
 YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
-  exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
-  rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
+  real exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
   r = rt / t;                                                                          //Density at z
 }
 
@@ -706,9 +703,8 @@ YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t 
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
 YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
-  real dist;
   //Compute distance from bubble center
-  dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
+  real dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
   //If the distance from bubble center is less than the radius, create a cos**2 profile
   if (dist <= pi / 2.) {
     return amp * pow(cos(dist),2.);
@@ -724,16 +720,13 @@ YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , r
 void output( real3d &state , real etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
-  //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  doub2d dens, uwnd, wwnd, theta;
-  double etimearr[1];
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = doub2d( "dens"     , nz,nx );
-  uwnd     = doub2d( "uwnd"     , nz,nx );
-  wwnd     = doub2d( "wwnd"     , nz,nx );
-  theta    = doub2d( "theta"    , nz,nx );
+  doub2d dens ( "dens"     , nz,nx );
+  doub2d uwnd ( "uwnd"     , nz,nx );
+  doub2d wwnd ( "wwnd"     , nz,nx );
+  doub2d theta( "theta"    , nz,nx );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -795,6 +788,7 @@ void output( real3d &state , real etime ) {
   if (masterproc) {
     st1[0] = num_out;
     ct1[0] = 1;
+    double etimearr[1];
     etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
   }
   //End "independent" write mode
