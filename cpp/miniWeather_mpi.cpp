@@ -36,28 +36,9 @@ real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions
 real1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
 real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
 
-///////////////////////////////////////////////////////////////////////////////////////
-// Variables that are dynamics over the course of the simulation
-///////////////////////////////////////////////////////////////////////////////////////
-real dt;                    //Model time step (seconds)
-real etime;                 //Elapsed model time
-real output_counter;        //Helps determine when it's time to do output
-//Runtime variable arrays
-int  num_out = 0;           //The number of outputs performed so far
-int  direction_switch = 1;
-real3d sendbuf_l;           //Buffer to send data to the left MPI rank
-real3d sendbuf_r;           //Buffer to send data to the right MPI rank
-real3d recvbuf_l;           //Buffer to receive data from the left MPI rank
-real3d recvbuf_r;           //Buffer to receive data from the right MPI rank
-double mass0, te0;            //Initial domain totals for mass and total energy  
-double mass , te ;            //Domain totals for mass and total energy  
-////////////////////////////////////////////////////////////
-// TODO: CREATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
-////////////////////////////////////////////////////////////
-
 
 //Declaring the functions defined after "main"
-void init                 ( real3d &state );
+void init                 ( real3d &state , real &dt );
 void finalize             ( );
 void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
@@ -67,9 +48,9 @@ void collision            ( real x , real z , real &r , real &u , real &w , real
 void hydro_const_theta    ( real z                    , real &r , real &t );
 void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( real3d &state , real etime );
+void output               ( real3d &state , real etime , int &num_out );
 void ncwrap               ( int ierr , int line );
-void perform_timestep     ( real3d &state , real dt );
+void perform_timestep     ( real3d &state , real dt , int &direction_switch );
 void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir );
 void compute_tendencies_x ( real3d &state , real3d &tend , real dt);
 void compute_tendencies_z ( real3d &state , real3d &tend , real dt);
@@ -86,15 +67,23 @@ int main(int argc, char **argv) {
   yakl::init();
   {
     real3d state;
+    real dt;                    //Model time step (seconds)
 
     // init allocates state
-    init( state );
+    init( state , dt );
 
     //Initial reductions for mass, kinetic energy, and total energy
+    real mass0, te0;
     reductions(state,mass0,te0);
 
+    int  num_out = 0;          //The number of outputs performed so far
+    real output_counter = 0;   //Helps determine when it's time to do output
+    real etime = 0;
+
     //Output the initial state
-    output(state,etime);
+    output(state,etime,num_out);
+
+    int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
 
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
@@ -104,7 +93,7 @@ int main(int argc, char **argv) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
       if (etime + dt > sim_time) { dt = sim_time - etime; }
       //Perform a single time step
-      perform_timestep(state,dt);
+      perform_timestep(state,dt,direction_switch);
       //Inform the user
       if (masterproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
       //Update the elapsed time and output counter
@@ -113,7 +102,7 @@ int main(int argc, char **argv) {
       //If it's time for output, reset the counter, and do output
       if (output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
-        output(state,etime);
+        output(state,etime,num_out);
       }
     }
     auto c_end = std::clock();
@@ -122,6 +111,7 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
+    real mass, te;
     reductions(state,mass,te);
 
     if (masterproc) {
@@ -143,7 +133,7 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( real3d &state , real dt ) {
+void perform_timestep( real3d &state , real dt , int &direction_switch ) {
   real3d state_tmp("state_tmp",NUM_VARS,nz+2*hs,nx+2*hs);
 
   if (direction_switch) {
@@ -340,6 +330,13 @@ void set_halo_values_x( real3d &state ) {
   } else {
     type = MPI_DOUBLE;
   }
+  real3d recvbuf_l( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
+  real3d recvbuf_r( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
+  real3d sendbuf_l( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
+  real3d sendbuf_r( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
+  ////////////////////////////////////////////////////////////
+  // TODO: CREATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
+  ////////////////////////////////////////////////////////////
 
   //Prepost receives
   ////////////////////////////////////////////////////////////
@@ -444,7 +441,7 @@ void set_halo_values_z( real3d &state ) {
 }
 
 
-void init( real3d &state ) {
+void init( real3d &state , real &dt ) {
   int ierr;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
@@ -470,19 +467,12 @@ void init( real3d &state ) {
   hy_dens_int        = real1d( "hy_dens_int"        ,  nz+1    );
   hy_dens_theta_int  = real1d( "hy_dens_theta_int"  ,  nz+1    );
   hy_pressure_int    = real1d( "hy_pressure_int"    ,  nz+1    );
-  sendbuf_l          = real3d( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r          = real3d( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l          = real3d( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r          = real3d( "recvbuf_r" , NUM_VARS,nz,hs );
   ////////////////////////////////////////////////////////////
   // TODO: ALLOCATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
   ////////////////////////////////////////////////////////////
 
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = min(dx,dz) / max_speed * cfl;
-  //Set initial elapsed model time and output_counter to zero
-  etime = 0.;
-  output_counter = 0.;
 
   //If I'm the master process in MPI, display some grid information
   if (masterproc) {
@@ -698,7 +688,7 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( real3d &state , real etime ) {
+void output( real3d &state , real etime , int &num_out ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
@@ -797,10 +787,6 @@ void finalize() {
   hy_dens_int       .deallocate();
   hy_dens_theta_int .deallocate();
   hy_pressure_int   .deallocate();
-  sendbuf_l         .deallocate();
-  sendbuf_r         .deallocate();
-  recvbuf_l         .deallocate();
-  recvbuf_r         .deallocate();
 }
 
 
