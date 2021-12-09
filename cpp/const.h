@@ -39,8 +39,7 @@ constexpr int DIR_X = 1;              //Integer constant to express that this op
 constexpr int DIR_Z = 2;              //Integer constant to express that this operation is in the z-direction
 constexpr int DATA_SPEC_COLLISION       = 1;
 constexpr int DATA_SPEC_THERMAL         = 2;
-constexpr int DATA_SPEC_MOUNTAIN        = 3;
-constexpr int DATA_SPEC_TURBULENCE      = 4;
+constexpr int DATA_SPEC_GRAVITY_WAVES   = 3;
 constexpr int DATA_SPEC_DENSITY_CURRENT = 5;
 constexpr int DATA_SPEC_INJECTION       = 6;
 

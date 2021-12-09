@@ -74,8 +74,7 @@ void init                 ( );
 void finalize             ( );
 YAKL_INLINE void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void gravity_waves        ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void hydro_const_theta    ( real z                    , real &r , real &t );
@@ -536,8 +535,7 @@ void init( ) {
         //Set the fluid state based on the user's specification
         if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
-        if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
-        if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
 
@@ -570,8 +568,7 @@ void init( ) {
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
+      if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
       hy_dens_cell      (k) = hy_dens_cell      (k) + hr    * qweights(kk);
@@ -585,8 +582,7 @@ void init( ) {
     real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
+    if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
     hy_dens_int      (k) = hr;
@@ -626,28 +622,13 @@ YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w 
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
-  hydro_const_theta(z,hr,ht);
+YAKL_INLINE void gravity_waves ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+  hydro_const_bvfreq(z,0.01,hr,ht);
   r = 0.;
-  t = 0.;
+  t = sample_ellipse_cosine(x,z,1.,xlen/2,zlen/2,2000.,2000.);
   u = 0.;
   w = 0.;
-  // call random_number(u);
-  // call random_number(w);
-  // u = (u-0.5)*20;
-  // w = (w-0.5)*20;
-}
-
-
-//x and z are input coordinates at which to sample
-//r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
-//hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
-  hydro_const_bvfreq(z,0.02,hr,ht);
-  r = 0.;
-  t = 0.;
-  u = 15.;
-  w = 0.;
+  r = hr*ht / (ht+t) - hr;
 }
 
 
