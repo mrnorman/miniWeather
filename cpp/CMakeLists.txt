@@ -87,7 +87,7 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 )
 
 
 ############################################################
-## YAKL Version
+## YAKL parallel_for Version
 ############################################################
 add_executable(parallelfor miniWeather_mpi_parallelfor.cpp)
 set_target_properties(parallelfor PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
@@ -98,10 +98,13 @@ set_target_properties(parallelfor_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5 )
 
 
-include(YAKL/process_cxx_source_files.cmake)
-process_cxx_source_files(miniWeather_serial.cpp)
-process_cxx_source_files(miniWeather_mpi.cpp)
-process_cxx_source_files(miniWeather_mpi_parallelfor.cpp)
+include(YAKL/yakl_utils.cmake)
+yakl_process_target(serial)
+yakl_process_target(serial_test)
+yakl_process_target(mpi)
+yakl_process_target(mpi_test)
+yakl_process_target(parallelfor)
+yakl_process_target(parallelfor_test)
 
 
 if ("${YAKL_ARCH}" STREQUAL "CUDA")

@@ -13,9 +13,8 @@
 #include "const.h"
 #include "pnetcdf.h"
 #include <ctime>
-#include <iostream>
 
-// We're going to define all arrays on the device because this uses parallel_for
+// We're going to define all arrays on the host because this doesn't use parallel_for
 typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
 typedef yakl::Array<real  ,2,yakl::memDevice> real2d;
 typedef yakl::Array<real  ,3,yakl::memDevice> real3d;
@@ -30,105 +29,76 @@ typedef yakl::Array<double,1,yakl::memHost> doub1dHost;
 typedef yakl::Array<double,2,yakl::memHost> doub2dHost;
 typedef yakl::Array<double,3,yakl::memHost> doub3dHost;
 
-using yakl::c::Bounds;
-using yakl::c::parallel_for;
-using yakl::SArray;
-
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are initialized but remain static over the coure of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
-real sim_time;              //total simulation time in seconds
-real output_freq;           //frequency to perform output in seconds
-real dt;                    //Model time step (seconds)
-int nx, nz;                 //Number of local grid cells in the x- and z- dimensions for this MPI task
-real dx, dz;                //Grid space length in x- and z-dimension (meters)
-int nx_glob, nz_glob;       //Number of total grid cells in the x- and z- dimensions
-int i_beg, k_beg;           //beginning index in the x- and z-directions for this MPI task
-int nranks, myrank;         //Number of MPI ranks and my rank id
-int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
-int masterproc;             //Am I the master process (rank == 0)?
-real data_spec_int;         //Which data initialization to use
-real1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
-real1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
-real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
-real1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
-real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+struct Fixed_data {
+  int nx, nz;                 //Number of local grid cells in the x- and z- dimensions for this MPI task
+  int i_beg, k_beg;           //beginning index in the x- and z-directions for this MPI task
+  int nranks, myrank;         //Number of MPI ranks and my rank id
+  int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
+  int masterproc;             //Am I the master process (rank == 0)?
+  real1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
+  real1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
+  real1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
+  real1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
+  real1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are dynamics over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
-real etime;                 //Elapsed model time
-real output_counter;        //Helps determine when it's time to do output
-//Runtime variable arrays
-real3d state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-real3d state_tmp;           //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
-real3d flux;                //Cell interface fluxes.   Dimensions: (NUM_VARS,nz+1,nx+1)
-real3d tend;                //Fluid state tendencies.  Dimensions: (NUM_VARS,nz,nx)
-doub2d mass2d;              //2-D grid of the mass
-doub2d te2d;                //2-D grid of the total energy
-int  num_out = 0;           //The number of outputs performed so far
-int  direction_switch = 1;
-real3d sendbuf_l;           //Buffer to send data to the left MPI rank
-real3d sendbuf_r;           //Buffer to send data to the right MPI rank
-real3d recvbuf_l;           //Buffer to receive data from the left MPI rank
-real3d recvbuf_r;           //Buffer to receive data from the right MPI rank
-real3dHost sendbuf_l_cpu;       //Buffer to send data to the left MPI rank (CPU copy)
-real3dHost sendbuf_r_cpu;       //Buffer to send data to the right MPI rank (CPU copy)
-real3dHost recvbuf_l_cpu;       //Buffer to receive data from the left MPI rank (CPU copy)
-real3dHost recvbuf_r_cpu;       //Buffer to receive data from the right MPI rank (CPU copy)
-double mass0, te0;            //Initial domain totals for mass and total energy  
-double mass , te ;            //Domain totals for mass and total energy  
 
 //Declaring the functions defined after "main"
-void init                 ( int *argc , char ***argv );
+void init                 ( real3d &state , real &dt , Fixed_data &fixed_data );
 void finalize             ( );
 YAKL_INLINE void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void turbulence           ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void mountain_waves       ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void gravity_waves        ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void hydro_const_theta    ( real z                    , real &r , real &t );
 YAKL_INLINE void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( real3d &state , real etime );
+void output               ( real3d &state , real etime , int &num_out , Fixed_data const &fixed_data );
 void ncwrap               ( int ierr , int line );
-void perform_timestep     ( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt );
-void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend );
-void compute_tendencies_x ( real3d &state , real3d &flux , real3d &tend );
-void compute_tendencies_z ( real3d &state , real3d &flux , real3d &tend );
-void set_halo_values_x    ( real3d &state );
-void set_halo_values_z    ( real3d &state );
-void reductions           ( double &mass , double &te );
+void perform_timestep     ( real3d &state , real dt , int &direction_switch , Fixed_data const &fixed_data );
+void semi_discrete_step   ( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , Fixed_data const &fixed_data );
+void compute_tendencies_x ( real3d &state , real3d &tend , real dt , Fixed_data const &fixed_data );
+void compute_tendencies_z ( real3d &state , real3d &tend , real dt , Fixed_data const &fixed_data );
+void set_halo_values_x    ( real3d &state  , Fixed_data const &fixed_data );
+void set_halo_values_z    ( real3d &state  , Fixed_data const &fixed_data );
+void reductions           ( real3d &state , double &mass , double &te , Fixed_data const &fixed_data );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // THE MAIN PROGRAM STARTS HERE
 ///////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
+  MPI_Init(&argc,&argv);
   yakl::init();
   {
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // BEGIN USER-CONFIGURABLE PARAMETERS
-    ///////////////////////////////////////////////////////////////////////////////////////
-    //The x-direction length is twice as long as the z-direction length
-    //So, you'll want to have nx_glob be twice as large as nz_glob
-    nx_glob = _NX;        // Number of total cells in the x-dirction
-    nz_glob = _NZ;        // Number of total cells in the z-dirction
-    sim_time = _SIM_TIME; // How many seconds to run the simulation
-    output_freq = _OUT_FREQ;  // How frequently to output data to file (in seconds)
-    data_spec_int = _DATA_SPEC; // How to initialize the data
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // END USER-CONFIGURABLE PARAMETERS
-    ///////////////////////////////////////////////////////////////////////////////////////
+    Fixed_data fixed_data;
+    real3d state;
+    real dt;                    //Model time step (seconds)
 
-    init( &argc , &argv );
+    // Init allocates the state and hydrostatic arrays hy_*
+    init( state , dt , fixed_data );
+
+    auto &masterproc = fixed_data.masterproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    reductions(mass0,te0);
+    real mass0, te0;
+    reductions(state,mass0,te0,fixed_data);
+
+    int  num_out = 0;          //The number of outputs performed so far
+    real output_counter = 0;   //Helps determine when it's time to do output
+    real etime = 0;
 
     //Output the initial state
-    output(state,etime);
+    output(state,etime,num_out,fixed_data);
+
+    int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
 
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
@@ -138,7 +108,7 @@ int main(int argc, char **argv) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
       if (etime + dt > sim_time) { dt = sim_time - etime; }
       //Perform a single time step
-      perform_timestep(state,state_tmp,flux,tend,dt);
+      perform_timestep(state,dt,direction_switch,fixed_data);
       //Inform the user
       if (masterproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
       //Update the elapsed time and output counter
@@ -147,7 +117,7 @@ int main(int argc, char **argv) {
       //If it's time for output, reset the counter, and do output
       if (output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
-        output(state,etime);
+        output(state,etime,num_out,fixed_data);
       }
     }
     auto c_end = std::clock();
@@ -156,7 +126,8 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    reductions(mass,te);
+    real mass, te;
+    reductions(state,mass,te,fixed_data);
 
     if (masterproc) {
       printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
@@ -166,6 +137,7 @@ int main(int argc, char **argv) {
     finalize();
   }
   yakl::finalize();
+  MPI_Finalize();
 }
 
 
@@ -176,25 +148,30 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d &tend , real dt ) {
+void perform_timestep( real3d &state , real dt , int &direction_switch , Fixed_data const &fixed_data) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+
+  real3d state_tmp("state_tmp",NUM_VARS,nz+2*hs,nx+2*hs);
+
   if (direction_switch) {
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , fixed_data );
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , fixed_data );
   } else {
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , fixed_data );
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend );
-    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , fixed_data );
   }
   if (direction_switch) { direction_switch = 0; } else { direction_switch = 1; }
 }
@@ -203,27 +180,38 @@ void perform_timestep( real3d &state , real3d &state_tmp , real3d &flux , real3d
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , real3d &flux , real3d &tend ) {
+void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &state_out , real dt , int dir , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &i_beg              = fixed_data.i_beg             ;
+  auto &k_beg              = fixed_data.k_beg             ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+
+  real3d tend("tend",NUM_VARS,nz,nx);
+
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
-    set_halo_values_x(state_forcing);
+    set_halo_values_x(state_forcing,fixed_data);
     //Compute the time tendencies for the fluid state in the x-direction
-    compute_tendencies_x(state_forcing,flux,tend);
+    compute_tendencies_x(state_forcing,tend,dt,fixed_data);
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
-    set_halo_values_z(state_forcing);
+    set_halo_values_z(state_forcing,fixed_data);
     //Compute the time tendencies for the fluid state in the z-direction
-    compute_tendencies_z(state_forcing,flux,tend);
+    compute_tendencies_z(state_forcing,tend,dt,fixed_data);
   }
-
-  auto &nx = ::nx;
-  auto &nz = ::nz;
 
   //Apply the tendencies to the fluid state
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
   parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+    if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
+      real x = (i_beg + i+0.5)*dx;
+      real z = (k_beg + k+0.5)*dz;
+      real wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+      tend(ID_WMOM,k,i) += wpert*hy_dens_cell(hs+k);
+    }
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
 }
@@ -233,13 +221,13 @@ void semi_discrete_step( real3d &state_init , real3d &state_forcing , real3d &st
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dt = ::dt;
-  auto &dx = ::dx;
-  auto &hy_dens_cell = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
+void compute_tendencies_x( real3d &state , real3d &tend , real dt , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+  auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+
+  real3d flux("flux",NUM_VARS,nz,nx+1);
 
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
@@ -290,14 +278,14 @@ void compute_tendencies_x( real3d &state , real3d &flux , real3d &tend ) {
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dt = ::dt;
-  auto &dz = ::dz;
-  auto &hy_dens_int = ::hy_dens_int;
-  auto &hy_dens_theta_int = ::hy_dens_theta_int;
-  auto &hy_pressure_int = ::hy_pressure_int;
+void compute_tendencies_z( real3d &state , real3d &tend , real dt , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &hy_dens_int        = fixed_data.hy_dens_int       ;
+  auto &hy_dens_theta_int  = fixed_data.hy_dens_theta_int ;
+  auto &hy_pressure_int    = fixed_data.hy_pressure_int   ;
+
+  real3d flux("flux",NUM_VARS,nz+1,nx);
 
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
@@ -353,7 +341,16 @@ void compute_tendencies_z( real3d &state , real3d &flux , real3d &tend ) {
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( real3d &state ) {
+void set_halo_values_x( real3d &state , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &k_beg              = fixed_data.k_beg             ;
+  auto &left_rank          = fixed_data.left_rank         ;
+  auto &right_rank         = fixed_data.right_rank        ;
+  auto &myrank             = fixed_data.myrank            ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+  auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+
   int ierr;
   MPI_Request req_r[2], req_s[2];
   MPI_Datatype type;
@@ -364,16 +361,18 @@ void set_halo_values_x( real3d &state ) {
     type = MPI_DOUBLE;
   }
 
+  real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
+  real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
+  real3d     recvbuf_l    ( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
+  real3d     recvbuf_r    ( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
+  real3dHost sendbuf_l_cpu( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank (CPU copy)
+  real3dHost sendbuf_r_cpu( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank (CPU copy)
+  real3dHost recvbuf_l_cpu( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank (CPU copy)
+  real3dHost recvbuf_r_cpu( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank (CPU copy)
+
   //Prepost receives
   ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
   ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
-
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &sendbuf_l = ::sendbuf_l;
-  auto &sendbuf_r = ::sendbuf_r;
-  auto &recvbuf_l = ::recvbuf_l;
-  auto &recvbuf_r = ::recvbuf_r;
 
   //Pack the send buffers
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -417,12 +416,6 @@ void set_halo_values_x( real3d &state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-      auto &dz = ::dz;
-      auto &zlen = ::zlen;
-      auto &k_beg = ::k_beg;
-      auto &hy_dens_cell = ::hy_dens_cell;
-      auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-      
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
       parallel_for( Bounds<2>(nz,hs) , YAKL_LAMBDA (int k, int i) {
@@ -439,35 +432,24 @@ void set_halo_values_x( real3d &state ) {
 
 //Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
 //decomposition in the vertical direction
-void set_halo_values_z( real3d &state ) {
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &xlen = ::xlen;
-  auto &data_spec_int = ::data_spec_int;
-  auto &i_beg = ::i_beg;
-  auto &dx = ::dx;
+void set_halo_values_z( real3d &state , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
   parallel_for( Bounds<2>(NUM_VARS,nx+2*hs) , YAKL_LAMBDA (int ll, int i) {
-    const real mnt_width = xlen/8;
     if (ll == ID_WMOM) {
       state(ll,0      ,i) = 0.;
       state(ll,1      ,i) = 0.;
       state(ll,nz+hs  ,i) = 0.;
       state(ll,nz+hs+1,i) = 0.;
-      //Impose the vertical momentum effects of an artificial cos^2 mountain at the lower boundary
-      if (data_spec_int == DATA_SPEC_MOUNTAIN) {
-        real x = (i_beg+i-hs+0.5)*dx;
-        if ( fabs(x-xlen/4) < mnt_width ) {
-          real xloc = (x-(xlen/4)) / mnt_width;
-          //Compute the derivative of the fake mountain
-          real mnt_deriv = -pi*cos(pi*xloc/2)*sin(pi*xloc/2)*10/dx;
-          //w = (dz/dx)*u
-          state(ID_WMOM,0,i) = mnt_deriv*state(ID_UMOM,hs,i);
-          state(ID_WMOM,1,i) = mnt_deriv*state(ID_UMOM,hs,i);
-        }
-      }
+    } else if (ll == ID_UMOM) {
+      state(ll,0      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(0      );
+      state(ll,1      ,i) = state(ll,hs     ,i) / hy_dens_cell(hs     ) * hy_dens_cell(1      );
+      state(ll,nz+hs  ,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs  );
+      state(ll,nz+hs+1,i) = state(ll,nz+hs-1,i) / hy_dens_cell(nz+hs-1) * hy_dens_cell(nz+hs+1);
     } else {
       state(ll,0      ,i) = state(ll,hs     ,i);
       state(ll,1      ,i) = state(ll,hs     ,i);
@@ -478,21 +460,28 @@ void set_halo_values_z( real3d &state ) {
 }
 
 
-void init( int *argc , char ***argv ) {
-  int  ierr, i_end;
-  real nper;
-
-  ierr = MPI_Init(argc,argv);
-
-  //Set the cell grid size
-  dx = xlen / nx_glob;
-  dz = zlen / nz_glob;
+void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &i_beg              = fixed_data.i_beg             ;
+  auto &k_beg              = fixed_data.k_beg             ;
+  auto &left_rank          = fixed_data.left_rank         ;
+  auto &right_rank         = fixed_data.right_rank        ;
+  auto &nranks             = fixed_data.nranks            ;
+  auto &myrank             = fixed_data.myrank            ;
+  auto &masterproc         = fixed_data.masterproc        ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+  auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+  auto &hy_dens_int        = fixed_data.hy_dens_int       ;
+  auto &hy_dens_theta_int  = fixed_data.hy_dens_theta_int ;
+  auto &hy_pressure_int    = fixed_data.hy_pressure_int   ;
+  int  ierr;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-  nper = ( (double) nx_glob ) / nranks;
+  real nper = ( (double) nx_glob ) / nranks;
   i_beg = round( nper* (myrank)    );
-  i_end = round( nper*((myrank)+1) )-1;
+  int i_end = round( nper*((myrank)+1) )-1;
   nx = i_end - i_beg + 1;
   left_rank  = myrank - 1;
   if (left_rank == -1) left_rank = nranks-1;
@@ -505,31 +494,15 @@ void init( int *argc , char ***argv ) {
   masterproc = (myrank == 0);
 
   //Allocate the model data
-  state              = real3d( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
-  state_tmp          = real3d( "state_tmp" , NUM_VARS,nz+2*hs,nx+2*hs);
-  flux               = real3d( "flux"      , NUM_VARS,nz+1   ,nx+1   );
-  tend               = real3d( "tend"      , NUM_VARS,nz     ,nx     );
-  mass2d             = doub2d( "mass2d"    , nz , nx );
-  te2d               = doub2d( "te2d"      , nz , nx );
+  state              = real3d( "state" , NUM_VARS,nz+2*hs,nx+2*hs);
   hy_dens_cell       = real1d( "hy_dens_cell"       ,  nz+2*hs );
   hy_dens_theta_cell = real1d( "hy_dens_theta_cell" ,  nz+2*hs );
   hy_dens_int        = real1d( "hy_dens_int"        ,  nz+1    );
   hy_dens_theta_int  = real1d( "hy_dens_theta_int"  ,  nz+1    );
   hy_pressure_int    = real1d( "hy_pressure_int"    ,  nz+1    );
-  sendbuf_l          = real3d( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r          = real3d( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l          = real3d( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r          = real3d( "recvbuf_r" , NUM_VARS,nz,hs );
-  sendbuf_l_cpu      = real3dHost( "sendbuf_l" , NUM_VARS,nz,hs );
-  sendbuf_r_cpu      = real3dHost( "sendbuf_r" , NUM_VARS,nz,hs );
-  recvbuf_l_cpu      = real3dHost( "recvbuf_l" , NUM_VARS,nz,hs );
-  recvbuf_r_cpu      = real3dHost( "recvbuf_r" , NUM_VARS,nz,hs );
 
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = min(dx,dz) / max_speed * cfl;
-  //Set initial elapsed model time and output_counter to zero
-  etime = 0.;
-  output_counter = 0.;
 
   //If I'm the master process in MPI, display some grid information
   if (masterproc) {
@@ -556,16 +529,6 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-  auto &nx = ::nx;
-  auto &nz = ::nz;
-  auto &dx = ::dx;
-  auto &dz = ::dz;
-  auto &i_beg = ::i_beg;
-  auto &k_beg = ::k_beg;
-  auto &state = ::state;
-  auto &state_tmp = ::state_tmp;
-  auto &data_spec_int = ::data_spec_int;
-
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
   parallel_for( Bounds<2>(nz+2*hs,nx+2*hs) , YAKL_LAMBDA (int k, int i) {
@@ -584,8 +547,7 @@ void init( int *argc , char ***argv ) {
         //Set the fluid state based on the user's specification
         if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
-        if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (x,z,r,u,w,t,hr,ht); }
-        if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (x,z,r,u,w,t,hr,ht); }
 
@@ -596,16 +558,7 @@ void init( int *argc , char ***argv ) {
         state(ID_RHOT,k,i) += ( (r+hr)*(t+ht) - hr*ht ) * qweights(ii)*qweights(kk);
       }
     }
-    for (int ll=0; ll<NUM_VARS; ll++) {
-      state_tmp(ll,k,i) = state(ll,k,i);
-    }
   });
-
-  auto &hy_dens_cell = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-  auto &hy_dens_int = ::hy_dens_int;
-  auto &hy_dens_theta_int = ::hy_dens_theta_int;
-  auto &hy_pressure_int = ::hy_pressure_int;
 
   //Compute the hydrostatic background state over vertical cell averages
   // for (int k=0; k<nz+2*hs; k++) {
@@ -618,8 +571,7 @@ void init( int *argc , char ***argv ) {
       //Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
-      if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
+      if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
       hy_dens_cell      (k) = hy_dens_cell      (k) + hr    * qweights(kk);
@@ -633,8 +585,7 @@ void init( int *argc , char ***argv ) {
     real r, u, w, t, hr, ht;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_MOUNTAIN       ) { mountain_waves (0.,z,r,u,w,t,hr,ht); }
-    if (data_spec_int == DATA_SPEC_TURBULENCE     ) { turbulence     (0.,z,r,u,w,t,hr,ht); }
+    if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
     hy_dens_int      (k) = hr;
@@ -674,23 +625,7 @@ YAKL_INLINE void density_current( real x , real z , real &r , real &u , real &w 
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void turbulence( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
-  hydro_const_theta(z,hr,ht);
-  r = 0.;
-  t = 0.;
-  u = 0.;
-  w = 0.;
-  // call random_number(u);
-  // call random_number(w);
-  // u = (u-0.5)*20;
-  // w = (w-0.5)*20;
-}
-
-
-//x and z are input coordinates at which to sample
-//r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
-//hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void mountain_waves( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void gravity_waves ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
   hydro_const_bvfreq(z,0.02,hr,ht);
   r = 0.;
   t = 0.;
@@ -734,12 +669,11 @@ YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real
 YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p,exner,rt;
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
-  exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                 //Pressure at z
-  rt = pow((p / C0),(1. / gamm));             //rho*theta at z
+  real exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                 //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));             //rho*theta at z
   r = rt / t;                                  //Density at z
 }
 
@@ -751,11 +685,10 @@ YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
 YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
   const real theta0 = 300.;  //Background potential temperature
   const real exner0 = 1.;    //Surface-level Exner pressure
-  real       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
-  exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
-  rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
+  real exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
+  real p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
+  real rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
   r = rt / t;                                                                          //Density at z
 }
 
@@ -764,9 +697,8 @@ YAKL_INLINE void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t 
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
 YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
-  real dist;
   //Compute distance from bubble center
-  dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
+  real dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
   //If the distance from bubble center is less than the radius, create a cos**2 profile
   if (dist <= pi / 2.) {
     return amp * pow(cos(dist),2.);
@@ -779,20 +711,24 @@ YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , r
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( real3d &state , real etime ) {
+void output( real3d &state , real etime , int &num_out , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &i_beg              = fixed_data.i_beg             ;
+  auto &k_beg              = fixed_data.k_beg             ;
+  auto &masterproc         = fixed_data.masterproc        ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+  auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
-  int i, k;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
-  //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
-  doub2d dens, uwnd, wwnd, theta;
-  double etimearr[1];
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
-  dens     = doub2d( "dens"     , nz,nx );
-  uwnd     = doub2d( "uwnd"     , nz,nx );
-  wwnd     = doub2d( "wwnd"     , nz,nx );
-  theta    = doub2d( "theta"    , nz,nx );
+  doub2d dens ( "dens"     , nz,nx );
+  doub2d uwnd ( "uwnd"     , nz,nx );
+  doub2d wwnd ( "wwnd"     , nz,nx );
+  doub2d theta( "theta"    , nz,nx );
 
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
@@ -823,11 +759,6 @@ void output( real3d &state , real etime ) {
     ncwrap( ncmpi_inq_varid( ncid , "t"     ,     &t_varid ) , __LINE__ );
   }
 
-  auto &nx                 = ::nx;
-  auto &nz                 = ::nz;
-  auto &hy_dens_cell       = ::hy_dens_cell;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
@@ -854,6 +785,7 @@ void output( real3d &state , real etime ) {
   if (masterproc) {
     st1[0] = num_out;
     ct1[0] = 1;
+    double etimearr[1];
     etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
   }
   //End "independent" write mode
@@ -878,37 +810,18 @@ void ncwrap( int ierr , int line ) {
 
 
 void finalize() {
-  int ierr;
-  ierr = MPI_Finalize();
-  hy_dens_cell      .deallocate();
-  hy_dens_theta_cell.deallocate();
-  hy_dens_int       .deallocate();
-  hy_dens_theta_int .deallocate();
-  hy_pressure_int   .deallocate();
-  state             .deallocate();
-  state_tmp         .deallocate();
-  flux              .deallocate();
-  tend              .deallocate();
-  sendbuf_l         .deallocate();
-  sendbuf_r         .deallocate();
-  recvbuf_l         .deallocate();
-  recvbuf_r         .deallocate();
-  mass2d            .deallocate();
-  te2d              .deallocate();
 }
 
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
-void reductions( double &mass , double &te ) {
-  auto &state              = ::state             ;
-  auto &hy_dens_cell       = ::hy_dens_cell      ;
-  auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
-  auto &mass2d             = ::mass2d            ;
-  auto &te2d               = ::te2d              ;
-  auto &dx                 = ::dx                ;
-  auto &dz                 = ::dz                ;
-  auto &nx                 = ::nx                ;
-  auto &nz                 = ::nz                ;
+void reductions( real3d &state, double &mass , double &te , Fixed_data const &fixed_data ) {
+  auto &nx                 = fixed_data.nx                ;
+  auto &nz                 = fixed_data.nz                ;
+  auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
+  auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+
+  doub2d mass2d("mass2d",nz,nx);
+  doub2d te2d  ("te2d  ",nz,nx);
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {

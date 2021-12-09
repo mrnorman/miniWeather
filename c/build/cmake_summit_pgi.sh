@@ -14,8 +14,9 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DOPENACC_FLAGS="-ta=nvidia,cc70,ptxinfo -acc=defpresent"     \
       -DCXXFLAGS="-O3"                              \
       -DLDFLAGS=""                                  \
-      -DNX=2000 \
-      -DNZ=1000 \
-      -DSIM_TIME=5 \
+      -DNX=200 \
+      -DNZ=100 \
+      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES" \
+      -DSIM_TIME=1000 \
       ..
 

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-##############################################################################
-## This requires gcc/8.1.1 on Summit right now
-##############################################################################
-
 source ${MODULESHOME}/init/bash
 module purge
 module load DefApps gcc/9.3.0 cuda parallel-netcdf cmake
@@ -19,8 +15,9 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DOPENMP45_FLAGS="-fopenmp -foffload=\"-lm -O3\" " \
       -DFFLAGS="-O3"                                \
       -DLDFLAGS=""                                  \
-      -DNX=2000 \
-      -DNZ=1000 \
-      -DSIM_TIME=5 \
+      -DNX=200 \
+      -DNZ=100 \
+      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES" \
+      -DSIM_TIME=1000 \
       ..
 

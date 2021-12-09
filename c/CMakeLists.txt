@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(miniWeather CXX)
 
 enable_testing()
@@ -109,7 +109,7 @@ endif()
 ############################################################
 # If user didn't specify an OpenACC-capable compiler list, then create one
 if ("${OPENACC_LIST}" STREQUAL "")
-  SET(OPENACC_LIST GNU PGI)
+  SET(OPENACC_LIST GNU PGI NVHPC)
   MESSAGE(STATUS "OpenACC-capable list is: ${OPENACC_LIST}")
 endif()
 
