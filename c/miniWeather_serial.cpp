@@ -207,7 +207,8 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend ) {
-  int i, k, ll, inds, indt;
+  int i, k, ll, inds, indt, indw;
+  double x, z, wpert;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -227,6 +228,13 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
+        if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
+          x = (i_beg + i+0.5)*dx;
+          z = (k_beg + k+0.5)*dz;
+          wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+          indw = ID_WMOM*nz*nx + k*nx + i;
+          tend[indw] += wpert*hy_dens_cell[hs+k];
+        }
         inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
         indt = ll*nz*nx + k*nx + i;
         state_out[inds] = state_init[inds] + dt * tend[indt];
@@ -605,12 +613,11 @@ void density_current( double x , double z , double &r , double &u , double &w , 
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
 void gravity_waves( double x , double z , double &r , double &u , double &w , double &t , double &hr , double &ht ) {
-  hydro_const_bvfreq(z,0.01,hr,ht);
+  hydro_const_bvfreq(z,0.02,hr,ht);
   r = 0.;
-  t = sample_ellipse_cosine(x,z,1.,xlen/2,zlen/2,2000.,2000.);
-  u = 0.;
+  t = 0.;
+  u = 15.;
   w = 0.;
-  r = hr*ht / (ht+t) - hr;
 }
 
 

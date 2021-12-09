@@ -21,7 +21,7 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DLDFLAGS=""                                  \
       -DNX=200 \
       -DNZ=100 \
-      -DDATA_SPEC="DATA_SPEC_THERMAL" \
+      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES" \
       -DSIM_TIME=1000 \
       ..
 
