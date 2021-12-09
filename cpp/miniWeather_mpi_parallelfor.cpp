@@ -50,7 +50,6 @@ real dt;                    //Model time step (seconds)
 real etime;                 //Elapsed model time
 real output_counter;        //Helps determine when it's time to do output
 //Runtime variable arrays
-real3d state;               //Fluid state.             Dimensions: (NUM_VARS,1-hs:nz+hs,1-hs:nx+hs)
 int  num_out = 0;           //The number of outputs performed so far
 int  direction_switch = 1;
 real3d sendbuf_l;           //Buffer to send data to the left MPI rank
@@ -65,7 +64,7 @@ double mass0, te0;            //Initial domain totals for mass and total energy
 double mass , te ;            //Domain totals for mass and total energy  
 
 //Declaring the functions defined after "main"
-void init                 ( );
+void init                 ( real3d &state );
 void finalize             ( );
 YAKL_INLINE void injection            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
@@ -83,7 +82,7 @@ void compute_tendencies_x ( real3d &state , real3d &tend , real dt);
 void compute_tendencies_z ( real3d &state , real3d &tend , real dt);
 void set_halo_values_x    ( real3d &state );
 void set_halo_values_z    ( real3d &state );
-void reductions           ( double &mass , double &te );
+void reductions           ( real3d &state , double &mass , double &te );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -93,10 +92,13 @@ int main(int argc, char **argv) {
   MPI_Init(&argc,&argv);
   yakl::init();
   {
-    init( );
+    real3d state;
+
+    // Init allocates the state
+    init( state );
 
     //Initial reductions for mass, kinetic energy, and total energy
-    reductions(mass0,te0);
+    reductions(state,mass0,te0);
 
     //Output the initial state
     output(state,etime);
@@ -127,7 +129,7 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    reductions(mass,te);
+    reductions(state,mass,te);
 
     if (masterproc) {
       printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
@@ -451,7 +453,7 @@ void set_halo_values_z( real3d &state ) {
 }
 
 
-void init( ) {
+void init( real3d &state ) {
   int  ierr, i_end;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
@@ -471,7 +473,7 @@ void init( ) {
   masterproc = (myrank == 0);
 
   //Allocate the model data
-  state              = real3d( "state"     , NUM_VARS,nz+2*hs,nx+2*hs);
+  state              = real3d( "state" , NUM_VARS,nz+2*hs,nx+2*hs);
   hy_dens_cell       = real1d( "hy_dens_cell"       ,  nz+2*hs );
   hy_dens_theta_cell = real1d( "hy_dens_theta_cell" ,  nz+2*hs );
   hy_dens_int        = real1d( "hy_dens_int"        ,  nz+1    );
@@ -521,7 +523,6 @@ void init( ) {
   auto &nz = ::nz;
   auto &i_beg = ::i_beg;
   auto &k_beg = ::k_beg;
-  auto &state = ::state;
 
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
@@ -812,7 +813,6 @@ void finalize() {
   hy_dens_int       .deallocate();
   hy_dens_theta_int .deallocate();
   hy_pressure_int   .deallocate();
-  state             .deallocate();
   sendbuf_l         .deallocate();
   sendbuf_r         .deallocate();
   recvbuf_l         .deallocate();
@@ -821,8 +821,7 @@ void finalize() {
 
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
-void reductions( double &mass , double &te ) {
-  auto &state              = ::state             ;
+void reductions( real3d &state, double &mass , double &te ) {
   auto &hy_dens_cell       = ::hy_dens_cell      ;
   auto &hy_dens_theta_cell = ::hy_dens_theta_cell;
   auto &nx                 = ::nx                ;
