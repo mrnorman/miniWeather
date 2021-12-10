@@ -127,7 +127,6 @@ int main(int argc, char **argv) {
         output_counter = output_counter - output_freq;
         output(state,etime,num_out,fixed_data);
       }
-      yakl::pool.printAllocsLeft();
     }
     auto c_end = std::clock();
     if (masterproc) {
