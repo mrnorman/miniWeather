@@ -56,15 +56,15 @@ void collision            ( real x , real z , real &r , real &u , real &w , real
 void hydro_const_theta    ( real z                    , real &r , real &t );
 void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( realConst3d const state , real etime , int &num_out , Fixed_data const &fixed_data );
+void output               ( realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data );
 void ncwrap               ( int ierr , int line );
 void perform_timestep     ( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data );
-void semi_discrete_step   ( realConst3d const state_init , real3d const state_forcing , real3d const &state_out , real dt , int dir , Fixed_data const &fixed_data );
-void compute_tendencies_x ( realConst3d const state , real3d const &tend , real dt , Fixed_data const &fixed_data );
-void compute_tendencies_z ( realConst3d const state , real3d const &tend , real dt , Fixed_data const &fixed_data );
+void semi_discrete_step   ( realConst3d state_init , real3d const &state_forcing , real3d const &state_out , real dt , int dir , Fixed_data const &fixed_data );
+void compute_tendencies_x ( realConst3d state , real3d const &tend , real dt , Fixed_data const &fixed_data );
+void compute_tendencies_z ( realConst3d state , real3d const &tend , real dt , Fixed_data const &fixed_data );
 void set_halo_values_x    ( real3d const &state  , Fixed_data const &fixed_data );
 void set_halo_values_z    ( real3d const &state  , Fixed_data const &fixed_data );
-void reductions           ( realConst3d const state , double &mass , double &te , Fixed_data const &fixed_data );
+void reductions           ( realConst3d state , double &mass , double &te , Fixed_data const &fixed_data );
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -178,7 +178,7 @@ void perform_timestep( real3d const &state , real dt , int &direction_switch , F
 //Perform a single semi-discretized step in time with the form:
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-void semi_discrete_step( realConst3d const state_init , real3d const state_forcing , real3d const &state_out , real dt , int dir , Fixed_data const &fixed_data ) {
+void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , real3d const &state_out , real dt , int dir , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &i_beg              = fixed_data.i_beg             ;
@@ -223,7 +223,7 @@ void semi_discrete_step( realConst3d const state_init , real3d const state_forci
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_x( realConst3d const state , real3d const &tend , real dt , Fixed_data const &fixed_data ) {
+void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
@@ -286,7 +286,7 @@ void compute_tendencies_x( realConst3d const state , real3d const &tend , real d
 //Since the halos are set in a separate routine, this will not require MPI
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
-void compute_tendencies_z( realConst3d const state , real3d const &tend , real dt , Fixed_data const &fixed_data ) {
+void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &hy_dens_int        = fixed_data.hy_dens_int       ;
@@ -706,7 +706,7 @@ real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , rea
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( realConst3d const state , real etime , int &num_out , Fixed_data const &fixed_data ) {
+void output( realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &i_beg              = fixed_data.i_beg             ;
@@ -812,7 +812,7 @@ void finalize() {
 
 
 //Compute reduced quantities for error checking without resorting to the "ncdiff" tool
-void reductions( realConst3d const state , double &mass , double &te , Fixed_data const &fixed_data ) {
+void reductions( realConst3d state , double &mass , double &te , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
