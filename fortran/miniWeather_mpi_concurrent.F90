@@ -2,6 +2,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! miniWeather
 !! Author: Matt Norman <normanmr@ornl.gov>  , Oak Ridge National Laboratory
+!!         Jeff Larkin <jlarkin@nvidia.com> , NVIDIA Corporation
 !! This code simulates dry, stratified, compressible, non-hydrostatic fluid flows
 !! For documentation, please see the attached documentation in the "documentation" folder
 !!
@@ -841,7 +842,15 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
+#ifdef USE_DC_REDUCTION
+    ! NOTE: the reduce clause is slated for inclusion in Fortran 202X. It is supported
+    !       by nvfortran 21.11 and newer
     do concurrent (k=1:nz,i=1:nx) reduce(+:mass,te)
+#else
+    !$acc parallel loop reduction(+:mass,te)
+    do k=1,nz
+      do i=1,nx
+#endif
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
         u  =   state(i,k,ID_UMOM) / r                           ! U-wind
         w  =   state(i,k,ID_WMOM) / r                           ! W-wind
@@ -852,6 +861,9 @@ contains
         ie = r*cv*t                ! Internal Energy
         mass = mass + r            *dx*dz ! Accumulate domain mass
         te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
+#ifndef USE_DC_REDUCTION
+      end do
+#endif
     end do
     call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
     mass = glob(1)
