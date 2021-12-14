@@ -12,6 +12,10 @@ A mini app simulating weather-like flows for training in parallelizing accelerat
 
 Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
 
+Contributors:
+* Matt Norman (ORNL)
+* Isaac Lyngaas (ORNL)
+
 # Table of Contents
 
 - [Introduction](#introduction)
@@ -92,10 +96,16 @@ Once the time tendency is computed, the fluid PDEs are essentially now cast as a
 * Ncview: http://meteora.ucsd.edu/~pierce/ncview_home_page.html
   * This is the easiest way to visualize NetCDF files.
 * MPI
-* For OpenACC: An OpenACC-capable compiler (PGI, Cray, GNU)
-* For OpenMP: An OpenMP offload capable compiler (Cray, XL)
+* For OpenACC: An OpenACC-capable compiler (PGI / Nvidia, Cray, GNU)
+  * A free version of the PGI / Nvidia compiler can be obtained by googling for the "Community Edition"
+* For OpenMP: An OpenMP offload capable compiler (Cray, XL, GNU)
 * For C++ portability, Nvidia's CUB and AMD's hipCUB and rocPRIM are already included as submodules
 * CMake: https://cmake.org
+
+On Ubuntu, the pnetcdf, ncview, mpi, and cmake dependencies can be installed  with:
+```bash
+sudo apt-get install cmake libopenmpi-dev libpnetcdf-dev ncview
+```
 
 ## Basic Setup
 
@@ -194,7 +204,7 @@ To run the code, simply call:
 mpirun -n [# ranks] ./[parallel_id]
 ```
 
-where `[parallel_id]` is `serial`, `mpi`, `openmp`, `openacc`, `openmp45`, or `yaklexe`. You'll notice some `[parallel_id]_test` executables as well. These use fixed values for `nx`, `nz`, `sim_time`, `out_freq`, and `data_spec` for unit testing whereas the `[parallel_id]` executables use the values you specified to CMake through the `-D` definitions.
+where `[parallel_id]` is `serial`, `mpi`, `openmp`, `openacc`, `openmp45`, or `parallelfor`. You'll notice some `[parallel_id]_test` executables as well. These use fixed values for `nx`, `nz`, `sim_time`, `out_freq`, and `data_spec` for unit testing whereas the `[parallel_id]` executables use the values you specified to CMake through the `-D` definitions.
 
 Since parameters are set in the code itself, you don't need to pass any parameters. Some machines use different tools instead of mpirun (e.g., OLCF's Summit uses `jsrun`).
 

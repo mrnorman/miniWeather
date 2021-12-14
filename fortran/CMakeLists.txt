@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(miniWeather Fortran)
 
 enable_testing()
@@ -42,7 +42,7 @@ endif()
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none")
 endif()
-if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI")
+if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI" OR "${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NVHPC" )
   SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Mextend")
 endif()
 SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAGS}")
@@ -115,7 +115,7 @@ endif()
 ############################################################
 # If user didn't specify an OpenACC-capable compiler list, then create one
 if ("${OPENACC_LIST}" STREQUAL "")
-  SET(OPENACC_LIST GNU PGI)
+  SET(OPENACC_LIST GNU PGI NVHPC)
   MESSAGE(STATUS "OpenACC-capable list is: ${OPENACC_LIST}")
 endif()
 

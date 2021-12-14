@@ -1,39 +1,16 @@
 
-#ifndef __CONST_H__
-#define __CONST_H__
+#pragma once
 
 #include "YAKL.h"
 #include <cmath>
 
 using yakl::SArray;
 
-typedef float real;
+typedef double real;
 
 inline real operator"" _fp( long double x ) {
   return static_cast<real>(x);
 }
-
-#if defined(__USE_CUDA__) || defined(__USE_HIP__)
-  typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
-  typedef yakl::Array<real  ,2,yakl::memDevice> real2d;
-  typedef yakl::Array<real  ,3,yakl::memDevice> real3d;
-  typedef yakl::Array<double,1,yakl::memDevice> doub1d;
-  typedef yakl::Array<double,2,yakl::memDevice> doub2d;
-  typedef yakl::Array<double,3,yakl::memDevice> doub3d;
-#else
-  typedef yakl::Array<real  ,1,yakl::memHost> real1d;
-  typedef yakl::Array<real  ,2,yakl::memHost> real2d;
-  typedef yakl::Array<real  ,3,yakl::memHost> real3d;
-  typedef yakl::Array<double,1,yakl::memHost> doub1d;
-  typedef yakl::Array<double,2,yakl::memHost> doub2d;
-  typedef yakl::Array<double,3,yakl::memHost> doub3d;
-#endif
-  typedef yakl::Array<real  ,1,yakl::memHost> real1dHost;
-  typedef yakl::Array<real  ,2,yakl::memHost> real2dHost;
-  typedef yakl::Array<real  ,3,yakl::memHost> real3dHost;
-  typedef yakl::Array<double,1,yakl::memHost> doub1dHost;
-  typedef yakl::Array<double,2,yakl::memHost> doub2dHost;
-  typedef yakl::Array<double,3,yakl::memHost> doub3dHost;
 
 constexpr real pi        = 3.14159265358979323846264338327;   //Pi
 constexpr real grav      = 9.8;                               //Gravitational acceleration (m / s^2)
@@ -46,11 +23,11 @@ constexpr real gamm      = 1.40027894002789400278940027894;   //gamma=cp/Rd , ha
 //Define domain and stability-related constants
 constexpr real xlen      = 2.e4;    //Length of the domain in the x-direction (meters)
 constexpr real zlen      = 1.e4;    //Length of the domain in the z-direction (meters)
-constexpr real hv_beta   = 0.25;     //How strong to diffuse the solution: hv_beta \in [0:1]
+constexpr real hv_beta   = 0.05;    //How strong to diffuse the solution: hv_beta \in [0:1]
 constexpr real cfl       = 1.50;    //"Courant, Friedrichs, Lewy" number (for numerical stability)
-constexpr real max_speed = 450;        //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
-constexpr int hs        = 2;          //"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
-constexpr int sten_size = 4;          //Size of the stencil used for interpolation
+constexpr real max_speed = 450;     //Assumed maximum wave speed during the simulation (speed of sound + speed of wind) (meter / sec)
+constexpr int hs        = 2;        //"Halo" size: number of cells beyond the MPI tasks's domain needed for a full "stencil" of information for reconstruction
+constexpr int sten_size = 4;        //Size of the stencil used for interpolation
 
 //Parameters for indexing and flags
 constexpr int NUM_VARS = 4;           //Number of fluid state variables
@@ -62,10 +39,29 @@ constexpr int DIR_X = 1;              //Integer constant to express that this op
 constexpr int DIR_Z = 2;              //Integer constant to express that this operation is in the z-direction
 constexpr int DATA_SPEC_COLLISION       = 1;
 constexpr int DATA_SPEC_THERMAL         = 2;
-constexpr int DATA_SPEC_MOUNTAIN        = 3;
-constexpr int DATA_SPEC_TURBULENCE      = 4;
+constexpr int DATA_SPEC_GRAVITY_WAVES   = 3;
 constexpr int DATA_SPEC_DENSITY_CURRENT = 5;
 constexpr int DATA_SPEC_INJECTION       = 6;
+
+///////////////////////////////////////////////////////////////////////////////////////
+// BEGIN USER-CONFIGURABLE PARAMETERS
+///////////////////////////////////////////////////////////////////////////////////////
+//The x-direction length is twice as long as the z-direction length
+//So, you'll want to have nx_glob be twice as large as nz_glob
+int  constexpr nx_glob = _NX;        // Number of total cells in the x-dirction
+int  constexpr nz_glob = _NZ;        // Number of total cells in the z-dirction
+real constexpr sim_time = _SIM_TIME; // How many seconds to run the simulation
+real constexpr output_freq = _OUT_FREQ;  // How frequently to output data to file (in seconds)
+int  constexpr data_spec_int = _DATA_SPEC; // How to initialize the data
+///////////////////////////////////////////////////////////////////////////////////////
+// END USER-CONFIGURABLE PARAMETERS
+///////////////////////////////////////////////////////////////////////////////////////
+real constexpr dx = xlen / nx_glob;
+real constexpr dz = zlen / nz_glob;
+
+using yakl::c::Bounds;
+using yakl::c::parallel_for;
+using yakl::SArray;
 
 template<class T> inline T min( T val1 , T val2 ) {
   return val1 < val2 ? val1 : val2 ;
@@ -74,7 +70,4 @@ template<class T> inline T min( T val1 , T val2 ) {
 template<class T> inline T abs( T val ) {
   return val > 0 ? val : -val;
 }
-
-
-#endif
 

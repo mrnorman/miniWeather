@@ -12,10 +12,11 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
       -DOPENMP_FLAGS="-qsmp=omp"                    \
       -DOPENMP45_FLAGS="-qsmp=omp -qoffload"        \
-      -DCXXFLAGS="-O3 -std=c+=11"                   \
+      -DCXXFLAGS="-O3 -std=c++11"                   \
       -DLDFLAGS=""                                  \
-      -DNX=2000 \
-      -DNZ=1000 \
-      -DSIM_TIME=5 \
+      -DNX=200 \
+      -DNZ=100 \
+      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES" \
+      -DSIM_TIME=1000 \
       ..
 
