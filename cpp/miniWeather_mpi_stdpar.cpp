@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
-#include <ctime>
 #include <chrono>
 #include <iostream>
 #include <mpi.h>

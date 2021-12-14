@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
-#include <ctime>
+#include <chrono>
 #include <iostream>
 #include <mpi.h>
 #include "pnetcdf.h"
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
-  auto c_start = std::clock();
+  auto c_start = std::chrono::steady_clock::now();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -163,9 +163,10 @@ int main(int argc, char **argv) {
       output(state,etime);
     }
   }
-  auto c_end = std::clock();
+  auto c_end = std::chrono::steady_clock::now();
   if (masterproc) {
-    std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
+    std::chrono::duration<double> el = c_end - c_start;
+    std::cout << "CPU Time: " << el.count() << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy
