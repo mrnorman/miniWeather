@@ -64,11 +64,11 @@ include_directories(rocPRIM)
 ## Compile the serial version
 ############################################################
 add_executable(serial miniWeather_serial.cpp)
-set_source_files_properties(miniWeather_serial.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
+set_target_properties(serial PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
 target_link_libraries(serial yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(serial_test miniWeather_serial.cpp)
-set_source_files_properties(miniWeather_serial.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
+set_target_properties(serial_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
 target_link_libraries(serial_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
@@ -78,11 +78,11 @@ add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 ## Compile the MPI version
 ############################################################
 add_executable(mpi miniWeather_mpi.cpp)
-set_source_files_properties(miniWeather_mpi.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
+set_target_properties(mpi PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include")
 target_link_libraries(mpi yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_executable(mpi_test miniWeather_mpi.cpp)
-set_source_files_properties(miniWeather_mpi.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
+set_target_properties(mpi_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include")
 target_link_libraries(mpi_test yakl "-L${PNETCDF_PATH}/lib -lpnetcdf")
 
 add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 ) 
@@ -101,7 +101,7 @@ if ("${ARCH}" STREQUAL "CUDA")
   endif()
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
 endif()
-set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
+set_target_properties(yaklexe PROPERTIES COMPILE_FLAGS "${EXE_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 
 add_executable(yaklexe_test miniWeather_mpi_parallelfor.cpp)
 set_target_properties(yaklexe_test PROPERTIES LINKER_LANGUAGE CXX)
@@ -113,7 +113,7 @@ if ("${ARCH}" STREQUAL "CUDA")
   endif()
   set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES LANGUAGE CUDA)
 endif()
-set_source_files_properties(miniWeather_mpi_parallelfor.cpp PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
+set_target_properties(yaklexe_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} -I${PNETCDF_PATH}/include ${YAKL_CXX_FLAGS}")
 
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./yaklexe_test 1e-9 4.5e-5 )
 
