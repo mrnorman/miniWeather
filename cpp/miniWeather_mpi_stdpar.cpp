@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <ctime>
+#include <chrono>
 #include <iostream>
 #include <mpi.h>
 #include <algorithm>
@@ -117,7 +118,7 @@ void   perform_timestep     ( double *state , double *state_tmp , double *flux ,
 void   semi_discrete_step   ( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend );
 void   compute_tendencies_x ( double *state , double *flux , double *tend , double *hy_dens_cell , double *hy_dens_theta_cell);
 void   compute_tendencies_z ( double *state , double *flux , double *tend , double *hy_dens_int , double *hy_dens_theta_int , double *hy_pressure_int);
-void   set_halo_values_x    ( double *state , double *hy_dens_cell, double *hy_dens_theta_cell);
+void   set_halo_values_x    ( double *state , double *hy_dens_cell, double *hy_dens_theta_cell, double *recvbuf_l, double *recvbuf_r, double *sendbuf_l, double *sendbuf_r);
 void   set_halo_values_z    ( double *state );
 void   reductions           ( double &mass , double &te , double *state, double *hy_dens_cell, double *hy_dens_theta_cell);
 
@@ -151,7 +152,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
-  auto c_start = std::clock();
+  auto c_start = std::chrono::steady_clock::now();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -168,9 +169,10 @@ int main(int argc, char **argv) {
       output(state,etime);
     }
   }
-  auto c_end = std::clock();
+  auto c_end = std::chrono::steady_clock::now();
   if (masterproc) {
-    std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
+    std::chrono::duration<double> el = c_end - c_start;
+    std::cout << "CPU Time: " << el.count() << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy
@@ -222,7 +224,7 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
 void semi_discrete_step( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend ) {
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
-    set_halo_values_x(state_forcing, hy_dens_cell, hy_dens_theta_cell);
+    set_halo_values_x(state_forcing, hy_dens_cell, hy_dens_theta_cell, recvbuf_l, recvbuf_r, sendbuf_l, sendbuf_r);
     //Compute the time tendencies for the fluid state in the x-direction
     compute_tendencies_x(state_forcing,flux,tend,hy_dens_cell,hy_dens_theta_cell);
   } else if (dir == DIR_Z) {
@@ -377,7 +379,8 @@ void compute_tendencies_z( double *state , double *flux , double *tend ,
 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
-void set_halo_values_x( double *state, double *hy_dens_cell, double *hy_dens_theta_cell ) {
+void set_halo_values_x( double *state, double *hy_dens_cell, double *hy_dens_theta_cell,
+                        double *recvbuf_l, double *recvbuf_r, double *sendbuf_l, double *sendbuf_r ) {
   MPI_Request req_r[2], req_s[2];
   int ierr;
   int _nx = nx,
@@ -389,14 +392,23 @@ void set_halo_values_x( double *state, double *hy_dens_cell, double *hy_dens_the
   ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
-  for (int ll=0; ll<NUM_VARS; ll++) {
-    for (int k=0; k<nz; k++) {
-      for (int s=0; s<hs; s++) {
-        sendbuf_l[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+s];
-        sendbuf_r[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+s];
-      }
-    }
-  }
+  thrust::counting_iterator<int> begin1(0),end1(NUM_VARS*nz*hs);
+  std::for_each(std::execution::par,begin1,end1,[=](int idx)
+    {
+      int ll = idx / (_nz*hs);
+      int k  = (idx/hs) % _nz;
+      int s  = idx % hs;
+      sendbuf_l[ll*_nz*hs + k*hs + s] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + hs+s];
+      sendbuf_r[ll*_nz*hs + k*hs + s] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + _nx+s];
+    });
+  //for (int ll=0; ll<NUM_VARS; ll++) {
+  //  for (int k=0; k<nz; k++) {
+  //    for (int s=0; s<hs; s++) {
+  //      sendbuf_l[ll*_nz*hs + k*hs + s] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + hs+s];
+  //      sendbuf_r[ll*_nz*hs + k*hs + s] = state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + _nx+s];
+  //    }
+  //  }
+  //}
 
   //Fire off the sends
   ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
@@ -406,14 +418,22 @@ void set_halo_values_x( double *state, double *hy_dens_cell, double *hy_dens_the
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
   //Unpack the receive buffers
-  for (int ll=0; ll<NUM_VARS; ll++) {
-    for (int k=0; k<nz; k++) {
-      for (int s=0; s<hs; s++) {
-        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + s      ] = recvbuf_l[ll*nz*hs + k*hs + s];
-        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+s] = recvbuf_r[ll*nz*hs + k*hs + s];
-      }
-    }
-  }
+  std::for_each(std::execution::par,begin1,end1,[=](int idx)
+    {
+      int ll = idx / (_nz*hs);
+      int k  = (idx/hs) % _nz;
+      int s  = idx % hs;
+      state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + s      ]  = recvbuf_l[ll*_nz*hs + k*hs + s];
+      state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + _nx+hs+s] = recvbuf_r[ll*_nz*hs + k*hs + s];
+    });
+  //for (int ll=0; ll<NUM_VARS; ll++) {
+  //  for (int k=0; k<nz; k++) {
+  //    for (int s=0; s<hs; s++) {
+  //      state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + s      ]  = recvbuf_l[ll*_nz*hs + k*hs + s];
+  //      state[ll*(_nz+2*hs)*(_nx+2*hs) + (k+hs)*(_nx+2*hs) + _nx+hs+s] = recvbuf_r[ll*_nz*hs + k*hs + s];
+  //    }
+  //  }
+  //}
 
   //Wait for sends to finish
   ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
