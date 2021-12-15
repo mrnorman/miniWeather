@@ -14,6 +14,7 @@ Author: Matt Norman, Oak Ridge National Laboratory, https://mrnorman.github.io
 
 Contributors:
 * Matt Norman (ORNL)
+* Jeff Larkin (Nvidia)
 * Isaac Lyngaas (ORNL)
 
 # Table of Contents
