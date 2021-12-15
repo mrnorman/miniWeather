@@ -817,17 +817,21 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    do concurrent (k=1:nz,i=1:nx) reduce(+:mass,te) local(r,u,w,th,p,t,ke,ie)
-      r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
-      u  =   state(i,k,ID_UMOM) / r                           ! U-wind
-      w  =   state(i,k,ID_WMOM) / r                           ! W-wind
-      th = ( state(i,k,ID_RHOT) + hy_dens_theta_cell(k) ) / r ! Potential Temperature (theta)
-      p  = C0*(r*th)**gamma      ! Pressure
-      t  = th / (p0/p)**(rd/cp)  ! Temperature
-      ke = r*(u*u+w*w)           ! Kinetic Energy
-      ie = r*cv*t                ! Internal Energy
-      mass = mass + r            *dx*dz ! Accumulate domain mass
-      te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
+    ! The line below is a placeholder for when reductions enter the Fortran standard
+    ! do concurrent (k=1:nz,i=1:nx) reduce(+:mass,te) local(r,u,w,th,p,t,ke,ie)
+    do k = 1 , nz
+      do i = 1 , nx
+        r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
+        u  =   state(i,k,ID_UMOM) / r                           ! U-wind
+        w  =   state(i,k,ID_WMOM) / r                           ! W-wind
+        th = ( state(i,k,ID_RHOT) + hy_dens_theta_cell(k) ) / r ! Potential Temperature (theta)
+        p  = C0*(r*th)**gamma      ! Pressure
+        t  = th / (p0/p)**(rd/cp)  ! Temperature
+        ke = r*(u*u+w*w)           ! Kinetic Energy
+        ie = r*cv*t                ! Internal Energy
+        mass = mass + r            *dx*dz ! Accumulate domain mass
+        te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
+      enddo
     enddo
     call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
     mass = glob(1)
