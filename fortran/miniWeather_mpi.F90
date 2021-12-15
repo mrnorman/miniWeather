@@ -120,7 +120,9 @@ program miniweather
     !Perform a single time step
     call perform_timestep(state,state_tmp,flux,tend,dt)
     !Inform the user
+#ifndef NO_INFORM
     if (masterproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
+#endif
     !Update the elapsed time and output counter
     etime = etime + dt
     output_counter = output_counter + dt

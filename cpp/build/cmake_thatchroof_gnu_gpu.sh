@@ -8,7 +8,7 @@ unset CXXFLAGS
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DPNETCDF_PATH=${PNETCDF_PATH}                \
-      -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI --use_fast_math -arch sm_35 -ccbin mpic++ -DTHRUST_IGNORE_CUB_VERSION_CHECK"      \
+      -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI --use_fast_math -arch sm_35 -ccbin mpic++"      \
       -DNX=200                                      \
       -DNZ=100                                      \
       -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"         \

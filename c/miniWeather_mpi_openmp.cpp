@@ -150,7 +150,9 @@ int main(int argc, char **argv) {
     //Perform a single time step
     perform_timestep(state,state_tmp,flux,tend,dt);
     //Inform the user
+#ifndef NO_INFORM
     if (masterproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
+#endif
     //Update the elapsed time and output counter
     etime = etime + dt;
     output_counter = output_counter + dt;
