@@ -12,7 +12,7 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
       -DOPENMP_FLAGS=-mp                            \
       -DOPENACC_FLAGS="-ta=nvidia,cc70,ptxinfo"     \
-      -DDO_CONCURRENT_FLAGS="-stdpar=gpu -Minfo=stdpar"     \
+      -DDO_CONCURRENT_FLAGS="-stdpar=gpu -Minfo=stdpar -gpu=cc70"     \
       -DFFLAGS="-O3"                                \
       -DLDFLAGS=""                                  \
       -DNX=200 \

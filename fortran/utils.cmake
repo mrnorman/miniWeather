@@ -49,7 +49,7 @@ endmacro(determine_openmp45)
 
 macro(determine_do_concurrent)
 if ("${DO_CONCURRENT_LIST}" STREQUAL "")
-  SET(DO_CONCURRENT_LIST NVHPC)
+  SET(DO_CONCURRENT_LIST NVHPC;PGI)
 endif()
 SET(DO_DO_CONCURRENT FALSE)
 list(FIND DO_CONCURRENT_LIST ${CMAKE_Fortran_COMPILER_ID} _ind)
