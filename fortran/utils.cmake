@@ -46,3 +46,24 @@ endif()
 endmacro(determine_openmp45)
 
 
+
+macro(determine_do_concurrent)
+if ("${DO_CONCURRENT_LIST}" STREQUAL "")
+  SET(DO_CONCURRENT_LIST NVHPC;PGI)
+endif()
+SET(DO_DO_CONCURRENT FALSE)
+list(FIND DO_CONCURRENT_LIST ${CMAKE_Fortran_COMPILER_ID} _ind)
+if( ${_ind} GREATER -1 )
+  SET(DO_DO_CONCURRENT TRUE)
+  if ("${DO_CONCURRENT_FLAGS}" STREQUAL "")
+    SET(DO_DO_CONCURRENT FALSE)
+  endif()
+endif()
+if (${DO_DO_CONCURRENT})
+  MESSAGE(STATUS "*** Compiling do concurrent code with ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION} using the flags: ${DO_CONCURRENT_FLAGS}")
+else() 
+  MESSAGE(STATUS "*** Do concurrent code will not be compiled.")
+endif()
+endmacro(determine_do_concurrent)
+
+
