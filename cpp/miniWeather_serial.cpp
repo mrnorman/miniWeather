@@ -13,6 +13,7 @@
 #include <ctime>
 #include "const.h"
 #include "pnetcdf.h"
+#include <chrono>
 
 // We're going to define all arrays on the host because this doesn't use parallel_for
 typedef yakl::Array<real  ,1,yakl::memHost> real1d;
@@ -99,7 +100,7 @@ int main(int argc, char **argv) {
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
     ////////////////////////////////////////////////////
-    auto c_start = std::clock();
+    auto t1 = std::chrono::steady_clock::now();
     while (etime < sim_time) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
       if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -118,9 +119,9 @@ int main(int argc, char **argv) {
         output(state,etime,num_out,fixed_data);
       }
     }
-    auto c_end = std::clock();
+    auto t2 = std::chrono::steady_clock::now();
     if (masterproc) {
-      std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
+      std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
     }
 
     //Final reductions for mass, kinetic energy, and total energy
