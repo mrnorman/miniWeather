@@ -54,7 +54,7 @@ program miniweather
   real(rp), parameter :: qpoints (nqpoints) = (/ 0.112701665379258311482073460022E0_rp , 0.500000000000000000000000000000E0_rp , 0.887298334620741688517926539980E0_rp /)
   real(rp), parameter :: qweights(nqpoints) = (/ 0.277777777777777777777777777779E0_rp , 0.444444444444444444444444444444E0_rp , 0.277777777777777777777777777779E0_rp /)
 
-  integer , parameter :: asyncid = 1
+  integer :: asyncid = 1
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! BEGIN USER-CONFIGURABLE PARAMETERS
@@ -117,17 +117,18 @@ program miniweather
   call reductions(mass0,te0)
 
   !Output the initial state
-  call output(state,etime,asyncid)
+  call output(state,etime)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! MAIN TIME STEP LOOP
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !$omp taskwait
   if (masterproc) call system_clock(t1)
   do while (etime < sim_time)
     !If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) dt = sim_time - etime
     !Perform a single time step
-    call perform_timestep(state,state_tmp,flux,tend,dt,asyncid)
+    call perform_timestep(state,state_tmp,flux,tend,dt)
     !Inform the user
     if (masterproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
     !Update the elapsed time and output counter
@@ -136,7 +137,7 @@ program miniweather
     !If it's time for output, reset the counter, and do output
     if (output_counter >= output_freq) then
       output_counter = output_counter - output_freq
-      call output(state,etime,asyncid)
+      call output(state,etime)
     endif
   enddo
   !$omp taskwait
@@ -174,33 +175,32 @@ contains
   ! q*     = q[n] + dt/3 * rhs(q[n])
   ! q**    = q[n] + dt/2 * rhs(q*  )
   ! q[n+1] = q[n] + dt/1 * rhs(q** )
-  subroutine perform_timestep(state,state_tmp,flux,tend,dt,asyncid)
+  subroutine perform_timestep(state,state_tmp,flux,tend,dt)
     implicit none
     real(rp), intent(inout) :: state    (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(  out) :: state_tmp(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(  out) :: flux     (nx+1,nz+1,NUM_VARS)
     real(rp), intent(  out) :: tend     (nx,nz,NUM_VARS)
     real(rp), intent(in   ) :: dt
-    integer , intent(in   ) :: asyncid
     logical, save :: direction_switch = .true.
     if (direction_switch) then
       !x-direction first
-      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , asyncid )
+      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend )
+      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend )
+      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend )
       !z-direction second
-      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , asyncid )
+      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend )
+      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend )
+      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend )
     else
       !z-direction second
-      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend , asyncid )
+      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , flux , tend )
+      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , flux , tend )
+      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , flux , tend )
       !x-direction first
-      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend , asyncid )
-      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend , asyncid )
+      call semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , flux , tend )
+      call semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , flux , tend )
+      call semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , flux , tend )
     endif
   end subroutine perform_timestep
 
@@ -208,7 +208,7 @@ contains
   !Perform a single semi-discretized step in time with the form:
   !state_out = state_init + dt * rhs(state_forcing)
   !Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
-  subroutine semi_discrete_step( state_init , state_forcing , state_out , dt , dir , flux , tend , asyncid)
+  subroutine semi_discrete_step( state_init , state_forcing , state_out , dt , dir , flux , tend)
     implicit none
     real(rp), intent(in   ) :: state_init   (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(inout) :: state_forcing(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
@@ -217,24 +217,23 @@ contains
     real(rp), intent(  out) :: tend         (nx,nz,NUM_VARS)
     real(rp), intent(in   ) :: dt
     integer , intent(in   ) :: dir
-    integer , intent(in   ) :: asyncid
     integer :: i,k,ll
     real(rp) :: x, z, wpert, dist, x0, z0, xrad, zrad, amp
 
     if     (dir == DIR_X) then
       !Set the halo values for this MPI task's fluid state in the x-direction
-      call set_halo_values_x(state_forcing,asyncid)
+      call set_halo_values_x(state_forcing)
       !Compute the time tendencies for the fluid state in the x-direction
-      call compute_tendencies_x(state_forcing,flux,tend,dt,asyncid)
+      call compute_tendencies_x(state_forcing,flux,tend,dt)
     elseif (dir == DIR_Z) then
       !Set the halo values for this MPI task's fluid state in the z-direction
-      call set_halo_values_z(state_forcing,asyncid)
+      call set_halo_values_z(state_forcing)
       !Compute the time tendencies for the fluid state in the z-direction
-      call compute_tendencies_z(state_forcing,flux,tend,dt,asyncid)
+      call compute_tendencies_z(state_forcing,flux,tend,dt)
     endif
 
     !Apply the tendencies to the fluid state
-    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -270,19 +269,18 @@ contains
   !Since the halos are set in a separate routine, this will not require MPI
   !First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
   !Then, compute the tendencies using those fluxes
-  subroutine compute_tendencies_x(state,flux,tend,dt,asyncid)
+  subroutine compute_tendencies_x(state,flux,tend,dt)
     implicit none
     real(rp), intent(in   ) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(  out) :: flux (nx+1,nz+1,NUM_VARS)
     real(rp), intent(  out) :: tend (nx,nz,NUM_VARS)
     real(rp), intent(in   ) :: dt
-    integer , intent(in   ) :: asyncid
     integer :: i,k,ll,s
     real(rp) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dx / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
     do k = 1 , nz
 
       do i = 1 , nx+1
@@ -313,7 +311,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -328,19 +326,18 @@ contains
   !Since the halos are set in a separate routine, this will not require MPI
   !First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
   !Then, compute the tendencies using those fluxes
-  subroutine compute_tendencies_z(state,flux,tend,dt,asyncid)
+  subroutine compute_tendencies_z(state,flux,tend,dt)
     implicit none
     real(rp), intent(in   ) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(  out) :: flux (nx+1,nz+1,NUM_VARS)
     real(rp), intent(  out) :: tend (nx,nz,NUM_VARS)
     real(rp), intent(in   ) :: dt
-    integer , intent(in   ) :: asyncid
     integer :: i,k,ll,s
     real(rp) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
     !Compute the hyperviscosity coeficient
     hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$omp target teams distribute parallel do collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
     do k = 1 , nz+1
 
       do i = 1 , nx
@@ -376,7 +373,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -391,9 +388,8 @@ contains
 
 
   !Set this MPI task's halo values in the x-direction. This routine will require MPI
-  subroutine set_halo_values_x(state,asyncid)
+  subroutine set_halo_values_x(state)
     implicit none
-    integer , intent(in   ) :: asyncid
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer :: k, ll, s, ierr, req_r(2), req_s(2), status(MPI_STATUS_SIZE,2)
     real(rp) :: z
@@ -403,7 +399,7 @@ contains
     call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
 
     !Pack the send buffers
-    !$omp target teams distribute parallel do collapse(3)  depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(3)  depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -426,7 +422,7 @@ contains
     !$omp target update to(recvbuf_l,recvbuf_r) depend(inout:asyncid) nowait
 
     !Unpack the receive buffers
-    !$omp target teams distribute parallel do collapse(3) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do s = 1 , hs
@@ -441,7 +437,7 @@ contains
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
-        !$omp target teams distribute parallel do depend(inout:asyncid) nowait
+        !$omp target teams distribute parallel do simd depend(inout:asyncid) nowait
         do k = 1 , nz
           z = (k_beg-1 + k-0.5_rp)*dz
           if (abs(z-3*zlen/4) <= zlen/16) then
@@ -456,12 +452,11 @@ contains
 
   !Set this MPI task's halo values in the z-direction. This does not require MPI because there is no MPI
   !decomposition in the vertical direction
-  subroutine set_halo_values_z(state,asyncid)
+  subroutine set_halo_values_z(state)
     implicit none
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
-    integer , intent(in   ) :: asyncid
     integer :: i, ll
-    !$omp target teams distribute parallel do collapse(2) depend(inout:asyncid) nowait
+    !$omp target teams distribute parallel do simd collapse(2) depend(inout:asyncid) nowait
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
@@ -765,13 +760,12 @@ contains
   !Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-  subroutine output(state,etime,asyncid)
+  subroutine output(state,etime)
     implicit none
     include "pnetcdf.inc"
     include "mpif.h"
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
-    integer , intent(in) :: asyncid
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
     integer :: i,k
     integer, save :: num_out = 0
@@ -881,7 +875,7 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    !$omp target teams distribute parallel do collapse(2) reduction(+:mass,te)
+    !$omp target teams distribute parallel do simd collapse(2) reduction(+:mass,te)
     do k = 1 , nz
       do i = 1 , nx
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density

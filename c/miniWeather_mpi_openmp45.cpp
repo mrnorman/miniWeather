@@ -50,6 +50,8 @@ constexpr int nqpoints = 3;
 constexpr double qpoints [] = { 0.112701665379258311482073460022E0 , 0.500000000000000000000000000000E0 , 0.887298334620741688517926539980E0 };
 constexpr double qweights[] = { 0.277777777777777777777777777779E0 , 0.444444444444444444444444444444E0 , 0.277777777777777777777777777779E0 };
 
+int asyncid = 1;
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // BEGIN USER-CONFIGURABLE PARAMETERS
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -147,6 +149,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
+#pragma omp taskwait
   auto c_start = std::clock();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
@@ -161,10 +164,10 @@ int main(int argc, char **argv) {
     //If it's time for output, reset the counter, and do output
     if (output_counter >= output_freq) {
       output_counter = output_counter - output_freq;
-#pragma omp target update from(state[:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
       output(state,etime);
     }
   }
+#pragma omp taskwait
   auto c_end = std::clock();
   if (masterproc) {
     std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
@@ -233,7 +236,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   }
 
   //Apply the tendencies to the fluid state
-#pragma omp target teams distribute parallel for collapse(3)
+#pragma omp target teams distribute parallel for simd collapse(3) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -280,7 +283,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp target teams distribute parallel for collapse(2) private(stencil,vals,d3_vals)
+#pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
   for (k=0; k<nz; k++) {
     for (i=0; i<nx+1; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -311,7 +314,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp target teams distribute parallel for collapse(3)
+#pragma omp target teams distribute parallel for simd collapse(3) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -335,7 +338,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coeficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp target teams distribute parallel for collapse(2) private(stencil,vals,d3_vals)
+#pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
   for (k=0; k<nz+1; k++) {
     for (i=0; i<nx; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -371,7 +374,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp target teams distribute parallel for collapse(3)
+#pragma omp target teams distribute parallel for simd collapse(3) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -400,7 +403,7 @@ void set_halo_values_x( double *state ) {
   ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
-#pragma omp target teams distribute parallel for collapse(3)
+#pragma omp target teams distribute parallel for simd collapse(3) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -410,7 +413,8 @@ void set_halo_values_x( double *state ) {
     }
   }
 
-#pragma omp target update from(sendbuf_l[:nz*hs*NUM_VARS],sendbuf_r[:nz*hs*NUM_VARS])
+#pragma omp target update from(sendbuf_l[:nz*hs*NUM_VARS],sendbuf_r[:nz*hs*NUM_VARS]) depend(inout:asyncid) nowait
+#pragma omp taskwait
 
   //Fire off the sends
   ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
@@ -419,10 +423,10 @@ void set_halo_values_x( double *state ) {
   //Wait for receives to finish
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
-#pragma omp target update to(recvbuf_l[:nz*hs*NUM_VARS],recvbuf_r[:nz*hs*NUM_VARS])
+#pragma omp target update to(recvbuf_l[:nz*hs*NUM_VARS],recvbuf_r[:nz*hs*NUM_VARS]) depend(inout:asyncid) nowait
 
   //Unpack the receive buffers
-#pragma omp target teams distribute parallel for collapse(3)
+#pragma omp target teams distribute parallel for simd collapse(3) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (s=0; s<hs; s++) {
@@ -437,7 +441,7 @@ void set_halo_values_x( double *state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-#pragma omp target teams distribute parallel for collapse(2)
+#pragma omp target teams distribute parallel for simd collapse(2) depend(inout:asyncid) nowait
       for (k=0; k<nz; k++) {
         for (i=0; i<hs; i++) {
           z = (k_beg + k+0.5)*dz;
@@ -459,7 +463,7 @@ void set_halo_values_x( double *state ) {
 //decomposition in the vertical direction
 void set_halo_values_z( double *state ) {
   int          i, ll;
-#pragma omp target teams distribute parallel for collapse(2)
+#pragma omp target teams distribute parallel for simd collapse(2) depend(inout:asyncid) nowait
   for (ll=0; ll<NUM_VARS; ll++) {
     for (i=0; i<nx+2*hs; i++) {
       if (ll == ID_WMOM) {
@@ -740,6 +744,10 @@ void output( double *state , double etime ) {
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
   double *dens, *uwnd, *wwnd, *theta;
   double *etimearr;
+
+#pragma omp target update from(state[:(nz+2*hs)*(nx+2*hs)*NUM_VARS]) depend(inout:asyncid) nowait
+#pragma omp taskwait
+
   //Inform the user
   if (masterproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
@@ -860,7 +868,7 @@ void finalize() {
 void reductions( double &mass , double &te ) {
   mass = 0;
   te   = 0;
-#pragma omp target teams distribute parallel for collapse(2) reduction(+:mass,te)
+#pragma omp target teams distribute parallel for simd collapse(2) reduction(+:mass,te)
   for (int k=0; k<nz; k++) {
     for (int i=0; i<nx; i++) {
       int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
