@@ -170,3 +170,29 @@ endif()
 
 
 
+############################################################
+## Compile the MPI + do concurrent version
+############################################################
+determine_do_concurrent()
+if (${DO_DO_CONCURRENT})
+  if ("${DO_CONCURRENT_LINK_FLAGS}" STREQUAL "")
+    SET(DO_CONCURRENT_LINK_FLAGS ${DO_CONCURRENT_FLAGS})
+  endif()
+
+  add_executable(do_concurrent miniWeather_mpi_do_concurrent.F90)
+  target_include_directories(do_concurrent PUBLIC ${PNETCDF_PATH}/include)
+  set_target_properties(do_concurrent PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${DO_CONCURRENT_FLAGS}")
+  set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${DO_CONCURRENT_LINK_FLAGS} ${LDFLAGS}")
+  string(STRIP "${_LIBS}" _LIBS)
+  target_link_libraries(do_concurrent "${_LIBS}")
+
+  add_executable(do_concurrent_test miniWeather_mpi_do_concurrent.F90)
+  target_include_directories(do_concurrent_test PUBLIC ${PNETCDF_PATH}/include)
+  set_target_properties(do_concurrent_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${DO_CONCURRENT_FLAGS}")
+  target_link_libraries(do_concurrent_test "${_LIBS}")
+
+  add_test(NAME DO_CONCURRENT_TEST COMMAND ./check_output.sh ./do_concurrent_test 1e-13 4.5e-5 ) 
+endif()
+
+
+
