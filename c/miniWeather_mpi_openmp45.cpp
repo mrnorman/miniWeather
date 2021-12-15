@@ -14,6 +14,7 @@
 #include <iostream>
 #include <mpi.h>
 #include "pnetcdf.h"
+#include <chrono>
 
 constexpr double pi        = 3.14159265358979323846264338327;   //Pi
 constexpr double grav      = 9.8;                               //Gravitational acceleration (m / s^2)
@@ -150,7 +151,7 @@ int main(int argc, char **argv) {
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
 #pragma omp taskwait
-  auto c_start = std::clock();
+  auto t1 = std::chrono::steady_clock::now();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) { dt = sim_time - etime; }
@@ -168,9 +169,9 @@ int main(int argc, char **argv) {
     }
   }
 #pragma omp taskwait
-  auto c_end = std::clock();
+  auto t2 = std::chrono::steady_clock::now();
   if (masterproc) {
-    std::cout << "CPU Time: " << ( (double) (c_end-c_start) ) / CLOCKS_PER_SEC << " sec\n";
+    std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy
