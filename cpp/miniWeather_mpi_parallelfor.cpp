@@ -216,7 +216,7 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
       real x = (i_beg + i+0.5)*dx;
       real z = (k_beg + k+0.5)*dz;
@@ -243,7 +243,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
-  parallel_for( Bounds<2>(nz,nx+1) , YAKL_LAMBDA (int k, int i ) {
+  parallel_for( SimpleBounds<2>(nz,nx+1) , YAKL_LAMBDA (int k, int i ) {
     SArray<real,1,4> stencil;
     SArray<real,1,NUM_VARS> d3_vals;
     SArray<real,1,NUM_VARS> vals;
@@ -279,7 +279,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, inti ) {
     tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
   });
 }
@@ -301,7 +301,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  parallel_for( Bounds<2>(nz+1,nx) , YAKL_LAMBDA (int k, int i) {
+  parallel_for( SimpleBounds<2>(nz+1,nx) , YAKL_LAMBDA (int k, int i) {
     SArray<real,1,4> stencil;
     SArray<real,1,NUM_VARS> d3_vals;
     SArray<real,1,NUM_VARS> vals;
@@ -341,7 +341,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  parallel_for( Bounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+  parallel_for( SimpleBounds<2>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
     if (ll == ID_WMOM) {
       tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
@@ -389,7 +389,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  parallel_for( Bounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
     sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
     sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
   });
@@ -416,7 +416,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (s=0; s<hs; s++) {
-  parallel_for( Bounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
     state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
     state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
   });
@@ -429,7 +429,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
     if (myrank == 0) {
       // for (k=0; k<nz; k++) {
       //   for (i=0; i<hs; i++) {
-      parallel_for( Bounds<2>(nz,hs) , YAKL_LAMBDA (int k, int i) {
+      parallel_for( SimpleBounds<2>(nz,hs) , YAKL_LAMBDA (int k, int i) {
         double z = (k_beg + k+0.5)*dz;
         if (abs(z-3*zlen/4) <= zlen/16) {
           state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
@@ -450,7 +450,7 @@ void set_halo_values_z( real3d const &state , Fixed_data const &fixed_data ) {
   
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  parallel_for( Bounds<2>(NUM_VARS,nx+2*hs) , YAKL_LAMBDA (int ll, int i) {
+  parallel_for( SimpleBounds<2>(NUM_VARS,nx+2*hs) , YAKL_LAMBDA (int ll, int i) {
     if (ll == ID_WMOM) {
       state(ll,0      ,i) = 0.;
       state(ll,1      ,i) = 0.;
@@ -532,7 +532,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   //////////////////////////////////////////////////////////////////////////
   // for (k=0; k<nz+2*hs; k++) {
   //   for (i=0; i<nx+2*hs; i++) {
-  parallel_for( Bounds<2>(nz+2*hs,nx+2*hs) , YAKL_LAMBDA (int k, int i) {
+  parallel_for( SimpleBounds<2>(nz+2*hs,nx+2*hs) , YAKL_LAMBDA (int k, int i) {
     //Initialize the state to zero
     for (int ll=0; ll<NUM_VARS; ll++) {
       state(ll,k,i) = 0.;
@@ -775,7 +775,7 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
   //Store perturbed values in the temp arrays for output
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  parallel_for( Bounds<2>(nz,nx) , YAKL_LAMBDA (int k, int i) {
+  parallel_for( SimpleBounds<2>(nz,nx) , YAKL_LAMBDA (int k, int i) {
     dens (k,i) = state(ID_DENS,hs+k,hs+i);
     uwnd (k,i) = state(ID_UMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
     wwnd (k,i) = state(ID_WMOM,hs+k,hs+i) / ( hy_dens_cell(hs+k) + state(ID_DENS,hs+k,hs+i) );
@@ -838,7 +838,7 @@ void reductions( realConst3d state, double &mass , double &te , Fixed_data const
 
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx; i++) {
-  parallel_for( Bounds<2>(nz,nx) , YAKL_LAMBDA (int k, int i) {
+  parallel_for( SimpleBounds<2>(nz,nx) , YAKL_LAMBDA (int k, int i) {
     double r  =   state(ID_DENS,hs+k,hs+i) + hy_dens_cell(hs+k);             // Density
     double u  =   state(ID_UMOM,hs+k,hs+i) / r;                              // U-wind
     double w  =   state(ID_WMOM,hs+k,hs+i) / r;                              // W-wind

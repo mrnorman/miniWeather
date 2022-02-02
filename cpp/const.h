@@ -5,6 +5,7 @@
 #include <cmath>
 
 using yakl::SArray;
+using yakl::c::SimpleBounds;
 
 typedef double real;
 
