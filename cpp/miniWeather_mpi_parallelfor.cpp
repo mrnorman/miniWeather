@@ -279,7 +279,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, inti ) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     tend(ll,k,i) = -( flux(ll,k,i+1) - flux(ll,k,i) ) / dx;
   });
 }
@@ -341,7 +341,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
-  parallel_for( SimpleBounds<2>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
+  parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     tend(ll,k,i) = -( flux(ll,k+1,i) - flux(ll,k,i) ) / dz;
     if (ll == ID_WMOM) {
       tend(ll,k,i) -= state(ID_DENS,hs+k,hs+i)*grav;
