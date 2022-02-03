@@ -1,12 +1,12 @@
 [submodule "cpp/cub"]
 	path = cpp/cub
-	url = https://github.com/NVlabs/cub.git
+	url = git@github.com:NVIDIA/cub.git
 [submodule "cpp/hipCUB"]
 	path = cpp/hipCUB
-	url = https://github.com/ROCmSoftwarePlatform/hipCUB.git
+	url = git@github.com:ROCmSoftwarePlatform/hipCUB.git
 [submodule "cpp/rocPRIM"]
 	path = cpp/rocPRIM
-	url = https://github.com/ROCmSoftwarePlatform/rocPRIM.git
+	url = git@github.com:ROCmSoftwarePlatform/rocPRIM.git
 [submodule "cpp/YAKL"]
 	path = cpp/YAKL
-	url = https://github.com/mrnorman/YAKL.git
+	url = git@github.com:mrnorman/YAKL.git
