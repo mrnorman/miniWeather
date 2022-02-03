@@ -8,10 +8,10 @@ unset CXXFLAGS
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                        \
       -DPNETCDF_PATH=${PNETCDF_PATH}                     \
-      -DYAKL_CXX_FLAGS="-O3 -DHAVE_MPI"  \
+      -DYAKL_CXX_FLAGS="-Ofast -DNO_INFORM -DHAVE_MPI"  \
       -DNX=200                                           \
       -DNZ=100                                           \
-      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"              \
       -DSIM_TIME=1000 \
+      -DOUT_FREQ=1000 \
       ..
 

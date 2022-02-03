@@ -98,6 +98,18 @@ set_target_properties(parallelfor_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5 )
 
 
+############################################################
+## YAKL parallel_for Version
+############################################################
+add_executable(parallelfor_simd miniWeather_mpi_parallelfor_simd.cpp)
+set_target_properties(parallelfor_simd PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+
+add_executable(parallelfor_simd_test miniWeather_mpi_parallelfor_simd.cpp)
+set_target_properties(parallelfor_simd_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
+
+add_test(NAME YAKL_SIMD_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5 )
+
+
 include(YAKL/yakl_utils.cmake)
 yakl_process_target(serial)
 yakl_process_target(serial_test)
@@ -105,6 +117,8 @@ yakl_process_target(mpi)
 yakl_process_target(mpi_test)
 yakl_process_target(parallelfor)
 yakl_process_target(parallelfor_test)
+yakl_process_target(parallelfor_simd)
+yakl_process_target(parallelfor_simd_test)
 
 
 if ("${YAKL_ARCH}" STREQUAL "CUDA")
