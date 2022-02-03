@@ -315,17 +315,22 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  parallel_for( SimpleBounds<2>(nz+1,nx) , YAKL_LAMBDA (int k, int i) {
-    SArray<real,1,4> stencil;
-    SArray<real,1,NUM_VARS> d3_vals;
-    SArray<real,1,NUM_VARS> vals;
+  int xdim = nx+1;
+  int xblocks = (xdim-1)/simd_len + 1;
+  parallel_for( SimpleBounds<2>(nz+1,xblocks) , YAKL_LAMBDA (int k, int iblk) {
+    SArray<Pack<real,simd_len>,1,4> stencil;
+    SArray<Pack<real,simd_len>,1,NUM_VARS> d3_vals;
+    SArray<Pack<real,simd_len>,1,NUM_VARS> vals;
     //Compute the hyperviscosity coeficient
     real hv_coef = -hv_beta * dz / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
       for (int s=0; s<sten_size; s++) {
-        stencil(s) = state(ll,k+s,hs+i);
+        for (int ilane = 0; ilane < simd_len; ilane++) {
+          int i = min( xdim-1 , iblk*simd_len + ilane );
+          stencil(s)(ilane) = state(ll,k+s,hs+i);
+        }
       }
       //Fourth-order-accurate interpolation of the state
       vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
@@ -334,21 +339,29 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     }
 
     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-    real r = vals(ID_DENS) + hy_dens_int(k);
-    real u = vals(ID_UMOM) / r;
-    real w = vals(ID_WMOM) / r;
-    real t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
-    real p = C0*pow((r*t),gamm) - hy_pressure_int(k);
+    Pack<real,simd_len> r = vals(ID_DENS) + hy_dens_int(k);
+    Pack<real,simd_len> u = vals(ID_UMOM) / r;
+    Pack<real,simd_len> w = vals(ID_WMOM) / r;
+    Pack<real,simd_len> t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
+    Pack<real,simd_len> p = C0*pow((r*t),gamm) - hy_pressure_int(k);
     if (k == 0 || k == nz) {
       w                = 0;
       d3_vals(ID_DENS) = 0;
     }
 
+    Pack<real,simd_len> f1 = r*w     - hv_coef*d3_vals(ID_DENS);
+    Pack<real,simd_len> f2 = r*w*u   - hv_coef*d3_vals(ID_UMOM);
+    Pack<real,simd_len> f3 = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
+    Pack<real,simd_len> f4 = r*w*t   - hv_coef*d3_vals(ID_RHOT);
+
     //Compute the flux vector with hyperviscosity
-    flux(ID_DENS,k,i) = r*w     - hv_coef*d3_vals(ID_DENS);
-    flux(ID_UMOM,k,i) = r*w*u   - hv_coef*d3_vals(ID_UMOM);
-    flux(ID_WMOM,k,i) = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
-    flux(ID_RHOT,k,i) = r*w*t   - hv_coef*d3_vals(ID_RHOT);
+    for (int ilane = 0; ilane < simd_len; ilane++) {
+      int i = min( xdim-1 , iblk*simd_len + ilane );
+      flux(ID_DENS,k,i) = f1(ilane);
+      flux(ID_UMOM,k,i) = f2(ilane);
+      flux(ID_WMOM,k,i) = f3(ilane);
+      flux(ID_RHOT,k,i) = f4(ilane);
+    }
   });
 
   //Use the fluxes to compute tendencies for each cell

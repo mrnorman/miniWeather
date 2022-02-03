@@ -122,9 +122,9 @@ yakl_process_target(parallelfor_simd_test)
 
 
 if ("${YAKL_ARCH}" STREQUAL "CUDA")
-  set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test PROPERTIES LINKER_LANGUAGE CXX)
+  set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd parallelfor_simd_test PROPERTIES LINKER_LANGUAGE CXX)
   if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
-    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test PROPERTIES CUDA_ARCHITECTURES OFF CUDA_STANDARD 14)
+    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd parallelfor_simd_test PROPERTIES CUDA_ARCHITECTURES OFF CUDA_STANDARD 14)
   endif()
 endif()
 
