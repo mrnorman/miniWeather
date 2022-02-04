@@ -4,8 +4,8 @@ export TEST_MPI_COMMAND="mpirun -n 1"
 unset CUDAFLAGS
 unset CXXFLAGS
 
-export OMPI_CXX=g++
-export OMPI_CC=gcc
+export OMPI_CXX=clang++
+export OMPI_CC=clang
 export OMPI_F90=gfortran
 
 ./cmake_clean.sh
