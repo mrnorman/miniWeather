@@ -17,10 +17,10 @@ cmake -DCMAKE_CXX_COMPILER=mpic++         \
       -DCMAKE_C_COMPILER=mpicc            \
       -DCMAKE_Fortran_COMPILER=mpif90     \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}      \
-      -DYAKL_CXX_FLAGS="-Ofast -std=c++11 -fno-alias -DNO_INFORM"   \
-      -DNX=200                            \
-      -DNZ=100                            \
-      -DSIM_TIME=1000                     \
-      -DOUT_FREQ=2000 \
+      -DYAKL_CXX_FLAGS="-DSIMD_LEN=4 -Ofast -march=native -mtune=native -std=c++11 -fno-alias -DNO_INFORM"   \
+      -DNX=256                            \
+      -DNZ=128                            \
+      -DSIM_TIME=250                      \
+      -DOUT_FREQ=2000                     \
       ..
 

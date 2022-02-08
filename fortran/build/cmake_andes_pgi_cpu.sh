@@ -10,10 +10,10 @@ unset CXXFLAGS
 
 cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
-      -DFFLAGS="-O4 -DNO_INFORM"                 \
-      -DNX=200 \
-      -DNZ=100 \
-      -DSIM_TIME=1000 \
+      -DFFLAGS="-O4 -tp=zen -DNO_INFORM"                 \
+      -DNX=256 \
+      -DNZ=128 \
+      -DSIM_TIME=250  \
       -DOUT_FREQ=2000 \
       ..
 
