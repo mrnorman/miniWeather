@@ -100,6 +100,17 @@ target_link_libraries(assumed_shape_arrays "${_LIBS}")
 ############################################################
 ## Compile the MPI Assumed Shape Arrays version
 ############################################################
+add_executable(allocate_during_runtime miniWeather_mpi_allocate_during_runtime.F90)
+target_include_directories(allocate_during_runtime PUBLIC ${PNETCDF_PATH}/include)
+set_target_properties(allocate_during_runtime PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
+string(STRIP "${_LIBS}" _LIBS)
+target_link_libraries(allocate_during_runtime "${_LIBS}")
+
+
+############################################################
+## Compile the MPI Equitable to C++ code
+############################################################
 add_executable(equitable_to_cxx miniWeather_mpi_equitable_to_cxx.F90)
 target_include_directories(equitable_to_cxx PUBLIC ${PNETCDF_PATH}/include)
 set_target_properties(equitable_to_cxx PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")

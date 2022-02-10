@@ -1,0 +1,1 @@
+srun -n 1 perf stat -d -d -d -e fp_ret_sse_avx_ops.all,page-faults,cycles,stalled-cycles-frontend,stalled-cycles-backend,instructions,branches,branch-misses,cache-misses,cache-references ./program_name
