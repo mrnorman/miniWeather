@@ -87,6 +87,28 @@ add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-13 4.5e-5 )
 
 
 ############################################################
+## Compile the MPI Assumed Shape Arrays version
+############################################################
+add_executable(assumed_shape_arrays miniWeather_mpi_assumed_shape_arrays.F90)
+target_include_directories(assumed_shape_arrays PUBLIC ${PNETCDF_PATH}/include)
+set_target_properties(assumed_shape_arrays PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
+string(STRIP "${_LIBS}" _LIBS)
+target_link_libraries(assumed_shape_arrays "${_LIBS}")
+
+
+############################################################
+## Compile the MPI Assumed Shape Arrays version
+############################################################
+add_executable(equitable_to_cxx miniWeather_mpi_equitable_to_cxx.F90)
+target_include_directories(equitable_to_cxx PUBLIC ${PNETCDF_PATH}/include)
+set_target_properties(equitable_to_cxx PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+set(_LIBS "-L${PNETCDF_PATH}/lib -lpnetcdf ${LDFLAGS}")
+string(STRIP "${_LIBS}" _LIBS)
+target_link_libraries(equitable_to_cxx "${_LIBS}")
+
+
+############################################################
 ## Compile the MPI + OpenMP version
 ############################################################
 SET(DO_OPENMP TRUE)
