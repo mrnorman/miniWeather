@@ -13,10 +13,10 @@ export OMPI_FC=gfortran
 
 cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DPNETCDF_PATH=${PNETCDF_PATH}   \
-      -DFFLAGS="-Ofast -DNO_INFORM -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15"                                \
-      -DNX=200 \
-      -DNZ=100 \
-      -DSIM_TIME=1000 \
+      -DFFLAGS="-Ofast -march=native -mtune=native -DNO_INFORM -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15"                                \
+      -DNX=256 \
+      -DNZ=128 \
+      -DSIM_TIME=250  \
       -DOUT_FREQ=2000 \
       ..
 

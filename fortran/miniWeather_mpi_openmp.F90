@@ -108,7 +108,9 @@ program miniweather
   call reductions(mass0,te0)
 
   !Output the initial state
+#ifndef NO_OUTPUT
   call output(state,etime)
+#endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! MAIN TIME STEP LOOP
@@ -129,7 +131,9 @@ program miniweather
     !If it's time for output, reset the counter, and do output
     if (output_counter >= output_freq) then
       output_counter = output_counter - output_freq
+#ifndef NO_OUTPUT
       call output(state,etime)
+#endif
     endif
   enddo
   if (masterproc) then
@@ -745,6 +749,7 @@ contains
   !Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
+#ifndef NO_OUTPUT
   subroutine output(state,etime)
     use pnetcdf
     use mpi
@@ -832,9 +837,11 @@ contains
     deallocate(wwnd )
     deallocate(theta)
   end subroutine output
+#endif
 
 
   !Error reporting routine for the PNetCDF I/O
+#ifndef NO_OUTPUT
   subroutine ncwrap( ierr , line )
     use pnetcdf
     implicit none
@@ -846,6 +853,7 @@ contains
       stop
     endif
   end subroutine ncwrap
+#endif
 
 
   !Compute reduced quantities for error checking without resorting to the "ncdiff" tool

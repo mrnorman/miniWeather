@@ -15,10 +15,10 @@ export OMPI_FC=nvfortran
 
 cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DPNETCDF_PATH=/opt/parallel-netcdf-1.12.0_nvhpc   \
-      -DFFLAGS="-O3 -Mvect -DNO_INFORM"                                \
-      -DNX=200 \
-      -DNZ=100 \
-      -DSIM_TIME=1000 \
+      -DFFLAGS="-O3 -march=native -DNO_INFORM"                                \
+      -DNX=256 \
+      -DNZ=128 \
+      -DSIM_TIME=250  \
       -DOUT_FREQ=2000 \
       ..
 

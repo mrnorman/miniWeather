@@ -19,10 +19,10 @@ cmake -DCMAKE_CXX_COMPILER=mpic++         \
       -DCMAKE_C_COMPILER=mpicc            \
       -DCMAKE_Fortran_COMPILER=mpif90     \
       -DPNETCDF_PATH=${PNETCDF_PATH}      \
-      -DYAKL_CXX_FLAGS="-Ofast -std=c++11 -DNO_INFORM"   \
-      -DNX=200                            \
-      -DNZ=100                            \
-      -DSIM_TIME=1000                     \
+      -DYAKL_CXX_FLAGS="-Ofast -march=native -mtune=native -fno-alias -std=c++11 -DNO_INFORM"   \
+      -DNX=256                            \
+      -DNZ=128                            \
+      -DSIM_TIME=250                      \
       -DOUT_FREQ=2000 \
       ..
 
