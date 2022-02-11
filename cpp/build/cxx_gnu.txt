@@ -1,0 +1,42 @@
+Create Pool
+nx_glob, nz_glob: 256 128
+dx,dz: 78.125000 78.125000
+dt: 0.260417
+*** OUTPUT ***
+CPU Time: 14.0531 sec
+d_mass: 2.539239e-15
+d_te:   1.577833e-05
+Destroy Pool
+
+ Performance counter stats for './parallelfor':
+
+    30,040,189,234      fp_ret_sse_avx_ops.all:u                                      (11.11%)
+             5,704      page-faults:u                                               
+    41,831,187,101      cycles:u                                                      (11.13%)
+        30,168,361      stalled-cycles-frontend:u #    0.07% frontend cycles idle     (11.13%)
+    30,021,953,991      stalled-cycles-backend:u  #   71.77% backend cycles idle      (16.70%)
+    85,718,552,147      instructions:u            #    2.05  insn per cycle         
+                                                  #    0.35  stalled cycles per insn  (16.68%)
+     6,147,869,191      branches:u                                                    (16.68%)
+         7,744,075      branch-misses:u           #    0.13% of all branches          (16.67%)
+        34,843,417      cache-misses:u            #    2.025 % of all cache refs      (16.66%)
+     1,720,830,293      cache-references:u                                            (16.66%)
+    33,814,173,044      L1-dcache-loads:u                                             (16.65%)
+       900,792,061      L1-dcache-load-misses:u   #    2.66% of all L1-dcache accesses  (16.65%)
+   <not supported>      LLC-loads:u                                                 
+   <not supported>      LLC-load-misses:u                                           
+       147,198,932      L1-icache-loads:u                                             (16.64%)
+         1,599,501      L1-icache-load-misses:u   #    1.09% of all L1-icache accesses  (16.64%)
+         1,344,855      dTLB-loads:u                                                  (16.65%)
+            50,641      dTLB-load-misses:u        #    3.77% of all dTLB cache accesses  (16.67%)
+           373,526      iTLB-loads:u                                                  (16.68%)
+            11,875      iTLB-load-misses:u        #    3.18% of all iTLB cache accesses  (16.67%)
+       828,572,932      L1-dcache-prefetches:u                                        (16.66%)
+   <not supported>      L1-dcache-prefetch-misses:u                                   
+
+      14.265166648 seconds time elapsed
+
+      14.019181000 seconds user
+       0.064269000 seconds sys
+
+

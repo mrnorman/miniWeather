@@ -1,0 +1,40 @@
+ nx_glob, nz_glob:         256         128
+ dx,dz:    78.1250000000000        78.1250000000000     
+ dt:   0.260416666666667     
+ *** OUTPUT ***
+ CPU Time:    6.57675600000000     
+ d_mass:  -2.422040322836612E-014
+ d_te:     1.571102399984589E-005
+
+ Performance counter stats for './mpi':
+
+    25,414,278,762      fp_ret_sse_avx_ops.all:u                                      (11.14%)
+            10,226      page-faults:u                                               
+    19,566,059,168      cycles:u                                                      (11.18%)
+        11,611,753      stalled-cycles-frontend:u #    0.06% frontend cycles idle     (11.16%)
+    14,107,397,301      stalled-cycles-backend:u  #   72.10% backend cycles idle      (16.73%)
+    45,944,077,176      instructions:u            #    2.35  insn per cycle         
+                                                  #    0.31  stalled cycles per insn  (16.74%)
+     1,900,137,583      branches:u                                                    (16.74%)
+         1,767,698      branch-misses:u           #    0.09% of all branches          (16.73%)
+        57,689,649      cache-misses:u            #    3.687 % of all cache refs      (16.67%)
+     1,564,864,292      cache-references:u                                            (16.65%)
+    23,880,616,256      L1-dcache-loads:u                                             (16.64%)
+       859,739,983      L1-dcache-load-misses:u   #    3.60% of all L1-dcache accesses  (16.61%)
+   <not supported>      LLC-loads:u                                                 
+   <not supported>      LLC-load-misses:u                                           
+       125,556,756      L1-icache-loads:u                                             (16.61%)
+         1,296,050      L1-icache-load-misses:u   #    1.03% of all L1-icache accesses  (16.62%)
+        14,867,743      dTLB-loads:u                                                  (16.62%)
+           123,019      dTLB-load-misses:u        #    0.83% of all dTLB cache accesses  (16.60%)
+           325,542      iTLB-loads:u                                                  (16.59%)
+             9,644      iTLB-load-misses:u        #    2.96% of all iTLB cache accesses  (16.63%)
+       543,920,408      L1-dcache-prefetches:u                                        (16.66%)
+   <not supported>      L1-dcache-prefetch-misses:u                                   
+
+       6.776873968 seconds time elapsed
+
+       6.572608000 seconds user
+       0.066330000 seconds sys
+
+

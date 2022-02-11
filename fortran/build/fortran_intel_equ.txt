@@ -1,0 +1,40 @@
+ nx_glob, nz_glob:         256         128
+ dx,dz:    78.1250000000000        78.1250000000000     
+ dt:   0.260416666666667     
+ *** OUTPUT ***
+ CPU Time:    10.4019980000000     
+ d_mass:  -2.422040322836612E-014
+ d_te:     1.571102399984589E-005
+
+ Performance counter stats for './equitable_to_cxx':
+
+    25,372,510,715      fp_ret_sse_avx_ops.all:u                                      (11.11%)
+         2,786,031      page-faults:u                                               
+    22,724,093,945      cycles:u                                                      (11.14%)
+        39,398,340      stalled-cycles-frontend:u #    0.17% frontend cycles idle     (11.15%)
+    17,120,444,643      stalled-cycles-backend:u  #   75.34% backend cycles idle      (16.71%)
+    47,832,713,916      instructions:u            #    2.10  insn per cycle         
+                                                  #    0.36  stalled cycles per insn  (16.68%)
+     2,280,145,932      branches:u                                                    (16.68%)
+         5,184,547      branch-misses:u           #    0.23% of all branches          (16.68%)
+        71,572,561      cache-misses:u            #    4.927 % of all cache refs      (16.68%)
+     1,452,579,352      cache-references:u                                            (16.68%)
+    23,530,156,643      L1-dcache-loads:u                                             (16.68%)
+       866,891,977      L1-dcache-load-misses:u   #    3.68% of all L1-dcache accesses  (16.67%)
+   <not supported>      LLC-loads:u                                                 
+   <not supported>      LLC-load-misses:u                                           
+       228,663,531      L1-icache-loads:u                                             (16.66%)
+         2,002,507      L1-icache-load-misses:u   #    0.88% of all L1-icache accesses  (16.64%)
+        30,757,850      dTLB-loads:u                                                  (16.63%)
+        13,031,627      dTLB-load-misses:u        #   42.37% of all dTLB cache accesses  (16.63%)
+           258,940      iTLB-loads:u                                                  (16.63%)
+           444,034      iTLB-load-misses:u        #  171.48% of all iTLB cache accesses  (16.64%)
+       458,073,525      L1-dcache-prefetches:u                                        (16.65%)
+   <not supported>      L1-dcache-prefetch-misses:u                                   
+
+      10.561080155 seconds time elapsed
+
+       7.554827000 seconds user
+       2.872424000 seconds sys
+
+
