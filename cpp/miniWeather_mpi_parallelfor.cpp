@@ -397,6 +397,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   //Prepost receives
   #ifdef GPU_AWARE_MPI
+    yakl::fence();
     ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
     ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
   #else
