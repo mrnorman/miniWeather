@@ -79,7 +79,7 @@ program miniweather
   integer  :: i_beg, k_beg                        !beginning index in the x- and z-directions for this MPI task
   integer  :: nranks, myrank                      !Number of MPI ranks and my rank id
   integer  :: left_rank, right_rank               !MPI Rank IDs that exist to my left and right in the global domain
-  logical  :: masterproc                          !Am I the master process (rank == 0)?
+  logical  :: mainproc                          !Am I the main process (rank == 0)?
   real(rp), allocatable :: hy_dens_cell      (:)  !hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
   real(rp), allocatable :: hy_dens_theta_cell(:)  !hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
   real(rp), allocatable :: hy_dens_int       (:)  !hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -123,7 +123,7 @@ program miniweather
   !! MAIN TIME STEP LOOP
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !$omp taskwait
-  if (masterproc) call system_clock(t1)
+  if (mainproc) call system_clock(t1)
   do while (etime < sim_time)
     !If the time step leads to exceeding the simulation time, shorten it for the last step
     if (etime + dt > sim_time) dt = sim_time - etime
@@ -131,7 +131,7 @@ program miniweather
     call perform_timestep(state,state_tmp,flux,tend,dt)
     !Inform the user
 #ifndef NO_INFORM
-    if (masterproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
+    if (mainproc) write(*,*) 'Elapsed Time: ', etime , ' / ' , sim_time
 #endif
     !Update the elapsed time and output counter
     etime = etime + dt
@@ -143,7 +143,7 @@ program miniweather
     endif
   enddo
   !$omp taskwait
-  if (masterproc) then
+  if (mainproc) then
     call system_clock(t2,rate)
     write(*,*) "CPU Time: ",dble(t2-t1)/dble(rate)
   endif
@@ -153,7 +153,7 @@ program miniweather
 
   !$omp end target data
 
-  if (masterproc) then
+  if (mainproc) then
     write(*,*) "d_mass: ", (mass - mass0)/mass0
     write(*,*) "d_te:   ", (te   - te0  )/te0
   endif
@@ -519,7 +519,7 @@ contains
     !Vertical direction isn't MPI-ized, so the rank's local values = the global values
     k_beg = 1
     nz = nz_glob
-    masterproc = (myrank == 0)
+    mainproc = (myrank == 0)
 
     !Allocate the model data
     allocate(state             (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS))
@@ -542,8 +542,8 @@ contains
     etime = 0
     output_counter = 0
 
-    !If I'm the master process in MPI, display some grid information
-    if (masterproc) then
+    !If I'm the main process in MPI, display some grid information
+    if (mainproc) then
       write(*,*) 'nx_glob, nz_glob:', nx_glob, nz_glob
       write(*,*) 'dx,dz: ',dx,dz
       write(*,*) 'dt: ',dt
@@ -780,7 +780,7 @@ contains
     !$omp taskwait
 
     !Inform the user
-    if (masterproc) write(*,*) '*** OUTPUT ***'
+    if (mainproc) write(*,*) '*** OUTPUT ***'
     !Allocate some (big) temp arrays
     allocate(dens (nx,nz))
     allocate(uwnd (nx,nz))
@@ -830,11 +830,11 @@ contains
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd  ) , __LINE__ )
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid , theta_varid , st3 , ct3 , theta ) , __LINE__ )
 
-    !Only the master process needs to write the elapsed time
+    !Only the main process needs to write the elapsed time
     !Begin "independent" write mode
     call ncwrap( nfmpi_begin_indep_data(ncid) , __LINE__ )
     !write elapsed time to file
-    if (masterproc) then
+    if (mainproc) then
       st1=(/num_out+1/); ct1=(/1/); etimearr(1) = etime; call ncwrap( nfmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ )
     endif
     !End "independent" write mode

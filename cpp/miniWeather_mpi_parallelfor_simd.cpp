@@ -46,7 +46,7 @@ struct Fixed_data {
   int i_beg, k_beg;           //beginning index in the x- and z-directions for this MPI task
   int nranks, myrank;         //Number of MPI ranks and my rank id
   int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
-  int masterproc;             //Am I the master process (rank == 0)?
+  int mainproc;             //Am I the main process (rank == 0)?
   realConst1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
   realConst1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
   realConst1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     // Init allocates the state and hydrostatic arrays hy_*
     init( state , dt , fixed_data );
 
-    auto &masterproc = fixed_data.masterproc;
+    auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
     real mass0, te0;
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
       perform_timestep(state,dt,direction_switch,fixed_data);
       //Inform the user
       #ifndef NO_INFORM
-        if (masterproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
+        if (mainproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
       #endif
       //Update the elapsed time and output counter
       etime = etime + dt;
@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
       }
     }
     auto t2 = std::chrono::steady_clock::now();
-    if (masterproc) {
+    if (mainproc) {
       std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
     }
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
     real mass, te;
     reductions(state,mass,te,fixed_data);
 
-    if (masterproc) {
+    if (mainproc) {
       printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
       printf( "d_te:   %le\n" , (te   - te0  )/te0   );
     }
@@ -507,7 +507,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   auto &right_rank         = fixed_data.right_rank        ;
   auto &nranks             = fixed_data.nranks            ;
   auto &myrank             = fixed_data.myrank            ;
-  auto &masterproc         = fixed_data.masterproc        ;
+  auto &mainproc         = fixed_data.mainproc        ;
   int  ierr;
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
@@ -524,7 +524,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   //Vertical direction isn't MPI-ized, so the rank's local values = the global values
   k_beg = 0;
   nz = nz_glob;
-  masterproc = (myrank == 0);
+  mainproc = (myrank == 0);
 
   //Allocate the model data
   state              = real3d( "state" , NUM_VARS,nz+2*hs,nx+2*hs);
@@ -532,8 +532,8 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   //Define the maximum stable time step based on an assumed maximum wind speed
   dt = min(dx,dz) / max_speed * cfl;
 
-  //If I'm the master process in MPI, display some grid information
-  if (masterproc) {
+  //If I'm the main process in MPI, display some grid information
+  if (mainproc) {
     printf( "nx_glob, nz_glob: %d %d\n", nx_glob, nz_glob);
     printf( "dx,dz: %lf %lf\n",dx,dz);
     printf( "dt: %lf\n",dt);
@@ -756,14 +756,14 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
   auto &nz                 = fixed_data.nz                ;
   auto &i_beg              = fixed_data.i_beg             ;
   auto &k_beg              = fixed_data.k_beg             ;
-  auto &masterproc         = fixed_data.masterproc        ;
+  auto &mainproc         = fixed_data.mainproc        ;
   auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
   auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
 
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Inform the user
-  if (masterproc) { printf("*** OUTPUT ***\n"); }
+  if (mainproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
   doub2d dens ( "dens"     , nz,nx );
   doub2d uwnd ( "uwnd"     , nz,nx );
@@ -818,11 +818,11 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
   ncwrap( ncmpi_put_vara_double_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd .createHostCopy().data() ) , __LINE__ );
   ncwrap( ncmpi_put_vara_double_all( ncid , theta_varid , st3 , ct3 , theta.createHostCopy().data() ) , __LINE__ );
 
-  //Only the master process needs to write the elapsed time
+  //Only the main process needs to write the elapsed time
   //Begin "independent" write mode
   ncwrap( ncmpi_begin_indep_data(ncid) , __LINE__ );
   //write elapsed time to file
-  if (masterproc) {
+  if (mainproc) {
     st1[0] = num_out;
     ct1[0] = 1;
     double etimearr[1];
