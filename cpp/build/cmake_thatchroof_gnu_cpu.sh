@@ -7,7 +7,7 @@ unset CXXFLAGS
 ./cmake_clean.sh
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                        \
-      -DPNETCDF_PATH=${PNETCDF_PATH}                     \
+      -DPNETCDF_PATH=/home/imn/pnetcdf_virtual           \
       -DYAKL_CXX_FLAGS="-Ofast -DNO_INFORM -DHAVE_MPI"  \
       -DNX=200                                           \
       -DNZ=100                                           \
