@@ -510,11 +510,11 @@ This simulates a rising thermal in a neutral atmosphere, which will look somethi
 
 Potential Temperature after 500 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_0500.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/thermal_pt_0500.png" width=400/>
 
 Potential Temperature after 1,000 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/thermal_pt_1000.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/thermal_pt_1000.png" width=400/>
 
 ## Colliding Thermals
 
@@ -527,15 +527,15 @@ This is similar to the rising thermal test case except with a cold bubble at the
 
 Potential Temperature after 200 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0200.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/collision_pt_0200.png" width=400/>
 
 Potential Temperature after 400 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0400.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/collision_pt_0400.png" width=400/>
 
 Potential Temperature after 700 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/collision_pt_0700.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/collision_pt_0700.png" width=400/>
 
 ## Mountain Gravity Waves
 
@@ -548,11 +548,11 @@ This test cases passes a horizontal wind over a faked mountain at the model bott
 
 Potential Temperature after 400 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_0400.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/mountain_pt_0400.png" width=400/>
 
 Potential Temperature after 1,300 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/mountain_pt_1300.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/mountain_pt_1300.png" width=400/>
 
 ## Density Current
 
@@ -565,11 +565,11 @@ This test case creates a neutrally stratified atmosphere with a strong cold bubb
 
 Potential Temperature after 200 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0200.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/density_current_pt_0200.png" width=400/>
 
 Potential Temperature after 600 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/density_current_pt_0600.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/density_current_pt_0600.png" width=400/>
 
 ## Injection
 
@@ -582,11 +582,11 @@ A narrow jet of fast and slightly cold wind is injected into a balanced, neutral
 
 Potential Temperature after 300 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_0300.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/injection_pt_0300.png" width=400/>
 
 Potential Temperature after 1,000 seconds:
 
-<img src="https://github.com/mrnorman/miniWeather/blob/master/documentation/images/injection_pt_1000.png" width=400/>
+<img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/injection_pt_1000.png" width=400/>
 
 # Physics, PDEs, and Numerical Approximations
 
@@ -800,7 +800,7 @@ for v in nc1.variables.keys() :
   * https://devblogs.nvidia.com/getting-started-openacc
 * C++
   * https://github.com/kokkos/kokkos/wiki
-  * https://raja.readthedocs.io/en/master
+  * https://raja.readthedocs.io/en/main
   * https://rocm-documentation.readthedocs.io/en/latest/Programming_Guides/Programming-Guides.html#hc-programming-guide
   * https://www.khronos.org/files/sycl/sycl-121-reference-card.pdf
   * https://github.com/mrnorman/YAKL/wiki

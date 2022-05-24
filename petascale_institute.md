@@ -47,7 +47,7 @@ cd miniWeather
 ```
 
 Choose either the `c` or `fortran` directories to work with, depending on your language preference.
-All documentation is in [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf).
+All documentation is in [documentation/miniWeather_documentation.pdf](https://github.com/mrnorman/miniWeather/blob/main/documentation/miniWeather_documentation.pdf).
 
 This code can be used to learn three different parallel programming aspects:
 1. MPI task-level parallelism
@@ -119,7 +119,7 @@ ncview output.nc
 
 ## Adding OpenACC
 
-Again, for a fuller description, please see the [OpenACC presentation](https://github.com/mrnorman/miniWeather/blob/master/documentation/intro_to_openacc.pdf) and the [miniWeather documentation](https://github.com/mrnorman/miniWeather/blob/master/documentation/miniWeather_documentation.pdf). The code guides you where to put OpenACC directives with the following comment headers in `miniWeather_mpi.[F90 | cpp]`.
+Again, for a fuller description, please see the [OpenACC presentation](https://github.com/mrnorman/miniWeather/blob/main/documentation/intro_to_openacc.pdf) and the [miniWeather documentation](https://github.com/mrnorman/miniWeather/blob/main/documentation/miniWeather_documentation.pdf). The code guides you where to put OpenACC directives with the following comment headers in `miniWeather_mpi.[F90 | cpp]`.
 
 Fortran:
 

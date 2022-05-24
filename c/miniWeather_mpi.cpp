@@ -75,7 +75,7 @@ int    nx, nz;                //Number of local grid cells in the x- and z- dime
 int    i_beg, k_beg;          //beginning index in the x- and z-directions for this MPI task
 int    nranks, myrank;        //Number of MPI ranks and my rank id
 int    left_rank, right_rank; //MPI Rank IDs that exist to my left and right in the global domain
-int    masterproc;            //Am I the master process (rank == 0)?
+int    mainproc;            //Am I the main process (rank == 0)?
 double *hy_dens_cell;         //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
 double *hy_dens_theta_cell;   //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
 double *hy_dens_int;          //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
     perform_timestep(state,state_tmp,flux,tend,dt);
     //Inform the user
 #ifndef NO_INFORM
-    if (masterproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
+    if (mainproc) { printf( "Elapsed Time: %lf / %lf\n", etime , sim_time ); }
 #endif
     //Update the elapsed time and output counter
     etime = etime + dt;
@@ -163,14 +163,14 @@ int main(int argc, char **argv) {
     }
   }
   auto t2 = std::chrono::steady_clock::now();
-  if (masterproc) {
+  if (mainproc) {
     std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
   }
 
   //Final reductions for mass, kinetic energy, and total energy
   reductions(mass,te);
 
-  if (masterproc) {
+  if (mainproc) {
     printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
     printf( "d_te:   %le\n" , (te   - te0  )/te0   );
   }
@@ -513,7 +513,7 @@ void init( int *argc , char ***argv ) {
   //Vertical direction isn't MPI-ized, so the rank's local values = the global values
   k_beg = 0;
   nz = nz_glob;
-  masterproc = (myrank == 0);
+  mainproc = (myrank == 0);
 
   //Allocate the model data
   state              = (double *) malloc( (nx+2*hs)*(nz+2*hs)*NUM_VARS*sizeof(double) );
@@ -536,8 +536,8 @@ void init( int *argc , char ***argv ) {
   etime = 0.;
   output_counter = 0.;
 
-  //If I'm the master process in MPI, display some grid information
-  if (masterproc) {
+  //If I'm the main process in MPI, display some grid information
+  if (mainproc) {
     printf( "nx_glob, nz_glob: %d %d\n", nx_glob, nz_glob);
     printf( "dx,dz: %lf %lf\n",dx,dz);
     printf( "dt: %lf\n",dt);
@@ -744,7 +744,7 @@ void output( double *state , double etime ) {
   double *dens, *uwnd, *wwnd, *theta;
   double *etimearr;
   //Inform the user
-  if (masterproc) { printf("*** OUTPUT ***\n"); }
+  if (mainproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
   dens     = (double *) malloc(nx*nz*sizeof(double));
   uwnd     = (double *) malloc(nx*nz*sizeof(double));
@@ -803,11 +803,11 @@ void output( double *state , double etime ) {
   ncwrap( ncmpi_put_vara_double_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd  ) , __LINE__ );
   ncwrap( ncmpi_put_vara_double_all( ncid , theta_varid , st3 , ct3 , theta ) , __LINE__ );
 
-  //Only the master process needs to write the elapsed time
+  //Only the main process needs to write the elapsed time
   //Begin "independent" write mode
   ncwrap( ncmpi_begin_indep_data(ncid) , __LINE__ );
   //write elapsed time to file
-  if (masterproc) {
+  if (mainproc) {
     st1[0] = num_out;
     ct1[0] = 1;
     etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
