@@ -2,7 +2,7 @@
 
 source ${MODULESHOME}/init/bash
 module purge
-module load DefApps nvhpc cuda parallel-netcdf cmake
+module load DefApps nvhpc/22.5 cuda parallel-netcdf cmake
 
 export TEST_MPI_COMMAND="jsrun -n 1 -c 1 -a 1 -g 1"
 
