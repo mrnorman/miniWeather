@@ -3,8 +3,6 @@
 module load nvhpc
 
 export TEST_MPI_COMMAND="mpirun -n 1"
-unset CUDAFLAGS
-unset CXXFLAGS
 
 export OMPI_FC=nvfortran
 
