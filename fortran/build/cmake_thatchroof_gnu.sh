@@ -3,7 +3,6 @@
 export TEST_MPI_COMMAND="mpirun -n 1"
 
 export OMPI_FC=gfortran-11
-export CC=gcc-11
 
 ./cmake_clean.sh
 
