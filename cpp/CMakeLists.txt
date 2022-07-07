@@ -29,6 +29,15 @@ endif()
 SET(EXE_DEFS "-D_NX=${NX} -D_NZ=${NZ} -D_SIM_TIME=${SIM_TIME} -D_OUT_FREQ=${OUT_FREQ} -D_DATA_SPEC=${DATA_SPEC}")
 SET(TEST_DEFS "-D_NX=100 -D_NZ=50 -D_SIM_TIME=400 -D_OUT_FREQ=400 -D_DATA_SPEC=DATA_SPEC_THERMAL")
 
+if ( ("${YAKL_CXX_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_CUDA_FLAGS}"   MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_HIP_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_OPENMP_FLAGS}" MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_SYCL_FLAGS}"   MATCHES ".*SINGLE_PREC.*") )
+  message(STATUS "Using single precision")
+else()
+  message(STATUS "Using double precision")
+endif()
 
 ############################################################
 ## Append CXXFLAGS

@@ -7,7 +7,13 @@
 using yakl::SArray;
 using yakl::c::SimpleBounds;
 
-typedef double real;
+#ifdef SINGLE_PREC
+  typedef float  real;
+  auto mpi_type = MPI_FLOAT;
+#else
+  typedef double real;
+  auto mpi_type = MPI_DOUBLE;
+#endif
 
 inline real operator"" _fp( long double x ) {
   return static_cast<real>(x);

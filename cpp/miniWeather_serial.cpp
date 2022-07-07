@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    real mass0, te0;
+    double mass0, te0;
     reductions(state,mass0,te0,fixed_data);
 
     int  num_out = 0;          //The number of outputs performed so far
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    real mass, te;
+    double mass, te;
     reductions(state,mass,te,fixed_data);
 
     if (mainproc) {

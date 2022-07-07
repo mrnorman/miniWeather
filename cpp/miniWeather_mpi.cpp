@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    real mass0, te0;
+    double mass0, te0;
     reductions(state,mass0,te0,fixed_data);
 
     int  num_out = 0;          //The number of outputs performed so far
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    real mass, te;
+    double mass, te;
     reductions(state,mass,te,fixed_data);
 
     if (mainproc) {
@@ -368,13 +368,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   int ierr;
   MPI_Request req_r[2], req_s[2];
-  MPI_Datatype type;
 
-  if (std::is_same<real,float>::value) {
-    type = MPI_FLOAT;
-  } else {
-    type = MPI_DOUBLE;
-  }
   real3d recvbuf_l( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
   real3d recvbuf_r( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
   real3d sendbuf_l( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
@@ -387,8 +381,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   ////////////////////////////////////////////////////////////
   // TODO: CHANGE RECVBUF'S TO HOST COPIES
   ////////////////////////////////////////////////////////////
-  ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-  ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+  ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+  ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
   /////////////////////////////////////////////////
@@ -411,8 +405,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   ////////////////////////////////////////////////////////////
   // TODO: CHANGE SENDBUF'S TO HOST COPIES
   ////////////////////////////////////////////////////////////
-  ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-  ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+  ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+  ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
 
   //Wait for receives to finish
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
