@@ -26,6 +26,13 @@ if ("${DATA_SPEC}" STREQUAL "")
 endif()
 SET(EXE_DEFS "-D_NX=${NX} -D_NZ=${NZ} -D_SIM_TIME=${SIM_TIME} -D_OUT_FREQ=${OUT_FREQ} -D_DATA_SPEC=${DATA_SPEC}")
 SET(TEST_DEFS "-D_NX=100 -D_NZ=50 -D_SIM_TIME=400 -D_OUT_FREQ=400 -D_DATA_SPEC=DATA_SPEC_THERMAL")
+if ("${FFLAGS}" MATCHES ".*SINGLE_PREC.*")
+  set(tol "1.e-5")
+  message(STATUS "Using single precision. Test tolerance ${tol}")
+else()
+  set(tol "1.e-13")
+  message(STATUS "Using double precision. Test tolerance ${tol}")
+endif()
 
 
 ############################################################
@@ -52,7 +59,7 @@ if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(serial_test "${SERIAL_LINK_FLAGS}")
 endif()
 
-add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-13 4.5e-5 ) 
+add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test ${tol} 4.5e-5 ) 
 
 
 ############################################################
@@ -73,7 +80,7 @@ if (NOT ("${MPI_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(mpi_test "${MPI_LINK_FLAGS}")
 endif()
 
-add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-13 4.5e-5 ) 
+add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test ${tol} 4.5e-5 ) 
 
 
 ############################################################
@@ -96,7 +103,7 @@ if (NOT ("${OPENMP_FLAGS}" STREQUAL "") )
   target_link_libraries(openmp      "${OPENMP_LINK_FLAGS}")
   target_link_libraries(openmp_test "${OPENMP_LINK_FLAGS}")
 
-  add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./openmp_test 1e-13 4.5e-5 ) 
+  add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./openmp_test ${tol} 4.5e-5 ) 
 endif()
 
 
@@ -120,7 +127,7 @@ if (NOT ("${OPENACC_FLAGS}" STREQUAL "") )
   target_link_libraries(openacc      "${OPENACC_LINK_FLAGS}")
   target_link_libraries(openacc_test "${OPENACC_LINK_FLAGS}")
 
-  add_test(NAME OPENACC_TEST COMMAND ./check_output.sh ./openacc_test 1e-13 4.5e-5 ) 
+  add_test(NAME OPENACC_TEST COMMAND ./check_output.sh ./openacc_test ${tol} 4.5e-5 ) 
 endif()
 
 
@@ -151,7 +158,7 @@ if (NOT ("${OPENMP45_FLAGS}" STREQUAL "") )
   target_link_libraries(openmp45      "${OPENMP45_LINK_FLAGS}")
   target_link_libraries(openmp45_test "${OPENMP45_LINK_FLAGS}")
 
-  add_test(NAME OPENMP45_TEST COMMAND ./check_output.sh ./openmp45_test 1e-13 4.5e-5 ) 
+  add_test(NAME OPENMP45_TEST COMMAND ./check_output.sh ./openmp45_test ${tol} 4.5e-5 ) 
 endif()
 
 
@@ -176,7 +183,7 @@ if (NOT ("${DO_CONCURRENT_FLAGS}" STREQUAL "") )
   target_link_libraries(do_concurrent      "${DO_CONCURRENT_LINK_FLAGS}")
   target_link_libraries(do_concurrent_test "${DO_CONCURRENT_LINK_FLAGS}")
 
-  add_test(NAME DO_CONCURRENT_TEST COMMAND ./check_output.sh ./do_concurrent_test 1e-13 4.5e-5 ) 
+  add_test(NAME DO_CONCURRENT_TEST COMMAND ./check_output.sh ./do_concurrent_test ${tol} 4.5e-5 ) 
 endif()
 
 
