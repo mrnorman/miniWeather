@@ -1,5 +1,8 @@
 #!/bin/bash
 
+source /usr/share/modules/init/bash
+module purge
+
 export TEST_MPI_COMMAND="mpirun -n 1"
 
 export OMPI_CXX=g++-11

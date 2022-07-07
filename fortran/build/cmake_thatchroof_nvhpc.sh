@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source /usr/share/modules/init/bash
 module load nvhpc
 
 export TEST_MPI_COMMAND="mpirun -n 1"
