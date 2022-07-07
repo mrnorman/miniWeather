@@ -9,7 +9,7 @@ export OMPI_CXX=nvc++
 ./cmake_clean.sh
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                                                                      \
-      -DCXXFLAGS="-O3 -Mvect -DNO_INFORM -I/opt/parallel-netcdf-1.12.0_nvhpc/include"                  \
+      -DCXXFLAGS="-O3 -Mvect -DNO_INFORM -std=c++11 -I/opt/parallel-netcdf-1.12.0_nvhpc/include"                  \
       -DLDFLAGS="-L/opt/parallel-netcdf-1.12.0_nvhpc/lib -lpnetcdf"                                    \
       -DOPENMP_FLAGS="-Minfo=mp -mp"                                                                   \
       -DOPENACC_FLAGS:STRING="-acc -gpu=cc86,fastmath,loadcache:L1,ptxinfo -Minfo=accel"               \
