@@ -171,22 +171,22 @@ void perform_timestep( real3d const &state , real dt , int &direction_switch , F
 
   if (direction_switch) {
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3._fp , DIR_X , fixed_data );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2._fp , DIR_X , fixed_data );
-    semi_discrete_step( state , state_tmp , state     , dt / 1._fp , DIR_X , fixed_data );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , fixed_data );
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3._fp , DIR_Z , fixed_data );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2._fp , DIR_Z , fixed_data );
-    semi_discrete_step( state , state_tmp , state     , dt / 1._fp , DIR_Z , fixed_data );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , fixed_data );
   } else {
     //z-direction second
-    semi_discrete_step( state , state     , state_tmp , dt / 3._fp , DIR_Z , fixed_data );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2._fp , DIR_Z , fixed_data );
-    semi_discrete_step( state , state_tmp , state     , dt / 1._fp , DIR_Z , fixed_data );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_Z , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_Z , fixed_data );
     //x-direction first
-    semi_discrete_step( state , state     , state_tmp , dt / 3._fp , DIR_X , fixed_data );
-    semi_discrete_step( state , state_tmp , state_tmp , dt / 2._fp , DIR_X , fixed_data );
-    semi_discrete_step( state , state_tmp , state     , dt / 1._fp , DIR_X , fixed_data );
+    semi_discrete_step( state , state     , state_tmp , dt / 3 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state_tmp , dt / 2 , DIR_X , fixed_data );
+    semi_discrete_step( state , state_tmp , state     , dt / 1 , DIR_X , fixed_data );
   }
   if (direction_switch) { direction_switch = 0; } else { direction_switch = 1; }
 }
@@ -231,9 +231,9 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
   yakl::timer_start("apply tendencies");
   parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
-      real x = (i_beg + i+0.5_fp)*dx;
-      real z = (k_beg + k+0.5_fp)*dz;
-      real wpert = sample_ellipse_cosine( x,z , 0.01_fp , xlen/8._fp ,1000._fp , 500._fp ,500._fp  );
+      real x = (i_beg + i+0.5)*dx;
+      real z = (k_beg + k+0.5)*dz;
+      real wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8. ,1000. , 500. ,500.  );
       tend(ID_WMOM,k,i) += wpert*hy_dens_cell(hs+k);
     }
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
@@ -255,7 +255,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
   real3d flux("flux",NUM_VARS,nz,nx+1);
 
   //Compute the hyperviscosity coeficient
-  real hv_coef = -hv_beta * dx / (16._fp*dt);
+  real hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
@@ -270,9 +270,9 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
         stencil(s) = state(ll,hs+k,i+s);
       }
       //Fourth-order-accurate interpolation of the state
-      vals(ll) = -stencil(0)/12._fp + 7._fp*stencil(1)/12._fp + 7._fp*stencil(2)/12._fp - stencil(3)/12._fp;
+      vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
       //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-      d3_vals(ll) = -stencil(0) + 3._fp*stencil(1) - 3._fp*stencil(2) + stencil(3);
+      d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
     }
 
     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
@@ -313,7 +313,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   real3d flux("flux",NUM_VARS,nz+1,nx);
 
   //Compute the hyperviscosity coeficient
-  real hv_coef = -hv_beta * dz / (16._fp*dt);
+  real hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
@@ -328,9 +328,9 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
         stencil(s) = state(ll,k+s,hs+i);
       }
       //Fourth-order-accurate interpolation of the state
-      vals(ll) = -stencil(0)/12._fp + 7._fp*stencil(1)/12._fp + 7._fp*stencil(2)/12._fp - stencil(3)/12._fp;
+      vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
       //First-order-accurate interpolation of the third spatial derivative of the state
-      d3_vals(ll) = -stencil(0) + 3._fp*stencil(1) - 3._fp*stencil(2) + stencil(3);
+      d3_vals(ll) = -stencil(0) + 3*stencil(1) - 3*stencil(2) + stencil(3);
     }
 
     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
@@ -456,8 +456,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
       parallel_for( SimpleBounds<2>(nz,hs) , YAKL_LAMBDA (int k, int i) {
         double z = (k_beg + k+0.5)*dz;
         if (abs(z-3*zlen/4) <= zlen/16) {
-          state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50._fp;
-          state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298._fp - hy_dens_theta_cell(hs+k);
+          state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50;
+          state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298 - hy_dens_theta_cell(hs+k);
         }
       });
     }

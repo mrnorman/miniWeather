@@ -20,11 +20,10 @@ cmake -DCMAKE_CXX_COMPILER=mpic++                       \
       -DCMAKE_C_COMPILER=mpicc                           \
       -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI -DNO_INFORM --use_fast_math -arch sm_86 -ccbin mpic++ -DSINGLE_PREC -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15" \
       -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf" \
-      -DNX=200                                          \
-      -DNZ=100                                          \
-      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"             \
-      -DSIM_TIME=1000                                   \
-      -DOUT_FREQ=1000                                   \
+      -DNX=2048                                         \
+      -DNZ=1024                                         \
+      -DSIM_TIME=10                                   \
+      -DOUT_FREQ=-1                                   \
       -DYAKL_ARCH="CUDA"                                \
       ..
 
