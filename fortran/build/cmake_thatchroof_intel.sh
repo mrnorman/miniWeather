@@ -15,9 +15,9 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90               \
       -DFFLAGS="-Ofast -march=native -mtune=native -DNO_INFORM -DSINGLE_PREC -I/opt/parallel-netcdf-1.12.0_intel/include"           \
       -DLDFLAGS="-L/opt/parallel-netcdf-1.12.0_intel/lib -lpnetcdf"                                    \
       -DOPENMP_FLAGS="-qopenmp"                                                                   \
-      -DNX=200 \
-      -DNZ=100 \
-      -DSIM_TIME=1000 \
-      -DOUT_FREQ=1000 \
+      -DNX=256 \
+      -DNZ=128 \
+      -DSIM_TIME=250 \
+      -DOUT_FREQ=500 \
       ..
 

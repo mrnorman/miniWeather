@@ -93,7 +93,9 @@ int main(int argc, char **argv) {
     real etime = 0;
 
     //Output the initial state
-    output(state,etime,num_out,fixed_data);
+    if (output_freq >= 0) {
+      output(state,etime,num_out,fixed_data);
+    }
 
     int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
 
@@ -114,7 +116,7 @@ int main(int argc, char **argv) {
       etime = etime + dt;
       output_counter = output_counter + dt;
       //If it's time for output, reset the counter, and do output
-      if (output_counter >= output_freq) {
+      if (output_freq >= 0 && output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
         output(state,etime,num_out,fixed_data);
       }
@@ -147,7 +149,7 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data) {
+void perform_timestep( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
 
@@ -190,20 +192,29 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
 
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
+    yakl::timer_start("halo x");
     set_halo_values_x(state_forcing,fixed_data);
+    yakl::timer_stop("halo x");
     //Compute the time tendencies for the fluid state in the x-direction
+    yakl::timer_start("tendencies x");
     compute_tendencies_x(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies x");
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
+    yakl::timer_start("halo z");
     set_halo_values_z(state_forcing,fixed_data);
+    yakl::timer_stop("halo z");
     //Compute the time tendencies for the fluid state in the z-direction
+    yakl::timer_start("tendencies z");
     compute_tendencies_z(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies z");
   }
 
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
+  yakl::timer_start("apply tendencies");
   for (int ll=0; ll<NUM_VARS; ll++) {
     for (int k=0; k<nz; k++) {
       for (int i=0; i<nx; i++) {
@@ -217,6 +228,7 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
       }
     }
   }
+  yakl::timer_stop("apply tendencies");
 }
 
 
@@ -337,10 +349,10 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     }
   }
 
+  //Use the fluxes to compute tendencies for each cell
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
-  //Use the fluxes to compute tendencies for each cell
   for (int ll=0; ll<NUM_VARS; ll++) {
     for (int k=0; k<nz; k++) {
       for (int i=0; i<nx; i++) {
@@ -480,7 +492,6 @@ void set_halo_values_z( real3d const &state , Fixed_data const &fixed_data ) {
       }
     }
   }
-
 }
 
 
@@ -733,9 +744,8 @@ void hydro_const_bvfreq( real z , real bv_freq0 , real &r , real &t ) {
 //x and z are input coordinates
 //amp,x0,z0,xrad,zrad are input amplitude, center, and radius of the ellipse
 real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad ) {
-  real dist;
   //Compute distance from bubble center
-  dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
+  real dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
   //If the distance from bubble center is less than the radius, create a cos**2 profile
   if (dist <= pi / 2.) {
     return amp * pow(cos(dist),2.);
