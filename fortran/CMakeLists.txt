@@ -188,3 +188,47 @@ endif()
 
 
 
+############################################################
+## Compile the serial allocation during runtime version
+############################################################
+add_executable(allocate_during_runtime exploration/miniWeather_serial_allocate_during_runtime.F90)
+set_target_properties(allocate_during_runtime PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+
+add_executable(allocate_during_runtime_test exploration/miniWeather_serial_allocate_during_runtime.F90)
+set_target_properties(allocate_during_runtime_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
+
+if (NOT ("${LDFLAGS}" STREQUAL "") )
+  target_link_libraries(allocate_during_runtime      "${LDFLAGS}")
+  target_link_libraries(allocate_during_runtime_test "${LDFLAGS}")
+endif()
+if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+  target_link_libraries(allocate_during_runtime      "${SERIAL_LINK_FLAGS}")
+  target_link_libraries(allocate_during_runtime_test "${SERIAL_LINK_FLAGS}")
+endif()
+
+add_test(NAME ALLOCATE_DURING_RUNTIME_TEST COMMAND ./check_output.sh ./allocate_during_runtime_test ${tol} 4.5e-5 ) 
+
+
+
+############################################################
+## Compile the serial allocation during runtime version
+############################################################
+add_executable(allocate_and_assumed_shape exploration/miniWeather_serial_allocate_and_assumed_shape.F90)
+set_target_properties(allocate_and_assumed_shape PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+
+add_executable(allocate_and_assumed_shape_test exploration/miniWeather_serial_allocate_and_assumed_shape.F90)
+set_target_properties(allocate_and_assumed_shape_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
+
+if (NOT ("${LDFLAGS}" STREQUAL "") )
+  target_link_libraries(allocate_and_assumed_shape      "${LDFLAGS}")
+  target_link_libraries(allocate_and_assumed_shape_test "${LDFLAGS}")
+endif()
+if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+  target_link_libraries(allocate_and_assumed_shape      "${SERIAL_LINK_FLAGS}")
+  target_link_libraries(allocate_and_assumed_shape_test "${SERIAL_LINK_FLAGS}")
+endif()
+
+add_test(NAME ALLOCATE_AND_ASSUMED_SHAPE_TEST COMMAND ./check_output.sh ./allocate_and_assumed_shape_test ${tol} 4.5e-5 ) 
+
+
+
