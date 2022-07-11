@@ -16,8 +16,8 @@ unset OMPI_FC
 cmake -DCMAKE_CXX_COMPILER=mpic++         \
       -DCMAKE_C_COMPILER=mpicc            \
       -DCMAKE_Fortran_COMPILER=mpif90     \
-      -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}      \
-      -DYAKL_CXX_FLAGS="-DSIMD_LEN=4 -Ofast -march=native -mtune=native -std=c++11 -DNO_INFORM"   \
+      -DYAKL_CXX_FLAGS="-DSIMD_LEN=4 -Ofast -march=native -mtune=native -DNO_INFORM -I${OLCF_PARALLEL_NETCDF_ROOT}/include"   \
+      -DLDFLAGS="-L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf"  \
       -DNX=256                            \
       -DNZ=128                            \
       -DSIM_TIME=250                      \

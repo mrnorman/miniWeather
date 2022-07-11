@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
     auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    real mass0, te0;
+    double mass0, te0;
     reductions(state,mass0,te0,fixed_data);
 
     int  num_out = 0;          //The number of outputs performed so far
@@ -114,6 +114,7 @@ int main(int argc, char **argv) {
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
     ////////////////////////////////////////////////////
+    yakl::fence();
     auto t1 = std::chrono::steady_clock::now();
     while (etime < sim_time) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
@@ -133,13 +134,14 @@ int main(int argc, char **argv) {
         output(state,etime,num_out,fixed_data);
       }
     }
+    yakl::fence();
     auto t2 = std::chrono::steady_clock::now();
     if (mainproc) {
       std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    real mass, te;
+    double mass, te;
     reductions(state,mass,te,fixed_data);
 
     if (mainproc) {
@@ -161,7 +163,7 @@ int main(int argc, char **argv) {
 // q*     = q_n + dt/3 * rhs(q_n)
 // q**    = q_n + dt/2 * rhs(q* )
 // q_n+1  = q_n + dt/1 * rhs(q**)
-void perform_timestep( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data) {
+void perform_timestep( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
 
@@ -231,7 +233,7 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
       real x = (i_beg + i+0.5)*dx;
       real z = (k_beg + k+0.5)*dz;
-      real wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
+      real wpert = sample_ellipse_cosine( x,z , 0.01 , xlen/8. ,1000. , 500. ,500.  );
       tend(ID_WMOM,k,i) += wpert*hy_dens_cell(hs+k);
     }
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
@@ -252,6 +254,8 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
 
   real3d flux("flux",NUM_VARS,nz,nx+1);
 
+  //Compute the hyperviscosity coeficient
+  real hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
@@ -259,8 +263,6 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
     SArray<real,1,4> stencil;
     SArray<real,1,NUM_VARS> d3_vals;
     SArray<real,1,NUM_VARS> vals;
-    //Compute the hyperviscosity coeficient
-    real hv_coef = -hv_beta * dx / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
@@ -310,6 +312,8 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
 
   real3d flux("flux",NUM_VARS,nz+1,nx);
 
+  //Compute the hyperviscosity coeficient
+  real hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
@@ -317,8 +321,6 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     SArray<real,1,4> stencil;
     SArray<real,1,NUM_VARS> d3_vals;
     SArray<real,1,NUM_VARS> vals;
-    //Compute the hyperviscosity coeficient
-    real hv_coef = -hv_beta * dz / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
@@ -376,13 +378,6 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   int ierr;
   MPI_Request req_r[2], req_s[2];
-  MPI_Datatype type;
-
-  if (std::is_same<real,float>::value) {
-    type = MPI_FLOAT;
-  } else {
-    type = MPI_DOUBLE;
-  }
 
   real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
   real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
@@ -398,11 +393,11 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   //Prepost receives
   #ifdef GPU_AWARE_MPI
     yakl::fence();
-    ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-    ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+    ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
   #else
-    ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-    ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+    ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
   #endif
 
   //Pack the send buffers
@@ -424,11 +419,11 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   //Fire off the sends
   #ifdef GPU_AWARE_MPI
-    ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-    ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+    ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+    ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
   #else
-    ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-    ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+    ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+    ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
   #endif
 
   //Wait for receives to finish
@@ -461,8 +456,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
       parallel_for( SimpleBounds<2>(nz,hs) , YAKL_LAMBDA (int k, int i) {
         double z = (k_beg + k+0.5)*dz;
         if (abs(z-3*zlen/4) <= zlen/16) {
-          state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50.;
-          state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298. - hy_dens_theta_cell(hs+k);
+          state(ID_UMOM,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 50;
+          state(ID_RHOT,hs+k,i) = (state(ID_DENS,hs+k,i)+hy_dens_cell(hs+k)) * 298 - hy_dens_theta_cell(hs+k);
         }
       });
     }

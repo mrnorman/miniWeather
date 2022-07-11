@@ -1,12 +1,3 @@
-[submodule "cpp/cub"]
-	path = cpp/cub
-	url = git@github.com:NVIDIA/cub.git
-[submodule "cpp/hipCUB"]
-	path = cpp/hipCUB
-	url = git@github.com:ROCmSoftwarePlatform/hipCUB.git
-[submodule "cpp/rocPRIM"]
-	path = cpp/rocPRIM
-	url = git@github.com:ROCmSoftwarePlatform/rocPRIM.git
 [submodule "cpp/YAKL"]
 	path = cpp/YAKL
 	url = git@github.com:mrnorman/YAKL.git

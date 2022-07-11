@@ -16,7 +16,13 @@ program miniweather
   include "mpif.h"
 #endif
   !Declare the precision for the real constants (at least 15 digits of accuracy = double precision)
+#ifdef SINGLE_PREC
+  integer , parameter :: rp = selected_real_kind(6)
+  integer , parameter :: mpi_type = MPI_REAL
+#else
   integer , parameter :: rp = selected_real_kind(15)
+  integer , parameter :: mpi_type = MPI_REAL8
+#endif
   !Define some physical constants to use throughout the simulation
   real(rp), parameter :: pi        = 3.14159265358979323846264338327_rp   !Pi
   real(rp), parameter :: grav      = 9.8_rp                               !Gravitational acceleration (m / s^2)
@@ -397,8 +403,8 @@ contains
     real(rp) :: z
 
     !Prepost receives
-    call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,MPI_REAL8, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
-    call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
+    call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
+    call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
 
     !Pack the send buffers
     !$omp target teams distribute parallel do simd collapse(3)  depend(inout:asyncid) nowait
@@ -415,8 +421,8 @@ contains
     !$omp taskwait
 
     !Fire off the sends
-    call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,MPI_REAL8, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
-    call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,MPI_REAL8,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
+    call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
+    call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
 
     !Wait for receives to finish
     call mpi_waitall(2,req_r,status,ierr)
@@ -763,9 +769,14 @@ contains
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
   subroutine output(state,etime)
+#ifndef __ibmxl__
+    use pnetcdf
+#endif
     implicit none
+#ifdef __ibmxl__
     include "pnetcdf.inc"
     include "mpif.h"
+#endif
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
@@ -796,11 +807,19 @@ contains
       len=nx_glob       ; call ncwrap( nfmpi_def_dim( ncid , 'x' , len , x_dimid ) , __LINE__ )
       len=nz_glob       ; call ncwrap( nfmpi_def_dim( ncid , 'z' , len , z_dimid ) , __LINE__ )
       !Create the variables
-      call ncwrap( nfmpi_def_var( ncid , 't' , nf_double , 1 , (/ t_dimid /) , t_varid ) , __LINE__ )
-      call ncwrap( nfmpi_def_var( ncid , 'dens'  , nf_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  dens_varid ) , __LINE__ )
-      call ncwrap( nfmpi_def_var( ncid , 'uwnd'  , nf_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  uwnd_varid ) , __LINE__ )
-      call ncwrap( nfmpi_def_var( ncid , 'wwnd'  , nf_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  wwnd_varid ) , __LINE__ )
-      call ncwrap( nfmpi_def_var( ncid , 'theta' , nf_double , 3 , (/ x_dimid , z_dimid , t_dimid /) , theta_varid ) , __LINE__ )
+#ifdef SINGLE_PREC
+      call ncwrap( nfmpi_def_var( ncid , 't' , nf90_real , 1 , (/ t_dimid /) , t_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'dens'  , nf90_real , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  dens_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'uwnd'  , nf90_real , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  uwnd_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'wwnd'  , nf90_real , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  wwnd_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'theta' , nf90_real , 3 , (/ x_dimid , z_dimid , t_dimid /) , theta_varid ) , __LINE__ )
+#else
+      call ncwrap( nfmpi_def_var( ncid , 't' , nf90_double , 1 , (/ t_dimid /) , t_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'dens'  , nf90_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  dens_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'uwnd'  , nf90_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  uwnd_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'wwnd'  , nf90_double , 3 , (/ x_dimid , z_dimid , t_dimid /) ,  wwnd_varid ) , __LINE__ )
+      call ncwrap( nfmpi_def_var( ncid , 'theta' , nf90_double , 3 , (/ x_dimid , z_dimid , t_dimid /) , theta_varid ) , __LINE__ )
+#endif
       !End "define" mode
       call ncwrap( nfmpi_enddef( ncid ) , __LINE__ )
     else
@@ -825,17 +844,28 @@ contains
     enddo
 
     !Write the grid data to file with all the processes writing collectively
+#ifdef SINGLE_PREC
+    st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_real_all( ncid ,  dens_varid , st3 , ct3 , dens  ) , __LINE__ )
+    st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_real_all( ncid ,  uwnd_varid , st3 , ct3 , uwnd  ) , __LINE__ )
+    st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_real_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd  ) , __LINE__ )
+    st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_real_all( ncid , theta_varid , st3 , ct3 , theta ) , __LINE__ )
+#else
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid ,  dens_varid , st3 , ct3 , dens  ) , __LINE__ )
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid ,  uwnd_varid , st3 , ct3 , uwnd  ) , __LINE__ )
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid ,  wwnd_varid , st3 , ct3 , wwnd  ) , __LINE__ )
     st3=(/i_beg,k_beg,num_out+1/); ct3=(/nx,nz,1/); call ncwrap( nfmpi_put_vara_double_all( ncid , theta_varid , st3 , ct3 , theta ) , __LINE__ )
+#endif
 
     !Only the main process needs to write the elapsed time
     !Begin "independent" write mode
     call ncwrap( nfmpi_begin_indep_data(ncid) , __LINE__ )
     !write elapsed time to file
     if (mainproc) then
+#ifdef SINGLE_PREC
+      st1=(/num_out+1/); ct1=(/1/); etimearr(1) = etime; call ncwrap( nfmpi_put_vara_real( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ )
+#else
       st1=(/num_out+1/); ct1=(/1/); etimearr(1) = etime; call ncwrap( nfmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ )
+#endif
     endif
     !End "independent" write mode
     call ncwrap( nfmpi_end_indep_data(ncid) , __LINE__ )
@@ -856,8 +886,13 @@ contains
 
   !Error reporting routine for the PNetCDF I/O
   subroutine ncwrap( ierr , line )
+#ifndef __ibmxl__
+    use pnetcdf
+#endif
     implicit none
+#ifdef __ibmxl__
     include "pnetcdf.inc"
+#endif
     integer, intent(in) :: ierr
     integer, intent(in) :: line
     if (ierr /= nf_noerr) then
@@ -892,7 +927,7 @@ contains
         te   = te   + (ke + r*cv*t)*dx*dz ! Accumulate domain total energy
       enddo
     enddo
-    call mpi_allreduce((/mass,te/),glob,2,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call mpi_allreduce((/mass,te/),glob,2,mpi_type,MPI_SUM,MPI_COMM_WORLD,ierr)
     mass = glob(1)
     te   = glob(2)
   end subroutine reductions

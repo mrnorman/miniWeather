@@ -8,10 +8,10 @@ unset CUDAFLAGS
 unset CXXFLAGS
 unset CXX
 
-export OMPI_CXX=g++-11
+export OMPI_CXX=clang++-12
 export OMPI_FC=gfortran-11
 export OMPI_F90=gfortran-11
-export OMPI_CC=gcc-11
+export OMPI_CC=clang-12
 
 ./cmake_clean.sh
 

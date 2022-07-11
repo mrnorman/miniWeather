@@ -7,11 +7,13 @@
 using yakl::SArray;
 using yakl::c::SimpleBounds;
 
-typedef double real;
-
-inline real operator"" _fp( long double x ) {
-  return static_cast<real>(x);
-}
+#ifdef SINGLE_PREC
+  typedef float  real;
+  auto mpi_type = MPI_FLOAT;
+#else
+  typedef double real;
+  auto mpi_type = MPI_DOUBLE;
+#endif
 
 constexpr real pi        = 3.14159265358979323846264338327;   //Pi
 constexpr real grav      = 9.8;                               //Gravitational acceleration (m / s^2)

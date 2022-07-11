@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    real mass0, te0;
+    double mass0, te0;
     reductions(state,mass0,te0,fixed_data);
 
     int  num_out = 0;          //The number of outputs performed so far
@@ -106,13 +106,16 @@ int main(int argc, char **argv) {
     real etime = 0;
 
     //Output the initial state
-    output(state,etime,num_out,fixed_data);
+    if (output_freq >= 0) {
+      output(state,etime,num_out,fixed_data);
+    }
 
     int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
 
     ////////////////////////////////////////////////////
     // MAIN TIME STEP LOOP
     ////////////////////////////////////////////////////
+    yakl::fence();
     auto t1 = std::chrono::steady_clock::now();
     while (etime < sim_time) {
       //If the time step leads to exceeding the simulation time, shorten it for the last step
@@ -127,18 +130,19 @@ int main(int argc, char **argv) {
       etime = etime + dt;
       output_counter = output_counter + dt;
       //If it's time for output, reset the counter, and do output
-      if (output_counter >= output_freq) {
+      if (output_freq >= 0 && output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
         output(state,etime,num_out,fixed_data);
       }
     }
+    yakl::fence();
     auto t2 = std::chrono::steady_clock::now();
     if (mainproc) {
       std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    real mass, te;
+    double mass, te;
     reductions(state,mass,te,fixed_data);
 
     if (mainproc) {
@@ -203,20 +207,29 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
 
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
+    yakl::timer_start("halo x");
     set_halo_values_x(state_forcing,fixed_data);
+    yakl::timer_stop("halo x");
     //Compute the time tendencies for the fluid state in the x-direction
+    yakl::timer_start("tendencies x");
     compute_tendencies_x(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies x");
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
+    yakl::timer_start("halo z");
     set_halo_values_z(state_forcing,fixed_data);
+    yakl::timer_stop("halo z");
     //Compute the time tendencies for the fluid state in the z-direction
+    yakl::timer_start("tendencies z");
     compute_tendencies_z(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies z");
   }
 
   //Apply the tendencies to the fluid state
   // for (ll=0; ll<NUM_VARS; ll++) {
   //   for (k=0; k<nz; k++) {
   //     for (i=0; i<nx; i++) {
+  yakl::timer_start("apply tendencies");
   parallel_for( SimpleBounds<3>(NUM_VARS,nz,nx) , YAKL_LAMBDA ( int ll, int k, int i ) {
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
       real x = (i_beg + i+0.5)*dx;
@@ -226,6 +239,7 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
     }
     state_out(ll,hs+k,hs+i) = state_init(ll,hs+k,hs+i) + dt * tend(ll,k,i);
   });
+  yakl::timer_stop("apply tendencies");
 }
 
 
@@ -391,13 +405,6 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   int ierr;
   MPI_Request req_r[2], req_s[2];
-  MPI_Datatype type;
-
-  if (std::is_same<real,float>::value) {
-    type = MPI_FLOAT;
-  } else {
-    type = MPI_DOUBLE;
-  }
 
   real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
   real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
@@ -409,8 +416,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   real3dHost recvbuf_r_cpu( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank (CPU copy)
 
   //Prepost receives
-  ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-  ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+  ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+  ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
   //Pack the send buffers
   // for (ll=0; ll<NUM_VARS; ll++) {
@@ -428,8 +435,8 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   yakl::fence();
 
   //Fire off the sends
-  ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-  ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+  ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+  ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
 
   //Wait for receives to finish
   ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);

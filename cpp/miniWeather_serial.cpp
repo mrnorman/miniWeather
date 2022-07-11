@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     auto &mainproc = fixed_data.mainproc;
 
     //Initial reductions for mass, kinetic energy, and total energy
-    real mass0, te0;
+    double mass0, te0;
     reductions(state,mass0,te0,fixed_data);
 
     int  num_out = 0;          //The number of outputs performed so far
@@ -93,7 +93,9 @@ int main(int argc, char **argv) {
     real etime = 0;
 
     //Output the initial state
-    output(state,etime,num_out,fixed_data);
+    if (output_freq >= 0) {
+      output(state,etime,num_out,fixed_data);
+    }
 
     int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
 
@@ -114,7 +116,7 @@ int main(int argc, char **argv) {
       etime = etime + dt;
       output_counter = output_counter + dt;
       //If it's time for output, reset the counter, and do output
-      if (output_counter >= output_freq) {
+      if (output_freq >= 0 && output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
         output(state,etime,num_out,fixed_data);
       }
@@ -125,7 +127,7 @@ int main(int argc, char **argv) {
     }
 
     //Final reductions for mass, kinetic energy, and total energy
-    real mass, te;
+    double mass, te;
     reductions(state,mass,te,fixed_data);
 
     if (mainproc) {
@@ -190,20 +192,29 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
 
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
+    yakl::timer_start("halo x");
     set_halo_values_x(state_forcing,fixed_data);
+    yakl::timer_stop("halo x");
     //Compute the time tendencies for the fluid state in the x-direction
+    yakl::timer_start("tendencies x");
     compute_tendencies_x(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies x");
   } else if (dir == DIR_Z) {
     //Set the halo values for this MPI task's fluid state in the z-direction
+    yakl::timer_start("halo z");
     set_halo_values_z(state_forcing,fixed_data);
+    yakl::timer_stop("halo z");
     //Compute the time tendencies for the fluid state in the z-direction
+    yakl::timer_start("tendencies z");
     compute_tendencies_z(state_forcing,tend,dt,fixed_data);
+    yakl::timer_stop("tendencies z");
   }
 
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
   /////////////////////////////////////////////////
   //Apply the tendencies to the fluid state
+  yakl::timer_start("apply tendencies");
   for (int ll=0; ll<NUM_VARS; ll++) {
     for (int k=0; k<nz; k++) {
       for (int i=0; i<nx; i++) {
@@ -217,6 +228,7 @@ void semi_discrete_step( realConst3d state_init , real3d const &state_forcing , 
       }
     }
   }
+  yakl::timer_stop("apply tendencies");
 }
 
 
