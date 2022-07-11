@@ -13,12 +13,12 @@ unset CXXFLAGS
 cmake -DCMAKE_CXX_COMPILER=mpic++                   \
       -DCMAKE_C_COMPILER=mpicc                      \
       -DCMAKE_Fortran_COMPILER=mpif90               \
-      -DPNETCDF_PATH=${OLCF_PARALLEL_NETCDF_ROOT}   \
       -DYAKL_ARCH="CUDA"                            \
-      -DYAKL_CUDA_FLAGS="-DHAVE_MPI -O3 --use_fast_math -arch sm_70 -ccbin mpic++" \
+      -DYAKL_CUDA_FLAGS="-DHAVE_MPI -O3 --use_fast_math -arch sm_70 -ccbin mpic++ -I${OLCF_PARALLEL_NETCDF_ROOT}/include" \
+      -DLDFLAGS="-L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf"  \
       -DNX=200                                      \
       -DNZ=100                                      \
-      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"         \
       -DSIM_TIME=1000                               \
+      -DOUT_FREQ=2000                     \
       ..
 
