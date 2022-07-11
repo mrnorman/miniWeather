@@ -16,7 +16,7 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90                                           
       -DOPENMP45_FLAGS="-fopenmp -foffload=\"-lm -latomic\""                          \
       -DNX=200                                                                        \
       -DNZ=100                                                                        \
-      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"                                           \
       -DSIM_TIME=1000                                                                 \
+      -DOUT_FREQ=2000                                                                 \
       ..
 

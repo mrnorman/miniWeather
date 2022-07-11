@@ -12,6 +12,6 @@ cmake -DCMAKE_Fortran_COMPILER=mpif90                                           
       -DOPENMP_FLAGS="-fopenmp"                                                       \
       -DNX=200                                                                        \
       -DNZ=100                                                                        \
-      -DDATA_SPEC="DATA_SPEC_GRAVITY_WAVES"                                           \
       -DSIM_TIME=1000                                                                 \
+      -DOUT_FREQ=2000                                                                 \
       ..
