@@ -387,6 +387,19 @@ contains
     integer :: k, ll, s, ierr, req_r(2), req_s(2), status(MPI_STATUS_SIZE,2)
     real(rp) :: z
 
+    if (nranks == 1) then
+      !$omp parallel do collapse(2)
+      do ll = 1 , NUM_VARS
+        do k = 1 , nz
+          state(-1  ,k,ll) = state(nx-1,k,ll)
+          state(0   ,k,ll) = state(nx  ,k,ll)
+          state(nx+1,k,ll) = state(1   ,k,ll)
+          state(nx+2,k,ll) = state(2   ,k,ll)
+        enddo
+      enddo
+      return
+    endif
+
     !Prepost receives
     call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
     call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
