@@ -282,20 +282,20 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
     }
 
     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-    Pack<real,simd_len> r = vals(ID_DENS) + hy_dens_cell(hs+k);
-    Pack<real,simd_len> u = vals(ID_UMOM) / r;
-    Pack<real,simd_len> w = vals(ID_WMOM) / r;
-    Pack<real,simd_len> t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
-    Pack<real,simd_len> p = C0*pow((r*t),gamm);
+    auto r = vals(ID_DENS) + hy_dens_cell(hs+k);
+    auto u = vals(ID_UMOM) / r;
+    auto w = vals(ID_WMOM) / r;
+    auto t = ( vals(ID_RHOT) + hy_dens_theta_cell(hs+k) ) / r;
+    auto p = C0*pow((r*t),gamm);
 
-    Pack<real,simd_len> f1 = r*u     - hv_coef*d3_vals(ID_DENS);
-    Pack<real,simd_len> f2 = r*u*u+p - hv_coef*d3_vals(ID_UMOM);
-    Pack<real,simd_len> f3 = r*u*w   - hv_coef*d3_vals(ID_WMOM);
-    Pack<real,simd_len> f4 = r*u*t   - hv_coef*d3_vals(ID_RHOT);
+    auto f1 = r*u     - hv_coef*d3_vals(ID_DENS);
+    auto f2 = r*u*u+p - hv_coef*d3_vals(ID_UMOM);
+    auto f3 = r*u*w   - hv_coef*d3_vals(ID_WMOM);
+    auto f4 = r*u*t   - hv_coef*d3_vals(ID_RHOT);
 
     //Compute the flux vector
     for (int ilane=0; ilane < simd_len; ilane++) {
-      int i = min(xdim-1 , iblk*simd_len + ilane);
+      int i = std::min(xdim-1 , iblk*simd_len + ilane);
       flux(ID_DENS,k,i) = f1(ilane);
       flux(ID_UMOM,k,i) = f2(ilane);
       flux(ID_WMOM,k,i) = f3(ilane);
@@ -329,7 +329,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  int xdim = nx+1;
+  int xdim = nx;
   int xblocks = (xdim-1)/simd_len + 1;
   parallel_for( SimpleBounds<2>(nz+1,xblocks) , YAKL_LAMBDA (int k, int iblk) {
     SArray<Pack<real,simd_len>,1,4> stencil;
@@ -353,20 +353,20 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     }
 
     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-    Pack<real,simd_len> r = vals(ID_DENS) + hy_dens_int(k);
-    Pack<real,simd_len> u = vals(ID_UMOM) / r;
-    Pack<real,simd_len> w = vals(ID_WMOM) / r;
-    Pack<real,simd_len> t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
-    Pack<real,simd_len> p = C0*pow((r*t),gamm) - hy_pressure_int(k);
+    auto r = vals(ID_DENS) + hy_dens_int(k);
+    auto u = vals(ID_UMOM) / r;
+    auto w = vals(ID_WMOM) / r;
+    auto t = ( vals(ID_RHOT) + hy_dens_theta_int(k) ) / r;
+    auto p = C0*pow((r*t),gamm) - hy_pressure_int(k);
     if (k == 0 || k == nz) {
       w                = 0;
       d3_vals(ID_DENS) = 0;
     }
 
-    Pack<real,simd_len> f1 = r*w     - hv_coef*d3_vals(ID_DENS);
-    Pack<real,simd_len> f2 = r*w*u   - hv_coef*d3_vals(ID_UMOM);
-    Pack<real,simd_len> f3 = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
-    Pack<real,simd_len> f4 = r*w*t   - hv_coef*d3_vals(ID_RHOT);
+    auto f1 = r*w     - hv_coef*d3_vals(ID_DENS);
+    auto f2 = r*w*u   - hv_coef*d3_vals(ID_UMOM);
+    auto f3 = r*w*w+p - hv_coef*d3_vals(ID_WMOM);
+    auto f4 = r*w*t   - hv_coef*d3_vals(ID_RHOT);
 
     //Compute the flux vector with hyperviscosity
     for (int ilane = 0; ilane < simd_len; ilane++) {
@@ -405,6 +405,16 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
 
   int ierr;
   MPI_Request req_r[2], req_s[2];
+
+  if (fixed_data.nranks == 1) {
+    parallel_for( SimpleBounds<2>(NUM_VARS,nz) , YAKL_LAMBDA (int ll, int k) {
+      state(ll,hs+k,0      ) = state(ll,hs+k,nx+hs-2);
+      state(ll,hs+k,1      ) = state(ll,hs+k,nx+hs-1);
+      state(ll,hs+k,nx+hs  ) = state(ll,hs+k,hs     );
+      state(ll,hs+k,nx+hs+1) = state(ll,hs+k,hs+1   );
+    });
+    return;
+  }
 
   real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
   real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank

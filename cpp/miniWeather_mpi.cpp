@@ -381,6 +381,18 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   int ierr;
   MPI_Request req_r[2], req_s[2];
 
+  if (fixed_data.nranks == 1) {
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int k=0; k<nz; k++) {
+        state(ll,hs+k,0      ) = state(ll,hs+k,nx+hs-2);
+        state(ll,hs+k,1      ) = state(ll,hs+k,nx+hs-1);
+        state(ll,hs+k,nx+hs  ) = state(ll,hs+k,hs     );
+        state(ll,hs+k,nx+hs+1) = state(ll,hs+k,hs+1   );
+      }
+    }
+    return;
+  }
+
   real3d recvbuf_l( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
   real3d recvbuf_r( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
   real3d sendbuf_l( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
