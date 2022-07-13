@@ -18,11 +18,11 @@ export OMPI_CC=clang-12
 cmake -DCMAKE_CXX_COMPILER=mpic++                        \
       -DCMAKE_Fortran_COMPILER=mpif90                    \
       -DCMAKE_C_COMPILER=mpicc                           \
-      -DYAKL_CXX_FLAGS="-Ofast -march=native -mtune=native -DNO_INFORM -DHAVE_MPI -DSINGLE_PREC -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15"  \
+      -DYAKL_CXX_FLAGS="-Ofast -ffast-math -march=native -mtune=native -DNO_INFORM -DHAVE_MPI -DSIMD_LEN=2 -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15"  \
       -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf"  \
-      -DNX=200                                           \
-      -DNZ=100                                           \
-      -DSIM_TIME=1000                                    \
+      -DNX=256                                           \
+      -DNZ=128                                           \
+      -DSIM_TIME=250                                     \
       -DOUT_FREQ=1000                                    \
       ..
 
