@@ -103,18 +103,33 @@ add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5
 
 
 ############################################################
-## YAKL parallel_for Version
+## YAKL parallel_for_simd_x Version
 ############################################################
-add_executable(parallelfor_simd miniWeather_mpi_parallelfor_simd.cpp)
-set_target_properties(parallelfor_simd PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+add_executable(parallelfor_simd_x miniWeather_mpi_parallelfor_simd_x.cpp)
+set_target_properties(parallelfor_simd_x PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
 
-add_executable(parallelfor_simd_test miniWeather_mpi_parallelfor_simd.cpp)
-set_target_properties(parallelfor_simd_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
+add_executable(parallelfor_simd_x_test miniWeather_mpi_parallelfor_simd_x.cpp)
+set_target_properties(parallelfor_simd_x_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 
-target_link_libraries(parallelfor_simd      "${LDFLAGS}")
-target_link_libraries(parallelfor_simd_test "${LDFLAGS}")
+target_link_libraries(parallelfor_simd_x      "${LDFLAGS}")
+target_link_libraries(parallelfor_simd_x_test "${LDFLAGS}")
 
-add_test(NAME YAKL_SIMD_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5 )
+add_test(NAME YAKL_SIMD_X_TEST COMMAND ./check_output.sh ./parallelfor_simd_x_test 1e-9 4.5e-5 )
+
+
+############################################################
+## YAKL parallel_for_simd_z Version
+############################################################
+add_executable(parallelfor_simd_z miniWeather_mpi_parallelfor_simd_z.cpp)
+set_target_properties(parallelfor_simd_z PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
+
+add_executable(parallelfor_simd_z_test miniWeather_mpi_parallelfor_simd_z.cpp)
+set_target_properties(parallelfor_simd_z_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
+
+target_link_libraries(parallelfor_simd_z      "${LDFLAGS}")
+target_link_libraries(parallelfor_simd_z_test "${LDFLAGS}")
+
+add_test(NAME YAKL_SIMD_Z_TEST COMMAND ./check_output.sh ./parallelfor_simd_z_test 1e-9 4.5e-5 )
 
 
 include(YAKL/yakl_utils.cmake)
@@ -124,14 +139,16 @@ yakl_process_target(mpi)
 yakl_process_target(mpi_test)
 yakl_process_target(parallelfor)
 yakl_process_target(parallelfor_test)
-yakl_process_target(parallelfor_simd)
-yakl_process_target(parallelfor_simd_test)
+yakl_process_target(parallelfor_simd_x)
+yakl_process_target(parallelfor_simd_x_test)
+yakl_process_target(parallelfor_simd_z)
+yakl_process_target(parallelfor_simd_z_test)
 
 
 if ("${YAKL_ARCH}" STREQUAL "CUDA")
-  set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd parallelfor_simd_test PROPERTIES LINKER_LANGUAGE CXX)
+  set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd_x parallelfor_simd_x_test parallelfor_simd_z parallelfor_simd_z_test PROPERTIES LINKER_LANGUAGE CXX)
   if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
-    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd parallelfor_simd_test PROPERTIES CUDA_ARCHITECTURES OFF CUDA_STANDARD 14)
+    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd_x parallelfor_simd_x_test parallelfor_simd_z parallelfor_simd_z_test PROPERTIES CUDA_ARCHITECTURES OFF)
   endif()
 endif()
 
