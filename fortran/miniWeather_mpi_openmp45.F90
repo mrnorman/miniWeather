@@ -8,13 +8,8 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 program miniweather
-#ifndef __ibmxl__
   use mpi
-#endif
   implicit none
-#ifdef __ibmxl__
-  include "mpif.h"
-#endif
   !Declare the precision for the real constants (at least 15 digits of accuracy = double precision)
 #ifdef SINGLE_PREC
   integer , parameter :: rp = selected_real_kind(6)
@@ -782,14 +777,8 @@ contains
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
   subroutine output(state,etime)
-#ifndef __ibmxl__
     use pnetcdf
-#endif
     implicit none
-#ifdef __ibmxl__
-    include "pnetcdf.inc"
-    include "mpif.h"
-#endif
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
@@ -899,13 +888,8 @@ contains
 
   !Error reporting routine for the PNetCDF I/O
   subroutine ncwrap( ierr , line )
-#ifndef __ibmxl__
     use pnetcdf
-#endif
     implicit none
-#ifdef __ibmxl__
-    include "pnetcdf.inc"
-#endif
     integer, intent(in) :: ierr
     integer, intent(in) :: line
     if (ierr /= nf_noerr) then

@@ -51,7 +51,6 @@ SET(CMAKE_CXX_FLAGS "${CXXFLAGS}")
 add_subdirectory(YAKL)
 if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
   set_property(TARGET yakl PROPERTY CUDA_ARCHITECTURES OFF)
-  set_property(TARGET yakl PROPERTY CUDA_STANDARD 14)
 endif()
 include_directories(YAKL)
 
