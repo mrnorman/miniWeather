@@ -258,8 +258,8 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz; k++) {
   //   for (i=0; i<nx+1; i++) {
-  int zdim = nz;
-  int zblocks = (zdim-1)/simd_len + 1;
+  unsigned int zdim = nz;
+  unsigned int zblocks = (zdim-1)/simd_len + 1;
   parallel_for( SimpleBounds<2>(zblocks,nx+1) , YAKL_LAMBDA (int kblk, int i) {
     SArray<Pack<real,simd_len>,1,4> stencil;
     SArray<Pack<real,simd_len>,1,NUM_VARS> d3_vals;
@@ -336,8 +336,8 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
   //Compute fluxes in the x-direction for each cell
   // for (k=0; k<nz+1; k++) {
   //   for (i=0; i<nx; i++) {
-  int zdim = nz+1;
-  int zblocks = (zdim-1)/simd_len + 1;
+  unsigned int zdim = nz+1;
+  unsigned int zblocks = (zdim-1)/simd_len + 1;
   parallel_for( SimpleBounds<2>(zblocks,nx) , YAKL_LAMBDA (int kblk, int i) {
     SArray<Pack<real,simd_len>,1,4> stencil;
     SArray<Pack<real,simd_len>,1,NUM_VARS> d3_vals;

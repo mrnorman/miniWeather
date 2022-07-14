@@ -75,9 +75,9 @@ template<class T> inline T abs( T val ) {
 }
 
 #ifdef SIMD_LEN
-  int constexpr simd_len = SIMD_LEN;
+  unsigned int constexpr simd_len = SIMD_LEN;
 #else
-  int constexpr simd_len = 4;
+  unsigned int constexpr simd_len = 4;
 #endif
 
 using yakl::Pack;
