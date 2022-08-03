@@ -270,10 +270,10 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
       for (int s=0; s < sten_size; s++) {
-        yakl::iterate_over_pack( [&] (unsigned int ilane) {
+        iterate_over_pack( [&] (unsigned int ilane) {
           int i = std::min( xdim-1 , iblk*simd_len + ilane );
           stencil(s)(ilane) = state(ll,hs+k,i+s);
-        } , yakl::PackIterConfig<simd_len,true>() );
+        } , PackIterConfig<simd_len,true>() );
       }
       //Fourth-order-accurate interpolation of the state
       vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
@@ -294,13 +294,13 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
     auto f4 = r*u*t   - hv_coef*d3_vals(ID_RHOT);
 
     //Compute the flux vector
-    yakl::iterate_over_pack( [&] (unsigned int ilane) {
+    iterate_over_pack( [&] (unsigned int ilane) {
       int i = std::min(xdim-1 , iblk*simd_len + ilane);
       flux(ID_DENS,k,i) = f1(ilane);
       flux(ID_UMOM,k,i) = f2(ilane);
       flux(ID_WMOM,k,i) = f3(ilane);
       flux(ID_RHOT,k,i) = f4(ilane);
-    } , yakl::PackIterConfig<simd_len,true>() );
+    } , PackIterConfig<simd_len,true>() );
   });
 
   //Use the fluxes to compute tendencies for each cell
@@ -341,10 +341,10 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
     for (int ll=0; ll<NUM_VARS; ll++) {
       for (int s=0; s<sten_size; s++) {
-        yakl::iterate_over_pack( [&] (unsigned int ilane) {
+        iterate_over_pack( [&] (unsigned int ilane) {
           int i = min( xdim-1 , iblk*simd_len + ilane );
           stencil(s)(ilane) = state(ll,k+s,hs+i);
-        } , yakl::PackIterConfig<simd_len,true>() );
+        } , PackIterConfig<simd_len,true>() );
       }
       //Fourth-order-accurate interpolation of the state
       vals(ll) = -stencil(0)/12 + 7*stencil(1)/12 + 7*stencil(2)/12 - stencil(3)/12;
@@ -369,13 +369,13 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     auto f4 = r*w*t   - hv_coef*d3_vals(ID_RHOT);
 
     //Compute the flux vector with hyperviscosity
-    yakl::iterate_over_pack( [&] (unsigned int ilane) {
+    iterate_over_pack( [&] (unsigned int ilane) {
       int i = min( xdim-1 , iblk*simd_len + ilane );
       flux(ID_DENS,k,i) = f1(ilane);
       flux(ID_UMOM,k,i) = f2(ilane);
       flux(ID_WMOM,k,i) = f3(ilane);
       flux(ID_RHOT,k,i) = f4(ilane);
-    } , yakl::PackIterConfig<simd_len,true>() );
+    } , PackIterConfig<simd_len,true>() );
   });
 
   //Use the fluxes to compute tendencies for each cell

@@ -80,5 +80,7 @@ template<class T> inline T abs( T val ) {
   unsigned int constexpr simd_len = 4;
 #endif
 
-using yakl::Pack;
+using yakl::simd::Pack;
+using yakl::simd::PackIterConfig;
+using yakl::simd::iterate_over_pack;
 
