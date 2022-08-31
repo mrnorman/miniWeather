@@ -1,0 +1,55 @@
+[fortran_openacc]
+
+    integer :: i,k,ll,s
+    real(C_DOUBLE) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
+
+    !Compute the hyperviscosity coeficient
+    hv_coef = -hv_beta * dx / (16*dt)
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! TODO: THREAD ME
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !Compute fluxes in the x-direction for each cell
+
+	!$acc parallel loop collapse(2) private(stencil,vals,d3_vals) &
+    !$acc& present(state, hy_dens_cell, hy_dens_theta_cell, flux) async
+    do k = 1 , nz
+      do i = 1 , nx+1
+        !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+        do ll = 1 , NUM_VARS
+          do s = 1 , sten_size
+            stencil(s) = state(i-hs-1+s,k,ll)
+          enddo
+          !Fourth-order-accurate interpolation of the state
+          vals(ll) = -stencil(1)/12 + 7*stencil(2)/12 + 7*stencil(3)/12 - stencil(4)/12
+          !First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
+          d3_vals(ll) = -stencil(1) + 3*stencil(2) - 3*stencil(3) + stencil(4)
+        enddo
+
+        !Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+        r = vals(ID_DENS) + hy_dens_cell(k)
+        u = vals(ID_UMOM) / r
+        w = vals(ID_WMOM) / r
+        t = ( vals(ID_RHOT) + hy_dens_theta_cell(k) ) / r
+        p = C0*(r*t)**gamma
+
+        !Compute the flux vector
+        flux(i,k,ID_DENS) = r*u     - hv_coef*d3_vals(ID_DENS)
+        flux(i,k,ID_UMOM) = r*u*u+p - hv_coef*d3_vals(ID_UMOM)
+        flux(i,k,ID_WMOM) = r*u*w   - hv_coef*d3_vals(ID_WMOM)
+        flux(i,k,ID_RHOT) = r*u*t   - hv_coef*d3_vals(ID_RHOT)
+      enddo
+    enddo
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! TODO: THREAD ME
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !Use the fluxes to compute tendencies for each cell
+	!$acc parallel loop collapse(3) present(flux, tend) async
+    do ll = 1 , NUM_VARS
+      do k = 1 , nz
+        do i = 1 , nx
+          tend(i,k,ll) = -( flux(i+1,k,ll) - flux(i,k,ll) ) / dx
+        enddo
+      enddo
+    enddo
+

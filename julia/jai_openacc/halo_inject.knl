@@ -1,0 +1,13 @@
+[fortran_openacc]
+
+    integer :: k
+    real(C_DOUBLE) :: z
+
+	!$acc parallel loop present(state, hy_dens_cell, hy_dens_theta_cell) ! async
+	do k = 1 , nz
+	  z = (k_beg-1 + k-0.5_8)*dz
+	  if (abs(z-3*zlen/4) <= zlen/16) then
+		state(-1:0,k,ID_UMOM) = (state(-1:0,k,ID_DENS)+hy_dens_cell(k)) * 50._8
+		state(-1:0,k,ID_RHOT) = (state(-1:0,k,ID_DENS)+hy_dens_cell(k)) * 298._8 - hy_dens_theta_cell(k)
+	  endif
+	enddo

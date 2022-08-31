@@ -1,0 +1,26 @@
+[fortran_openacc]
+
+    integer :: i, ll
+
+    !$acc parallel loop collapse(2) present(state, hy_dens_cell) ! async
+    do ll = 1 , NUM_VARS
+      do i = 1-hs,nx+hs
+        if (ll == ID_WMOM) then
+          state(i,-1  ,ll) = 0
+          state(i,0   ,ll) = 0
+          state(i,nz+1,ll) = 0
+          state(i,nz+2,ll) = 0
+        else if (ll == ID_UMOM) then
+          state(i,-1  ,ll) = state(i,1 ,ll) / hy_dens_cell( 1) * hy_dens_cell(-1  )
+          state(i,0   ,ll) = state(i,1 ,ll) / hy_dens_cell( 1) * hy_dens_cell( 0  )
+          state(i,nz+1,ll) = state(i,nz,ll) / hy_dens_cell(nz) * hy_dens_cell(nz+1)
+          state(i,nz+2,ll) = state(i,nz,ll) / hy_dens_cell(nz) * hy_dens_cell(nz+2)
+        else
+          state(i,-1  ,ll) = state(i,1 ,ll)
+          state(i,0   ,ll) = state(i,1 ,ll)
+          state(i,nz+1,ll) = state(i,nz,ll)
+          state(i,nz+2,ll) = state(i,nz,ll)
+        endif
+      enddo
+    enddo
+

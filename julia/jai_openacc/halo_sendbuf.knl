@@ -1,0 +1,13 @@
+[fortran_openacc]
+
+    integer :: s,k,ll
+
+    !$acc parallel loop collapse(3) present(state, sendbuf_l, sendbuf_r) ! async
+    do ll = 1 , NUM_VARS
+      do k = 1 , nz
+        do s = 1 , hs
+          sendbuf_l(s,k,ll) = state(s      ,k,ll)
+          sendbuf_r(s,k,ll) = state(nx-hs+s,k,ll)
+        enddo
+      enddo
+    enddo
