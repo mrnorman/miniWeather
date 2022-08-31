@@ -9,11 +9,9 @@ import NCDatasets.Dataset,
        NCDatasets.defDim,
        NCDatasets.defVar
 
-import Match.@match
-
 import MPI
 
-import Debugger
+import Match.@match
 
 import Printf.@printf
 
@@ -50,7 +48,8 @@ s = ArgParseSettings()
         default = 400.0
     "--dataspec", "-d"
         help = "data spec"
-        default = 2
+        arg_type = Int64
+        default = 1
     "--outfile", "-o"
         help = "output file path"
         default = "output.nc"
@@ -92,6 +91,7 @@ const DX          = XLEN / NX_GLOB
 const DZ          = ZLEN / NZ_GLOB
 const DT          = min(DX,DZ) / MAX_SPEED * CFL
 const NQPOINTS    = 3
+const PI          = Float64(3.14159265358979323846264338327)
 const GRAV        = Float64(9.8)
 const CP          = Float64(1004.0) # Specific heat of dry air at constant pressure
 const CV          = Float64(717.0)  # Specific heat of dry air at constant volume
