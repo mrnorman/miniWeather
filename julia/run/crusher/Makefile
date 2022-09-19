@@ -21,7 +21,7 @@ OUT_FILE  := ${WORK_DIR}/output.nc
 
 JULIA := julia --project=.
 
-SRCDIR :=..
+SRCDIR :=../..
 JLSRC := ${SRCDIR}/cpu/miniWeather_mpi.jl
 
 ARGS := -s ${SIM_TIME} -x ${NX} -z ${NZ} -f ${OUT_FREQ} \
