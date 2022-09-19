@@ -1,3 +1,5 @@
+using AccelInterfaces
+
 import OffsetArrays.OffsetArray,
        OffsetArrays.OffsetVector
 
@@ -9,9 +11,9 @@ import NCDatasets.Dataset,
        NCDatasets.defDim,
        NCDatasets.defVar
 
-import MPI
-
 import Match.@match
+
+import MPI
 
 import Printf.@printf
 
@@ -49,7 +51,7 @@ s = ArgParseSettings()
     "--dataspec", "-d"
         help = "data spec"
         arg_type = Int64
-        default = 1
+        default = 2
     "--outfile", "-o"
         help = "output file path"
         default = "output.nc"
@@ -91,7 +93,6 @@ const DX          = XLEN / NX_GLOB
 const DZ          = ZLEN / NZ_GLOB
 const DT          = min(DX,DZ) / MAX_SPEED * CFL
 const NQPOINTS    = 3
-const PI          = Float64(3.14159265358979323846264338327)
 const GRAV        = Float64(9.8)
 const CP          = Float64(1004.0) # Specific heat of dry air at constant pressure
 const CV          = Float64(717.0)  # Specific heat of dry air at constant volume
@@ -244,14 +245,12 @@ function init!()
             z = (K_BEG-1 + k-0.5) * DZ + (qpoints[kk]-0.5)*DZ
 
             #Set the fluid state based on the user's specification
-            r, u, w, t, hr, ht = @match DATA_SPEC begin
-                DATA_SPEC_COLLISION       => collision!(x,z)
-                DATA_SPEC_THERMAL         => thermal!(x,z)
-                DATA_SPEC_MOUNTAIN        => mountain_waves!(x,z)
-                DATA_SPEC_TURBULENCE      => turbulence!(x,z)
-                DATA_SPEC_DENSITY_CURRENT => density_current!(x,z)
-                DATA_SPEC_INJECTION       => injection!(x,z)
-            end
+            if(DATA_SPEC==DATA_SPEC_COLLISION)      ; r,u,w,t,hr,ht = collision!(x,z)      ; end
+            if(DATA_SPEC==DATA_SPEC_THERMAL)        ; r,u,w,t,hr,ht = thermal!(x,z)        ; end
+            if(DATA_SPEC==DATA_SPEC_MOUNTAIN)       ; r,u,w,t,hr,ht = mountain_waves!(x,z) ; end
+            if(DATA_SPEC==DATA_SPEC_TURBULENCE)     ; r,u,w,t,hr,ht = turbulence!(x,z)     ; end
+            if(DATA_SPEC==DATA_SPEC_DENSITY_CURRENT); r,u,w,t,hr,ht = density_current!(x,z); end
+            if(DATA_SPEC==DATA_SPEC_INJECTION)      ; r,u,w,t,hr,ht = injection!(x,z)      ; end
 
             #Store into the fluid state array
             state[i,k,ID_DENS] = state[i,k,ID_DENS] + r                         * qweights[ii]*qweights[kk]
@@ -271,14 +270,12 @@ function init!()
             z = (K_BEG-1 + k-0.5) * DZ + (qpoints[kk]-0.5)*DZ
             
             #Set the fluid state based on the user's specification
-            r, u, w, t, hr, ht = @match DATA_SPEC begin
-                DATA_SPEC_COLLISION       => collision!(0.0,z)
-                DATA_SPEC_THERMAL         => thermal!(0.0,z)
-                DATA_SPEC_MOUNTAIN        => mountain_waves!(0.0,z)
-                DATA_SPEC_TURBULENCE      => turbulence!(0.0,z)
-                DATA_SPEC_DENSITY_CURRENT => density_current!(0.0,z)
-                DATA_SPEC_INJECTION       => injection!(0.0,z)
-            end           
+            if(DATA_SPEC==DATA_SPEC_COLLISION)      ; r,u,w,t,hr,ht = collision!(0.0,z)      ; end
+            if(DATA_SPEC==DATA_SPEC_THERMAL)        ; r,u,w,t,hr,ht = thermal!(0.0,z)        ; end
+            if(DATA_SPEC==DATA_SPEC_MOUNTAIN)       ; r,u,w,t,hr,ht = mountain_waves!(0.0,z) ; end
+            if(DATA_SPEC==DATA_SPEC_TURBULENCE)     ; r,u,w,t,hr,ht = turbulence!(0.0,z)     ; end
+            if(DATA_SPEC==DATA_SPEC_DENSITY_CURRENT); r,u,w,t,hr,ht = density_current!(0.0,z); end
+            if(DATA_SPEC==DATA_SPEC_INJECTION)      ; r,u,w,t,hr,ht = injection!(0.0,z)      ; end
 
             hy_dens_cell[k]       = hy_dens_cell[k]       + hr    * qweights[kk]
             hy_dens_theta_cell[k] = hy_dens_theta_cell[k] + hr*ht * qweights[kk]
@@ -289,14 +286,12 @@ function init!()
     for k in 1:NZ+1
         z = (K_BEG-1 + k-1) * DZ
         #Set the fluid state based on the user's specification
-        r, u, w, t, hr, ht = @match DATA_SPEC begin
-            DATA_SPEC_COLLISION       => collision!(0.0,z)
-            DATA_SPEC_THERMAL         => thermal!(0.0,z)
-            DATA_SPEC_MOUNTAIN        => mountain_waves!(0.0,z)
-            DATA_SPEC_TURBULENCE      => turbulence!(0.0,z)
-            DATA_SPEC_DENSITY_CURRENT => density_current!(0.0,z)
-            DATA_SPEC_INJECTION       => injection!(0.0,z)
-        end                  
+        if(DATA_SPEC==DATA_SPEC_COLLISION)      ; r,u,w,t,hr,ht = collision!(0.0,z)      ; end
+        if(DATA_SPEC==DATA_SPEC_THERMAL)        ; r,u,w,t,hr,ht = thermal!(0.0,z)        ; end
+        if(DATA_SPEC==DATA_SPEC_MOUNTAIN)       ; r,u,w,t,hr,ht = mountain_waves!(0.0,z) ; end
+        if(DATA_SPEC==DATA_SPEC_TURBULENCE)     ; r,u,w,t,hr,ht = turbulence!(0.0,z)     ; end
+        if(DATA_SPEC==DATA_SPEC_DENSITY_CURRENT); r,u,w,t,hr,ht = density_current!(0.0,z); end
+        if(DATA_SPEC==DATA_SPEC_INJECTION)      ; r,u,w,t,hr,ht = injection!(0.0,z)      ; end
 
       hy_dens_int[k] = hr
       hy_dens_theta_int[k] = hr*ht

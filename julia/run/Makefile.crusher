@@ -5,12 +5,13 @@ NZ := 50
 
 DATA_SPEC_COLLISION       := 1
 DATA_SPEC_THERMAL         := 2
-DATA_SPEC_GRAVITY_WAVES   := 3
+DATA_SPEC_MOUNTAIN        := 3
+DATA_SPEC_TURBULENCE      := 4
 DATA_SPEC_DENSITY_CURRENT := 5
 DATA_SPEC_INJECTION       := 6
 
-#DATA_SPEC := ${DATA_SPEC_COLLISION}
-DATA_SPEC := ${DATA_SPEC_THERMAL}
+DATA_SPEC := ${DATA_SPEC_COLLISION}
+#DATA_SPEC := ${DATA_SPEC_THERMAL}
 
 ACCEL_TYPE := fortran_openacc
 ACCOUNT := cli133
@@ -21,10 +22,7 @@ OUT_FILE  := ${WORK_DIR}/output.nc
 JULIA := julia --project=.
 
 SRCDIR :=..
-JAISRC := ${SRCDIR}/jai_openacc/miniWeather_accel.jl
-JLSRC := ${SRCDIR}/miniWeather_mpi.jl
-MANUALJLSRC := ${SRCDIR}/manual_openacc/miniWeather_openacc.jl
-MANUALFORTSRC := ${SRCDIR}/manual_openacc/openacc_driver_${NX}x${NZ}.F90
+JLSRC := ${SRCDIR}/cpu/miniWeather_mpi.jl
 
 ARGS := -s ${SIM_TIME} -x ${NX} -z ${NZ} -f ${OUT_FREQ} \
 		-d ${DATA_SPEC} -o ${OUT_FILE}
@@ -39,15 +37,8 @@ MACROS := -D_NX=${NX} -D_NZ=${NZ} -D_SIM_TIME=${SIM_TIME} -D_OUT_FREQ=${OUT_FREQ
 
 F_FLAGS := ${INCLUDES} ${LIBS} ${MACROS}
 
-jai:
-	${JULIA} --color=yes -O -- ${JAISRC} ${ARGS} -a ${ACCEL_TYPE}  -w ${WORK_DIR} -b ${DEBUG_DIR}
-
-julia:
+cpu:
 	${JULIA} --color=yes -O -- ${JLSRC} ${ARGS}
-
-manual: ${MANUALFORTSRC}
-	${FC} -shared -fPIC -h acc,noomp -o ${WORK_DIR}/jopenacc.so $<
-	${JULIA} ${MANUALJLSRC} ${ARGS}
 
 clean:
 	rm -rf *.so core *.mod .jaitmp *.o *.s *.exe output.nc
