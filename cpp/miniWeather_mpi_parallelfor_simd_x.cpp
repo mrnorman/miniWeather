@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 }
 
 
-//Performs a single dimensionally split time step using a simple low-storate three-stage Runge-Kutta time integrator
+//Performs a single dimensionally split time step using a simple low-storage three-stage Runge-Kutta time integrator
 //The dimensional splitting is a second-order-accurate alternating Strang splitting in which the
 //order of directions is alternated each time step.
 //The Runge-Kutta method used here is defined as follows:
@@ -264,7 +264,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
     SArray<Pack<real,simd_len>,1,4> stencil;
     SArray<Pack<real,simd_len>,1,NUM_VARS> d3_vals;
     SArray<Pack<real,simd_len>,1,NUM_VARS> vals;
-    //Compute the hyperviscosity coeficient
+    //Compute the hyperviscosity coefficient
     real hv_coef = -hv_beta * dx / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -335,7 +335,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
     SArray<Pack<real,simd_len>,1,4> stencil;
     SArray<Pack<real,simd_len>,1,NUM_VARS> d3_vals;
     SArray<Pack<real,simd_len>,1,NUM_VARS> vals;
-    //Compute the hyperviscosity coeficient
+    //Compute the hyperviscosity coefficient
     real hv_coef = -hv_beta * dz / (16*dt);
 
     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -720,7 +720,7 @@ YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real
 }
 
 
-//Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
+//Establish hydrostatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
 YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
@@ -735,7 +735,7 @@ YAKL_INLINE void hydro_const_theta( real z , real &r , real &t ) {
 }
 
 
-//Establish hydrstatic balance using constant Brunt-Vaisala frequency
+//Establish hydrostatic balance using constant Brunt-Vaisala frequency
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature

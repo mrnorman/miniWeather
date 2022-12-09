@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
 }
 
 
-//Performs a single dimensionally split time step using a simple low-storate three-stage Runge-Kutta time integrator
+//Performs a single dimensionally split time step using a simple low-storage three-stage Runge-Kutta time integrator
 //The dimensional splitting is a second-order-accurate alternating Strang splitting in which the
 //order of directions is alternated each time step.
 //The Runge-Kutta method used here is defined as follows:
@@ -283,7 +283,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 void compute_tendencies_x( double *state , double *flux , double *tend , double dt ) {
   int    i,k,ll,s,inds,indf1,indf2,indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
@@ -338,7 +338,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
 void compute_tendencies_z( double *state , double *flux , double *tend , double dt ) {
   int    i,k,ll,s, inds, indf1, indf2, indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
@@ -689,7 +689,7 @@ void collision( double x , double z , double &r , double &u , double &w , double
 }
 
 
-//Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
+//Establish hydrostatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
 void hydro_const_theta( double z , double &r , double &t ) {
@@ -705,7 +705,7 @@ void hydro_const_theta( double z , double &r , double &t ) {
 }
 
 
-//Establish hydrstatic balance using constant Brunt-Vaisala frequency
+//Establish hydrostatic balance using constant Brunt-Vaisala frequency
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature
