@@ -442,7 +442,7 @@ I strongly recommend moving to `parallel_for` while compiling for the **CPU** so
 
 First, you'll have to pay attention to asynchronicity. `parallel_for` is asynchronous, and therefore, you'll need to add `yakl::fence()` in two places: (1) MPI ; and (2) File I/O.
 
-Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a runtime time error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which isn't accessible from the GPU. The most convenient way to handle this is to create local references as follows:
+Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a runtime error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which isn't accessible from the GPU. The most convenient way to handle this is to create local references as follows:
 
 ```C++
 auto &varName = ::varName;
@@ -493,7 +493,7 @@ I chose not to use the mainline C++ portability frameworks for two main reasons.
 
 1. It's easier to compile and managed things with a C++ performance portability layer that's < 3K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
 2. Kokkos in particular would not play nicely with the rest of the code in the CMake project. Likely if a Kokkos version is added, it will need to be a completely separate project and directory.
-3. With `YAKL.h` and `Array.h`, you can see for your self what's going on when we launch kernels using `parallel_for` on different hardware backends.
+3. With `YAKL.h` and `Array.h`, you can see for yourself what's going on when we launch kernels using `parallel_for` on different hardware backends.
 
 # Numerical Experiments
 

@@ -70,7 +70,7 @@ double constexpr dz            = zlen / nz_glob; // grid spacing in the x-direct
 ///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// Variables that are initialized but remain static over the coure of the simulation
+// Variables that are initialized but remain static over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
 double dt;                    //Model time step (seconds)
 int    nx, nz;                //Number of local grid cells in the x- and z- dimensions for this MPI task

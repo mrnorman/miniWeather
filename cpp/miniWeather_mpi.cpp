@@ -31,7 +31,7 @@ typedef yakl::Array<double const,2,yakl::memHost> doubConst2d;
 typedef yakl::Array<double const,3,yakl::memHost> doubConst3d;
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// Variables that are initialized but remain static over the coure of the simulation
+// Variables that are initialized but remain static over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
 struct Fixed_data {
   int nx, nz;                 //Number of local grid cells in the x- and z- dimensions for this MPI task
