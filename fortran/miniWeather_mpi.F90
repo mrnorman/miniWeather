@@ -70,7 +70,7 @@ program miniweather
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !! Variables that are initialized but remain static over the coure of the simulation
+  !! Variables that are initialized but remain static over the course of the simulation
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   real(rp) :: dt                                  !Model time step (seconds)
   integer  :: nx, nz                              !Number of local grid cells in the x- and z- dimensions for this MPI task
@@ -163,7 +163,7 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-  !Performs a single dimensionally split time step using a simple low-storate three-stage Runge-Kutta time integrator
+  !Performs a single dimensionally split time step using a simple low-storage three-stage Runge-Kutta time integrator
   !The dimensional splitting is a second-order-accurate alternating Strang splitting in which the
   !order of directions is alternated each time step.
   !The Runge-Kutta method used here is defined as follows:
@@ -274,7 +274,7 @@ contains
     real(rp), intent(in   ) :: dt
     integer :: i,k,ll,s
     real(rp) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
-    !Compute the hyperviscosity coeficient
+    !Compute the hyperviscosity coefficient
     hv_coef = -hv_beta * dx / (16*dt)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! TODO: THREAD ME
@@ -334,7 +334,7 @@ contains
     real(rp), intent(in   ) :: dt
     integer :: i,k,ll,s
     real(rp) :: r,u,w,t,p, stencil(4), d3_vals(NUM_VARS), vals(NUM_VARS), hv_coef
-    !Compute the hyperviscosity coeficient
+    !Compute the hyperviscosity coefficient
     hv_coef = -hv_beta * dz / (16*dt)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! TODO: THREAD ME
@@ -698,7 +698,7 @@ contains
   end subroutine collision
 
 
-  !Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
+  !Establish hydrostatic balance using constant potential temperature (thermally neutral atmosphere)
   subroutine hydro_const_theta(z,r,t)
     implicit none
     real(rp), intent(in   ) :: z  !x- and z- location of the point being sampled
@@ -715,7 +715,7 @@ contains
   end subroutine hydro_const_theta
 
 
-  !Establish hydrstatic balance using constant Brunt-Vaisala frequency
+  !Establish hydrostatic balance using constant Brunt-Vaisala frequency
   subroutine hydro_const_bvfreq( z , bv_freq0 , r , t )
     implicit none
     real(rp), intent(in   ) :: z , bv_freq0

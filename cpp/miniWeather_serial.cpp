@@ -31,7 +31,7 @@ typedef yakl::Array<double const,2,yakl::memHost> doubConst2d;
 typedef yakl::Array<double const,3,yakl::memHost> doubConst3d;
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// Variables that are initialized but remain static over the coure of the simulation
+// Variables that are initialized but remain static over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
 struct Fixed_data {
   int nx, nz;                 //Number of local grid cells in the x- and z- dimensions for this MPI task
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
 }
 
 
-//Performs a single dimensionally split time step using a simple low-storate three-stage Runge-Kutta time integrator
+//Performs a single dimensionally split time step using a simple low-storage three-stage Runge-Kutta time integrator
 //The dimensional splitting is a second-order-accurate alternating Strang splitting in which the
 //order of directions is alternated each time step.
 //The Runge-Kutta method used here is defined as follows:
@@ -244,7 +244,7 @@ void compute_tendencies_x( realConst3d state , real3d const &tend , real dt , Fi
 
   real3d flux("flux",NUM_VARS,nz,nx+1);
 
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   real hv_coef = -hv_beta * dx / (16*dt);
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
@@ -308,7 +308,7 @@ void compute_tendencies_z( realConst3d state , real3d const &tend , real dt , Fi
 
   real3d flux("flux",NUM_VARS,nz+1,nx);
 
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   real hv_coef = -hv_beta * dz / (16*dt);
   /////////////////////////////////////////////////
   // TODO: MAKE THESE 2 LOOPS A PARALLEL_FOR
@@ -671,7 +671,7 @@ void collision( real x , real z , real &r , real &u , real &w , real &t , real &
 }
 
 
-//Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
+//Establish hydrostatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
 void hydro_const_theta( real z , real &r , real &t ) {
@@ -686,7 +686,7 @@ void hydro_const_theta( real z , real &r , real &t ) {
 }
 
 
-//Establish hydrstatic balance using constant Brunt-Vaisala frequency
+//Establish hydrostatic balance using constant Brunt-Vaisala frequency
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature
