@@ -22,5 +22,6 @@ cmake -DCMAKE_CXX_COMPILER=mpic++         \
       -DNZ=128                            \
       -DSIM_TIME=250                      \
       -DOUT_FREQ=2000                     \
+      -DYAKL_HAVE_MPI=ON                  \
       ..
 

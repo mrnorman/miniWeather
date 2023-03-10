@@ -18,11 +18,12 @@ export OMPI_CC=icc
 cmake -DCMAKE_CXX_COMPILER=mpicxx                        \
       -DCMAKE_Fortran_COMPILER=mpif90                    \
       -DCMAKE_C_COMPILER=mpicc                           \
-      -DYAKL_CXX_FLAGS="-fast -fast-transcendentals -fp-model=fast=2 -fno-alias -DNO_INFORM -DHAVE_MPI -DSIMD_LEN=32"  \
+      -DYAKL_CXX_FLAGS="-fast -fast-transcendentals -fp-model=fast=2 -fno-alias -DNO_INFORM -DSIMD_LEN=32"  \
       -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf"  \
       -DNX=256                                           \
       -DNZ=128                                           \
-      -DSIM_TIME=250                                    \
-      -DOUT_FREQ=-1                                     \
+      -DSIM_TIME=250                                     \
+      -DOUT_FREQ=-1                                      \
+      -DYAKL_HAVE_MPI=ON                                 \
       ..
 

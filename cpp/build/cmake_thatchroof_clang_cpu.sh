@@ -9,7 +9,7 @@ unset CXXFLAGS
 unset CXX
 
 export OMPI_CXX=clang++-12
-export OMPI_FC=gfortran-11
+export OMPI_FC=gfortran-11  # clang's flang doesn't generally work
 export OMPI_CC=clang-12
 
 ./cmake_clean.sh
@@ -17,11 +17,12 @@ export OMPI_CC=clang-12
 cmake -DCMAKE_CXX_COMPILER=mpic++                        \
       -DCMAKE_Fortran_COMPILER=mpif90                    \
       -DCMAKE_C_COMPILER=mpicc                           \
-      -DYAKL_CXX_FLAGS="-Ofast -ffast-math -march=native -mtune=native -DNO_INFORM -DHAVE_MPI -DSIMD_LEN=2"  \
+      -DYAKL_CXX_FLAGS="-Ofast -ffast-math -march=native -mtune=native -DNO_INFORM -DSIMD_LEN=2"  \
       -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf"  \
       -DNX=256                                           \
       -DNZ=128                                           \
       -DSIM_TIME=250                                     \
       -DOUT_FREQ=1000                                    \
+      -DYAKL_HAVE_MPI=ON                                 \
       ..
 

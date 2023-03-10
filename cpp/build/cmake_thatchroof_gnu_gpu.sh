@@ -15,15 +15,16 @@ export OMPI_CC=gcc-11
 
 ./cmake_clean.sh
 
-cmake -DCMAKE_CXX_COMPILER=mpic++                       \
+cmake -DCMAKE_CXX_COMPILER=mpic++                        \
       -DCMAKE_Fortran_COMPILER=mpif90                    \
       -DCMAKE_C_COMPILER=mpicc                           \
-      -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI -DNO_INFORM --use_fast_math -arch sm_86 -ccbin mpic++ -DSINGLE_PREC" \
-      -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf" \
-      -DNX=2048                                         \
-      -DNZ=1024                                         \
-      -DSIM_TIME=10                                   \
-      -DOUT_FREQ=-1                                   \
-      -DYAKL_ARCH="CUDA"                                \
+      -DYAKL_ARCH="CUDA"                                 \
+      -DYAKL_CUDA_FLAGS="-O3 -DNO_INFORM --use_fast_math -arch sm_86 -ccbin mpic++ -DSINGLE_PREC" \
+      -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf"  \
+      -DNX=2048                                          \
+      -DNZ=1024                                          \
+      -DSIM_TIME=10                                      \
+      -DOUT_FREQ=-1                                      \
+      -DYAKL_HAVE_MPI=ON                                 \
       ..
 

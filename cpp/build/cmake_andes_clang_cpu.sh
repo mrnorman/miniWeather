@@ -13,14 +13,15 @@ unset OMPI_FC
 
 ./cmake_clean.sh
 
-cmake -DCMAKE_CXX_COMPILER=mpic++         \
-      -DCMAKE_C_COMPILER=mpicc            \
-      -DCMAKE_Fortran_COMPILER=mpif90     \
+cmake -DCMAKE_CXX_COMPILER=mpic++                               \
+      -DCMAKE_C_COMPILER=mpicc                                  \
+      -DCMAKE_Fortran_COMPILER=mpif90                           \
       -DYAKL_CXX_FLAGS="-DSIMD_LEN=4 -Ofast -march=native -mtune=native -DNO_INFORM -I${OLCF_PARALLEL_NETCDF_ROOT}/include"   \
       -DLDFLAGS="-L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf"  \
-      -DNX=256                            \
-      -DNZ=128                            \
-      -DSIM_TIME=250                      \
-      -DOUT_FREQ=2000                     \
+      -DNX=256                                                  \
+      -DNZ=128                                                  \
+      -DSIM_TIME=250                                            \
+      -DOUT_FREQ=2000                                           \
+      -DYAKL_HAVE_MPI=ON                                        \
       ..
 

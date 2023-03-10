@@ -18,11 +18,12 @@ cmake -DCMAKE_CXX_COMPILER=CC                       \
       -DCMAKE_C_COMPILER=cc                         \
       -DCMAKE_Fortran_COMPILER=ftn                  \
       -DYAKL_ARCH=""                                \
-      -DYAKL_CXX_FLAGS="-DHAVE_MPI -DNO_INFORM -DGPU_AWARE_MPI -O3 -ffast-math -I${PNETCDF_DIR}/include" \
+      -DYAKL_CXX_FLAGS="-DNO_INFORM -DGPU_AWARE_MPI -O3 -ffast-math -I${PNETCDF_DIR}/include" \
       -DLDFLAGS="-L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf"  \
-      -DNX=16384                                   \
+      -DNX=16384                                    \
       -DNZ=8192                                     \
       -DSIM_TIME=0.1                                \
       -DOUT_FREQ=-1                                 \
+      -DYAKL_HAVE_MPI=ON                            \
       ..
 
