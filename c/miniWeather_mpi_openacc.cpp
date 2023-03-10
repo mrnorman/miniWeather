@@ -257,7 +257,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
             dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
             //If the distance from bubble center is less than the radius, create a cos**2 profile
             if (dist <= pi / 2.) {
-              wpert = amp * pow(cos(dist),2.);
+              wpert = amp * std::pow(cos(dist),2.);
             } else {
               wpert = 0.;
             }
@@ -304,7 +304,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
       u = vals[ID_UMOM] / r;
       w = vals[ID_WMOM] / r;
       t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
-      p = C0*pow((r*t),gamm);
+      p = C0*std::pow((r*t),gamm);
 
       //Compute the flux vector
       flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
@@ -359,7 +359,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
       u = vals[ID_UMOM] / r;
       w = vals[ID_WMOM] / r;
       t = ( vals[ID_RHOT] + hy_dens_theta_int[k] ) / r;
-      p = C0*pow((r*t),gamm) - hy_pressure_int[k];
+      p = C0*std::pow((r*t),gamm) - hy_pressure_int[k];
       //Enforce vertical boundary condition and exact mass conservation
       if (k == 0 || k == nz) {
         w                = 0;
@@ -614,7 +614,7 @@ void init( int *argc , char ***argv ) {
     if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
     hy_dens_int      [k] = hr;
     hy_dens_theta_int[k] = hr*ht;
-    hy_pressure_int  [k] = C0*pow((hr*ht),gamm);
+    hy_pressure_int  [k] = C0*std::pow((hr*ht),gamm);
   }
 }
 
@@ -697,8 +697,8 @@ void hydro_const_theta( double z , double &r , double &t ) {
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
   exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                 //Pressure at z
-  rt = pow((p / C0),(1. / gamm));             //rho*theta at z
+  p = p0 * std::pow(exner,(cp/rd));                 //Pressure at z
+  rt = std::pow((p / C0),(1. / gamm));             //rho*theta at z
   r = rt / t;                                  //Density at z
 }
 
@@ -713,8 +713,8 @@ void hydro_const_bvfreq( double z , double bv_freq0 , double &r , double &t ) {
   double       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
   exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
-  rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
+  p = p0 * std::pow(exner,(cp/rd));                                                         //Pressure at z
+  rt = std::pow((p / C0),(1. / gamm));                                                  //rho*theta at z
   r = rt / t;                                                                          //Density at z
 }
 
@@ -728,7 +728,7 @@ double sample_ellipse_cosine( double x , double z , double amp , double x0 , dou
   dist = sqrt( ((x-x0)/xrad)*((x-x0)/xrad) + ((z-z0)/zrad)*((z-z0)/zrad) ) * pi / 2.;
   //If the distance from bubble center is less than the radius, create a cos**2 profile
   if (dist <= pi / 2.) {
-    return amp * pow(cos(dist),2.);
+    return amp * std::pow(cos(dist),2.);
   } else {
     return 0.;
   }
@@ -878,8 +878,8 @@ void reductions( double &mass , double &te ) {
       double u  =   state[ind_u] / r;                              // U-wind
       double w  =   state[ind_w] / r;                              // W-wind
       double th = ( state[ind_t] + hy_dens_theta_cell[hs+k] ) / r; // Potential Temperature (theta)
-      double p  = C0*pow(r*th,gamm);                               // Pressure
-      double t  = th / pow(p0/p,rd/cp);                            // Temperature
+      double p  = C0*std::pow(r*th,gamm);                               // Pressure
+      double t  = th / std::pow(p0/p,rd/cp);                            // Temperature
       double ke = r*(u*u+w*w);                                     // Kinetic Energy
       double ie = r*cv*t;                                          // Internal Energy
       mass_loc += r        *dx*dz; // Accumulate domain mass
