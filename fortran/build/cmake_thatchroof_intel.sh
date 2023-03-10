@@ -7,7 +7,6 @@ module load icc mpi
 export TEST_MPI_COMMAND="mpirun -n 1"
 
 export I_MPI_FC=ifort
-export I_MPI_F90=ifort
 
 ./cmake_clean.sh
 
