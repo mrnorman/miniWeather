@@ -52,8 +52,7 @@ add_subdirectory(YAKL)
 if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
   set_property(TARGET yakl PROPERTY CUDA_ARCHITECTURES OFF)
 endif()
-include_directories(YAKL)
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
 ############################################################
@@ -104,10 +103,10 @@ add_test(NAME YAKL_TEST COMMAND ./check_output.sh ./parallelfor_test 1e-9 4.5e-5
 ############################################################
 ## YAKL parallel_for_simd_x Version
 ############################################################
-add_executable(parallelfor_simd_x miniWeather_mpi_parallelfor_simd_x.cpp)
+add_executable(parallelfor_simd_x experimental/miniWeather_mpi_parallelfor_simd_x.cpp)
 set_target_properties(parallelfor_simd_x PROPERTIES COMPILE_FLAGS "${EXE_DEFS}")
 
-add_executable(parallelfor_simd_x_test miniWeather_mpi_parallelfor_simd_x.cpp)
+add_executable(parallelfor_simd_x_test experimental/miniWeather_mpi_parallelfor_simd_x.cpp)
 set_target_properties(parallelfor_simd_x_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS}")
 
 target_link_libraries(parallelfor_simd_x      "${LDFLAGS}")
@@ -129,9 +128,6 @@ yakl_process_target(parallelfor_simd_x_test)
 
 if ("${YAKL_ARCH}" STREQUAL "CUDA")
   set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd_x parallelfor_simd_x_test  PROPERTIES LINKER_LANGUAGE CXX)
-  if (${CMAKE_VERSION} VERSION_GREATER "3.18.0")
-    set_target_properties(serial serial_test mpi mpi_test parallelfor parallelfor_test parallelfor_simd_x parallelfor_simd_x_test  PROPERTIES CUDA_ARCHITECTURES OFF)
-  endif()
 endif()
 
 
