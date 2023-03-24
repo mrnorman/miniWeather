@@ -56,8 +56,8 @@ constexpr double qweights[] = { 0.277777777777777777777777777779E0 , 0.444444444
 ///////////////////////////////////////////////////////////////////////////////////////
 //The x-direction length is twice as long as the z-direction length
 //So, you'll want to have nx_glob be twice as large as nz_glob
-int    constexpr nx_glob       = _NX;            //Number of total cells in the x-dirction
-int    constexpr nz_glob       = _NZ;            //Number of total cells in the z-dirction
+int    constexpr nx_glob       = _NX;            //Number of total cells in the x-direction
+int    constexpr nz_glob       = _NZ;            //Number of total cells in the z-direction
 double constexpr sim_time      = _SIM_TIME;      //How many seconds to run the simulation
 double constexpr output_freq   = _OUT_FREQ;      //How frequently to output data to file (in seconds)
 int    constexpr data_spec_int = _DATA_SPEC;     //How to initialize the data
@@ -68,7 +68,7 @@ double constexpr dz            = zlen / nz_glob; // grid spacing in the x-direct
 ///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// Variables that are initialized but remain static over the coure of the simulation
+// Variables that are initialized but remain static over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
 double dt;                    //Model time step (seconds)
 int    nx, nz;                //Number of local grid cells in the x- and z- dimensions for this MPI task
@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
 }
 
 
-//Performs a single dimensionally split time step using a simple low-storate three-stage Runge-Kutta time integrator
+//Performs a single dimensionally split time step using a simple low-storage three-stage Runge-Kutta time integrator
 //The dimensional splitting is a second-order-accurate alternating Strang splitting in which the
 //order of directions is alternated each time step.
 //The Runge-Kutta method used here is defined as follows:
@@ -273,7 +273,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 void compute_tendencies_x( double *state , double *flux , double *tend , double dt ) {
   int    i,k,ll,s,inds,indf1,indf2,indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
@@ -328,7 +328,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
 void compute_tendencies_z( double *state , double *flux , double *tend , double dt ) {
   int    i,k,ll,s, inds, indf1, indf2, indt;
   double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  //Compute the hyperviscosity coeficient
+  //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
@@ -677,7 +677,7 @@ void collision( double x , double z , double &r , double &u , double &w , double
 }
 
 
-//Establish hydrstatic balance using constant potential temperature (thermally neutral atmosphere)
+//Establish hydrostatic balance using constant potential temperature (thermally neutral atmosphere)
 //z is the input coordinate
 //r and t are the output background hydrostatic density and potential temperature
 void hydro_const_theta( double z , double &r , double &t ) {
@@ -693,7 +693,7 @@ void hydro_const_theta( double z , double &r , double &t ) {
 }
 
 
-//Establish hydrstatic balance using constant Brunt-Vaisala frequency
+//Establish hydrostatic balance using constant Brunt-Vaisala frequency
 //z is the input coordinate
 //bv_freq0 is the constant Brunt-Vaisala frequency
 //r and t are the output background hydrostatic density and potential temperature

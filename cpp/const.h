@@ -51,8 +51,8 @@ constexpr int DATA_SPEC_INJECTION       = 6;
 ///////////////////////////////////////////////////////////////////////////////////////
 //The x-direction length is twice as long as the z-direction length
 //So, you'll want to have nx_glob be twice as large as nz_glob
-int  constexpr nx_glob = _NX;        // Number of total cells in the x-dirction
-int  constexpr nz_glob = _NZ;        // Number of total cells in the z-dirction
+int  constexpr nx_glob = _NX;        // Number of total cells in the x-direction
+int  constexpr nz_glob = _NZ;        // Number of total cells in the z-direction
 real constexpr sim_time = _SIM_TIME; // How many seconds to run the simulation
 real constexpr output_freq = _OUT_FREQ;  // How frequently to output data to file (in seconds)
 int  constexpr data_spec_int = _DATA_SPEC; // How to initialize the data
