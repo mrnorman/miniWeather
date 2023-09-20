@@ -284,9 +284,9 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 void compute_tendencies_x( double *state , double *flux , double *tend , double dt ) {
   //int    i,k,ll,s,inds,indf1,indf2,indt;
   //double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS]; //, hv_coef;
   //Compute the hyperviscosity coefficient
-  hv_coef = -hv_beta * dx / (16*dt);
+  const double hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
   for (int k=0; k<nz; k++) {
@@ -340,9 +340,9 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
 void compute_tendencies_z( double *state , double *flux , double *tend , double dt ) {
   //int    i,k,ll,s, inds, indf1, indf2, indt;
   //double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];//, hv_coef;
   //Compute the hyperviscosity coefficient
-  hv_coef = -hv_beta * dz / (16*dt);
+  const double hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
 #pragma omp target teams distribute parallel for simd collapse(2) private(stencil,vals,d3_vals) depend(inout:asyncid) nowait
   for (int k=0; k<nz+1; k++) {
@@ -496,13 +496,13 @@ void set_halo_values_z( double *state ) {
 void init( int *argc , char ***argv ) {
   //int    i, k, ii, kk, ll, ierr, inds, i_end;
   //double x, z, r, u, w, t, hr, ht, nper;
-  double z, r, u, w, t, hr, ht, nper;
+  //double z, r, u, w, t, hr, ht, nper;
 
   int ierr = MPI_Init(argc,argv);
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-  nper = ( (double) nx_glob ) / nranks;
+  const double nper = ( (double) nx_glob ) / nranks;
   const int i_beg = round( nper* (myrank)    );
   const int i_end = round( nper*((myrank)+1) )-1;
   nx = i_end - i_beg + 1;
@@ -552,6 +552,8 @@ void init( int *argc , char ***argv ) {
   }
   //Want to make sure this info is displayed before further output
   ierr = MPI_Barrier(MPI_COMM_WORLD);
+
+  double r, u, w, t, hr, ht;
 
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
@@ -612,7 +614,7 @@ void init( int *argc , char ***argv ) {
   }
   //Compute the hydrostatic background state at vertical cell interfaces
   for (int k=0; k<nz+1; k++) {
-    z = (k_beg + k)*dz;
+    const double z = (k_beg + k)*dz;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
@@ -699,12 +701,12 @@ void collision( double x , double z , double &r , double &u , double &w , double
 void hydro_const_theta( double z , double &r , double &t ) {
   const double theta0 = 300.;  //Background potential temperature
   const double exner0 = 1.;    //Surface-level Exner pressure
-  double       p,exner,rt;
+  //double       p,exner,rt;
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
-  exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                 //Pressure at z
-  rt = pow((p / C0),(1. / gamm));             //rho*theta at z
+  const double exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
+  const double p = p0 * pow(exner,(cp/rd));                 //Pressure at z
+  const double rt = pow((p / C0),(1. / gamm));             //rho*theta at z
   r = rt / t;                                  //Density at z
 }
 
@@ -716,11 +718,11 @@ void hydro_const_theta( double z , double &r , double &t ) {
 void hydro_const_bvfreq( double z , double bv_freq0 , double &r , double &t ) {
   const double theta0 = 300.;  //Background potential temperature
   const double exner0 = 1.;    //Surface-level Exner pressure
-  double       p, exner, rt;
+  //double       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
-  exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
-  p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
-  rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
+  const double exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
+  const double p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
+  const double rt = pow((p / C0),(1. / gamm));                                                  //rho*theta at z
   r = rt / t;                                                                          //Density at z
 }
 
@@ -853,7 +855,6 @@ void ncwrap( int ierr , int line ) {
 
 
 void finalize() {
-  int ierr;
   free( state );
   free( state_tmp );
   free( flux );
@@ -867,7 +868,7 @@ void finalize() {
   free( sendbuf_r );
   free( recvbuf_l );
   free( recvbuf_r );
-  ierr = MPI_Finalize();
+  const int ierr = MPI_Finalize();
 }
 
 
@@ -878,18 +879,18 @@ void reductions( double &mass , double &te ) {
 #pragma omp target teams distribute parallel for simd collapse(2) reduction(+:mass,te)
   for (int k=0; k<nz; k++) {
     for (int i=0; i<nx; i++) {
-      int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_w = ID_WMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      int ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      double r  =   state[ind_r] + hy_dens_cell[hs+k];             // Density
-      double u  =   state[ind_u] / r;                              // U-wind
-      double w  =   state[ind_w] / r;                              // W-wind
-      double th = ( state[ind_t] + hy_dens_theta_cell[hs+k] ) / r; // Potential Temperature (theta)
-      double p  = C0*pow(r*th,gamm);                               // Pressure
-      double t  = th / pow(p0/p,rd/cp);                            // Temperature
-      double ke = r*(u*u+w*w);                                     // Kinetic Energy
-      double ie = r*cv*t;                                          // Internal Energy
+      const int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      const int ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      const int ind_w = ID_WMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      const int ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
+      const double r  =   state[ind_r] + hy_dens_cell[hs+k];             // Density
+      const double u  =   state[ind_u] / r;                              // U-wind
+      const double w  =   state[ind_w] / r;                              // W-wind
+      const double th = ( state[ind_t] + hy_dens_theta_cell[hs+k] ) / r; // Potential Temperature (theta)
+      const double p  = C0*pow(r*th,gamm);                               // Pressure
+      const double t  = th / pow(p0/p,rd/cp);                            // Temperature
+      const double ke = r*(u*u+w*w);                                     // Kinetic Energy
+      const double ie = r*cv*t;                                          // Internal Energy
       mass += r        *dx*dz; // Accumulate domain mass
       te   += (ke + ie)*dx*dz; // Accumulate domain total energy
     }
