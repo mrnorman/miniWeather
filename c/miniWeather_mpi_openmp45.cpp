@@ -224,8 +224,6 @@ void perform_timestep( double *state , double *state_tmp , double *flux , double
 //state_out = state_init + dt * rhs(state_forcing)
 //Meaning the step starts from state_init, computes the rhs using state_forcing, and stores the result in state_out
 void semi_discrete_step( double *state_init , double *state_forcing , double *state_out , double dt , int dir , double *flux , double *tend ) {
-  //int i, k, ll, inds, indt, indw;
-  //double x, z, wpert, dist, x0, z0, xrad, zrad, amp;
   if        (dir == DIR_X) {
     //Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -282,9 +280,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
 //First, compute the flux vector at each cell interface in the x-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_x( double *state , double *flux , double *tend , double dt ) {
-  //int    i,k,ll,s,inds,indf1,indf2,indt;
-  //double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS]; //, hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
   //Compute the hyperviscosity coefficient
   const double hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
@@ -338,9 +334,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
 //First, compute the flux vector at each cell interface in the z-direction (including hyperviscosity)
 //Then, compute the tendencies using those fluxes
 void compute_tendencies_z( double *state , double *flux , double *tend , double dt ) {
-  //int    i,k,ll,s, inds, indf1, indf2, indt;
-  //double r,u,w,t,p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
-  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];//, hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
   //Compute the hyperviscosity coefficient
   const double hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
@@ -400,9 +394,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
 
 //Set this MPI task's halo values in the x-direction. This routine will require MPI
 void set_halo_values_x( double *state ) {
-  //int k, ll, ind_r, ind_u, ind_t, i, s, ierr;
   int ierr;
-  //double z;
   MPI_Request req_r[2], req_s[2];
 
   //Prepost receives
@@ -494,10 +486,6 @@ void set_halo_values_z( double *state ) {
 
 
 void init( int *argc , char ***argv ) {
-  //int    i, k, ii, kk, ll, ierr, inds, i_end;
-  //double x, z, r, u, w, t, hr, ht, nper;
-  //double z, r, u, w, t, hr, ht, nper;
-
   int ierr = MPI_Init(argc,argv);
 
   ierr = MPI_Comm_size(MPI_COMM_WORLD,&nranks);
@@ -701,7 +689,6 @@ void collision( double x , double z , double &r , double &u , double &w , double
 void hydro_const_theta( double z , double &r , double &t ) {
   const double theta0 = 300.;  //Background potential temperature
   const double exner0 = 1.;    //Surface-level Exner pressure
-  //double       p,exner,rt;
   //Establish hydrostatic balance first using Exner pressure
   t = theta0;                                  //Potential Temperature at z
   const double exner = exner0 - grav * z / (cp * theta0);   //Exner pressure at z
@@ -718,7 +705,6 @@ void hydro_const_theta( double z , double &r , double &t ) {
 void hydro_const_bvfreq( double z , double bv_freq0 , double &r , double &t ) {
   const double theta0 = 300.;  //Background potential temperature
   const double exner0 = 1.;    //Surface-level Exner pressure
-  //double       p, exner, rt;
   t = theta0 * exp( bv_freq0*bv_freq0 / grav * z );                                    //Pot temp at z
   const double exner = exner0 - grav*grav / (cp * bv_freq0*bv_freq0) * (t - theta0) / (t * theta0); //Exner pressure at z
   const double p = p0 * pow(exner,(cp/rd));                                                         //Pressure at z
@@ -748,7 +734,6 @@ double sample_ellipse_cosine( double x , double z , double amp , double x0 , dou
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
 void output( double *state , double etime ) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
-  //int i, k, ind_r, ind_u, ind_w, ind_t;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
   double *dens, *uwnd, *wwnd, *theta;
