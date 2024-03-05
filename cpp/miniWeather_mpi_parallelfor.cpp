@@ -48,7 +48,8 @@ struct Fixed_data {
   int left_rank, right_rank;  //MPI Rank IDs that exist to my left and right in the global domain
   int mainproc;             //Am I the main process (rank == 0)?
   realConst1d hy_dens_cell;        //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
-  realConst1d hy_dens_theta_cell;  //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
+  realConst1d hy_theta_cell;       //hydrostatic t       (vert cell avgs).   Dimensions: (1-hs:nz+hs)
+  realConst1d hy_dens_theta_cell;  //hydrostatic rho*t   (vert cell avgs).   Dimensions: (1-hs:nz+hs)
   realConst1d hy_dens_int;         //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
   realConst1d hy_dens_theta_int;   //hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
   realConst1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
@@ -596,6 +597,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   });
 
   real1d hy_dens_cell      ("hy_dens_cell      ",nz+2*hs);
+  real1d hy_theta_cell     ("hy_theta_cell     ",nz+2*hs);
   real1d hy_dens_theta_cell("hy_dens_theta_cell",nz+2*hs);
   real1d hy_dens_int       ("hy_dens_int       ",nz+1);
   real1d hy_dens_theta_int ("hy_dens_theta_int ",nz+1);
@@ -605,6 +607,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   // for (int k=0; k<nz+2*hs; k++) {
   parallel_for( nz+2*hs , YAKL_LAMBDA (int k) {
     hy_dens_cell      (k) = 0.;
+    hy_theta_cell     (k) = 0.;
     hy_dens_theta_cell(k) = 0.;
     for (int kk=0; kk<nqpoints; kk++) {
       real z = (k_beg + k-hs+0.5)*dz;
@@ -616,6 +619,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_INJECTION      ) { injection      (0.,z,r,u,w,t,hr,ht); }
       hy_dens_cell      (k) = hy_dens_cell      (k) + hr    * qweights(kk);
+      hy_theta_cell     (k) = hy_theta_cell     (k) + ht    * qweights(kk);
       hy_dens_theta_cell(k) = hy_dens_theta_cell(k) + hr*ht * qweights(kk);
     }
   });
@@ -635,6 +639,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   });
 
   fixed_data.hy_dens_cell       = realConst1d(hy_dens_cell      );
+  fixed_data.hy_theta_cell      = realConst1d(hy_theta_cell     );
   fixed_data.hy_dens_theta_cell = realConst1d(hy_dens_theta_cell);
   fixed_data.hy_dens_int        = realConst1d(hy_dens_int       );
   fixed_data.hy_dens_theta_int  = realConst1d(hy_dens_theta_int );
@@ -768,6 +773,7 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
   auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
 
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
+  int hy_dens_varid, hy_theta_varid;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Inform the user
   if (mainproc) { printf("*** OUTPUT ***\n"); }
@@ -793,6 +799,9 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
     ncwrap( ncmpi_def_var( ncid , "uwnd"  , NC_DOUBLE , 3 , dimids ,  &uwnd_varid ) , __LINE__ );
     ncwrap( ncmpi_def_var( ncid , "wwnd"  , NC_DOUBLE , 3 , dimids ,  &wwnd_varid ) , __LINE__ );
     ncwrap( ncmpi_def_var( ncid , "theta" , NC_DOUBLE , 3 , dimids , &theta_varid ) , __LINE__ );
+    dimids[0] = z_dimid;
+    ncwrap( ncmpi_def_var( ncid , "hy_dens"  , NC_DOUBLE , 1 , dimids ,  &hy_dens_varid ) , __LINE__ );
+    ncwrap( ncmpi_def_var( ncid , "hy_theta" , NC_DOUBLE , 1 , dimids , &hy_theta_varid ) , __LINE__ );
     //End "define" mode
     ncwrap( ncmpi_enddef( ncid ) , __LINE__ );
   } else {
@@ -804,6 +813,8 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
     ncwrap( ncmpi_inq_varid( ncid , "wwnd"  ,  &wwnd_varid ) , __LINE__ );
     ncwrap( ncmpi_inq_varid( ncid , "theta" , &theta_varid ) , __LINE__ );
     ncwrap( ncmpi_inq_varid( ncid , "t"     ,     &t_varid ) , __LINE__ );
+    ncwrap( ncmpi_inq_varid( ncid , "hy_dens"  ,  &hy_dens_varid ) , __LINE__ );
+    ncwrap( ncmpi_inq_varid( ncid , "hy_theta" , &hy_theta_varid ) , __LINE__ );
   }
 
   //Store perturbed values in the temp arrays for output
@@ -834,6 +845,12 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
     ct1[0] = 1;
     double etimearr[1];
     etimearr[0] = etime; ncwrap( ncmpi_put_vara_double( ncid , t_varid , st1 , ct1 , etimearr ) , __LINE__ );
+    if (num_out == 0) {
+      st1[0] = 0;
+      ct1[0] = nz;
+      ncwrap( ncmpi_put_vara_double( ncid , hy_dens_varid  , st1 , ct1 , &(fixed_data.hy_dens_cell .createHostCopy().data()[hs]) ) , __LINE__ );
+      ncwrap( ncmpi_put_vara_double( ncid , hy_theta_varid , st1 , ct1 , &(fixed_data.hy_theta_cell.createHostCopy().data()[hs]) ) , __LINE__ );
+    }
   }
   //End "independent" write mode
   ncwrap( ncmpi_end_indep_data(ncid) , __LINE__ );

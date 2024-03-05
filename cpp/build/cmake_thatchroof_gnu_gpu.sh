@@ -16,14 +16,15 @@ export OMPI_CC=gcc-11
 ./cmake_clean.sh
 
 cmake -DCMAKE_CXX_COMPILER=mpic++                       \
-      -DCMAKE_Fortran_COMPILER=mpif90                    \
-      -DCMAKE_C_COMPILER=mpicc                           \
-      -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI -DNO_INFORM --use_fast_math -arch sm_86 -ccbin mpic++ -DSINGLE_PREC -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15 --ptxas-options=-v" \
+      -DCMAKE_Fortran_COMPILER=mpif90                   \
+      -DCMAKE_C_COMPILER=mpicc                          \
+      -DYAKL_CUDA_FLAGS="-O3 -DHAVE_MPI -DNO_INFORM --use_fast_math -arch sm_86 -ccbin mpic++ -I/usr/lib/x86_64-linux-gnu/fortran/gfortran-mod-15" \
       -DLDFLAGS="-L/usr/lib/x86_64-linux-gnu -lpnetcdf" \
-      -DNX=2048                                         \
-      -DNZ=1024                                         \
-      -DSIM_TIME=10                                   \
-      -DOUT_FREQ=-1                                   \
+      -DNX=256                                          \
+      -DNZ=128                                          \
+      -DSIM_TIME=600                                    \
+      -DOUT_FREQ=1                                      \
       -DYAKL_ARCH="CUDA"                                \
+      -DDATA_SPEC="DATA_SPEC_COLLISION"                 \
       ..
 
