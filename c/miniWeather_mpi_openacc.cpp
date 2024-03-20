@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
   reductions(mass0,te0);
 
   //Output the initial state
-  output(state,etime);
+  if (output_freq >= 0) output(state,etime);
 
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
     etime = etime + dt;
     output_counter = output_counter + dt;
     //If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) {
+    if (output_freq >= 0 && output_counter >= output_freq) {
       output_counter = output_counter - output_freq;
       output(state,etime);
     }
