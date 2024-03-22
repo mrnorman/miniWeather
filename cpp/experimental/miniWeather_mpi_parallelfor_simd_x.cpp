@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include "const.h"
+#include "../const.h"
 #include "pnetcdf.h"
 #include <ctime>
 #include <chrono>
@@ -407,67 +407,70 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   MPI_Request req_r[2], req_s[2];
 
   if (fixed_data.nranks == 1) {
+
     parallel_for( SimpleBounds<2>(NUM_VARS,nz) , YAKL_LAMBDA (int ll, int k) {
       state(ll,hs+k,0      ) = state(ll,hs+k,nx+hs-2);
       state(ll,hs+k,1      ) = state(ll,hs+k,nx+hs-1);
       state(ll,hs+k,nx+hs  ) = state(ll,hs+k,hs     );
       state(ll,hs+k,nx+hs+1) = state(ll,hs+k,hs+1   );
     });
-    return;
+
+  } else {
+
+    real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
+    real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
+    real3d     recvbuf_l    ( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
+    real3d     recvbuf_r    ( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
+    real3dHost sendbuf_l_cpu( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank (CPU copy)
+    real3dHost sendbuf_r_cpu( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank (CPU copy)
+    real3dHost recvbuf_l_cpu( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank (CPU copy)
+    real3dHost recvbuf_r_cpu( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank (CPU copy)
+
+    //Prepost receives
+    ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+
+    //Pack the send buffers
+    // for (ll=0; ll<NUM_VARS; ll++) {
+    //   for (k=0; k<nz; k++) {
+    //     for (s=0; s<hs; s++) {
+    parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
+      sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
+      sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
+    });
+    yakl::fence();
+
+    // This will copy from GPU to host
+    sendbuf_l.deep_copy_to(sendbuf_l_cpu);
+    sendbuf_r.deep_copy_to(sendbuf_r_cpu);
+    yakl::fence();
+
+    //Fire off the sends
+    ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+    ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+
+    //Wait for receives to finish
+    ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
+
+    // This will copy from host to GPU
+    recvbuf_l_cpu.deep_copy_to(recvbuf_l);
+    recvbuf_r_cpu.deep_copy_to(recvbuf_r);
+    yakl::fence();
+
+    //Unpack the receive buffers
+    // for (ll=0; ll<NUM_VARS; ll++) {
+    //   for (k=0; k<nz; k++) {
+    //     for (s=0; s<hs; s++) {
+    parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
+      state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
+      state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
+    });
+    yakl::fence();
+
+    //Wait for sends to finish
+    ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
+
   }
-
-  real3d     sendbuf_l    ( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
-  real3d     sendbuf_r    ( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
-  real3d     recvbuf_l    ( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
-  real3d     recvbuf_r    ( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
-  real3dHost sendbuf_l_cpu( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank (CPU copy)
-  real3dHost sendbuf_r_cpu( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank (CPU copy)
-  real3dHost recvbuf_l_cpu( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank (CPU copy)
-  real3dHost recvbuf_r_cpu( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank (CPU copy)
-
-  //Prepost receives
-  ierr = MPI_Irecv(recvbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-  ierr = MPI_Irecv(recvbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
-
-  //Pack the send buffers
-  // for (ll=0; ll<NUM_VARS; ll++) {
-  //   for (k=0; k<nz; k++) {
-  //     for (s=0; s<hs; s++) {
-  parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
-    sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
-    sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
-  });
-  yakl::fence();
-
-  // This will copy from GPU to host
-  sendbuf_l.deep_copy_to(sendbuf_l_cpu);
-  sendbuf_r.deep_copy_to(sendbuf_r_cpu);
-  yakl::fence();
-
-  //Fire off the sends
-  ierr = MPI_Isend(sendbuf_l_cpu.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-  ierr = MPI_Isend(sendbuf_r_cpu.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
-
-  //Wait for receives to finish
-  ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
-
-  // This will copy from host to GPU
-  recvbuf_l_cpu.deep_copy_to(recvbuf_l);
-  recvbuf_r_cpu.deep_copy_to(recvbuf_r);
-  yakl::fence();
-
-  //Unpack the receive buffers
-  // for (ll=0; ll<NUM_VARS; ll++) {
-  //   for (k=0; k<nz; k++) {
-  //     for (s=0; s<hs; s++) {
-  parallel_for( SimpleBounds<3>(NUM_VARS,nz,hs) , YAKL_LAMBDA (int ll, int k, int s) {
-    state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
-    state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
-  });
-  yakl::fence();
-
-  //Wait for sends to finish
-  ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {

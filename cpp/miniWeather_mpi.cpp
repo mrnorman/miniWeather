@@ -382,6 +382,7 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
   MPI_Request req_r[2], req_s[2];
 
   if (fixed_data.nranks == 1) {
+
     for (int ll=0; ll<NUM_VARS; ll++) {
       for (int k=0; k<nz; k++) {
         state(ll,hs+k,0      ) = state(ll,hs+k,nx+hs-2);
@@ -390,70 +391,72 @@ void set_halo_values_x( real3d const &state , Fixed_data const &fixed_data ) {
         state(ll,hs+k,nx+hs+1) = state(ll,hs+k,hs+1   );
       }
     }
-    return;
-  }
 
-  real3d recvbuf_l( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
-  real3d recvbuf_r( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
-  real3d sendbuf_l( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
-  real3d sendbuf_r( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
-  ////////////////////////////////////////////////////////////
-  // TODO: CREATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
-  ////////////////////////////////////////////////////////////
+  } else {
 
-  //Prepost receives
-  ////////////////////////////////////////////////////////////
-  // TODO: CHANGE RECVBUF'S TO HOST COPIES
-  ////////////////////////////////////////////////////////////
-  ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-  ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+    real3d recvbuf_l( "recvbuf_l" , NUM_VARS,nz,hs );  //Buffer to receive data from the left MPI rank
+    real3d recvbuf_r( "recvbuf_r" , NUM_VARS,nz,hs );  //Buffer to receive data from the right MPI rank
+    real3d sendbuf_l( "sendbuf_l" , NUM_VARS,nz,hs );  //Buffer to send data to the left MPI rank
+    real3d sendbuf_r( "sendbuf_r" , NUM_VARS,nz,hs );  //Buffer to send data to the right MPI rank
+    ////////////////////////////////////////////////////////////
+    // TODO: CREATE HOST COPIES OF THE FOUR MPI BUFFERS ABOVE
+    ////////////////////////////////////////////////////////////
 
-  //Pack the send buffers
-  /////////////////////////////////////////////////
-  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
-  /////////////////////////////////////////////////
-  for (int ll=0; ll<NUM_VARS; ll++) {
-    for (int k=0; k<nz; k++) {
-      for (int s=0; s<hs; s++) {
-        sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
-        sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
+    //Prepost receives
+    ////////////////////////////////////////////////////////////
+    // TODO: CHANGE RECVBUF'S TO HOST COPIES
+    ////////////////////////////////////////////////////////////
+    ierr = MPI_Irecv(recvbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+
+    //Pack the send buffers
+    /////////////////////////////////////////////////
+    // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
+    /////////////////////////////////////////////////
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int k=0; k<nz; k++) {
+        for (int s=0; s<hs; s++) {
+          sendbuf_l(ll,k,s) = state(ll,k+hs,hs+s);
+          sendbuf_r(ll,k,s) = state(ll,k+hs,nx+s);
+        }
       }
     }
-  }
 
-  ///////////////////////////////////////////////////////////////////////
-  // TODO: COPY DEVICE SENDBUF'S TO HOST SENDBUF'S WITH DEEP_COPY_TO
-  ///////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+    // TODO: COPY DEVICE SENDBUF'S TO HOST SENDBUF'S WITH DEEP_COPY_TO
+    ///////////////////////////////////////////////////////////////////////
 
-  //Fire off the sends
-  ////////////////////////////////////////////////////////////
-  // TODO: CHANGE SENDBUF'S TO HOST COPIES
-  ////////////////////////////////////////////////////////////
-  ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-  ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+    //Fire off the sends
+    ////////////////////////////////////////////////////////////
+    // TODO: CHANGE SENDBUF'S TO HOST COPIES
+    ////////////////////////////////////////////////////////////
+    ierr = MPI_Isend(sendbuf_l.data(),hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+    ierr = MPI_Isend(sendbuf_r.data(),hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
 
-  //Wait for receives to finish
-  ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
+    //Wait for receives to finish
+    ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
-  ///////////////////////////////////////////////////////////////////////
-  // TODO: COPY HOST RECVBUF'S TO DEVICE RECVBUF'S WITH DEEP_COPY_TO
-  ///////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////
+    // TODO: COPY HOST RECVBUF'S TO DEVICE RECVBUF'S WITH DEEP_COPY_TO
+    ///////////////////////////////////////////////////////////////////////
 
-  //Unpack the receive buffers
-  /////////////////////////////////////////////////
-  // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
-  /////////////////////////////////////////////////
-  for (int ll=0; ll<NUM_VARS; ll++) {
-    for (int k=0; k<nz; k++) {
-      for (int s=0; s<hs; s++) {
-        state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
-        state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
+    //Unpack the receive buffers
+    /////////////////////////////////////////////////
+    // TODO: MAKE THESE 3 LOOPS A PARALLEL_FOR
+    /////////////////////////////////////////////////
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int k=0; k<nz; k++) {
+        for (int s=0; s<hs; s++) {
+          state(ll,k+hs,s      ) = recvbuf_l(ll,k,s);
+          state(ll,k+hs,nx+hs+s) = recvbuf_r(ll,k,s);
+        }
       }
     }
-  }
 
-  //Wait for sends to finish
-  ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
+    //Wait for sends to finish
+    ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
+
+  }
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {

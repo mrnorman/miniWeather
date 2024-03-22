@@ -389,43 +389,59 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
 void set_halo_values_x( double *state ) {
   int k, ll, ind_r, ind_u, ind_t, i, s, ierr;
   double z;
-  MPI_Request req_r[2], req_s[2];
 
-  //Prepost receives
-  ierr = MPI_Irecv(recvbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
-  ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+  if (nranks == 1) {
 
-  //Pack the send buffers
-#pragma omp parallel for collapse(3)
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (s=0; s<hs; s++) {
-        sendbuf_l[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+s];
-        sendbuf_r[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+s];
+#pragma omp parallel for collapse(2)
+    for (ll=0; ll<NUM_VARS; ll++) {
+      for (k=0; k<nz; k++) {
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + 0      ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs-2];
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + 1      ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs-1];
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs  ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs     ];
+        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+1] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+1   ];
       }
     }
-  }
 
-  //Fire off the sends
-  ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
-  ierr = MPI_Isend(sendbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+  } else {
 
-  //Wait for receives to finish
-  ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
+    MPI_Request req_r[2], req_s[2];
 
-  //Unpack the receive buffers
+    //Prepost receives
+    ierr = MPI_Irecv(recvbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,0,MPI_COMM_WORLD,&req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
+
+    //Pack the send buffers
 #pragma omp parallel for collapse(3)
-  for (ll=0; ll<NUM_VARS; ll++) {
-    for (k=0; k<nz; k++) {
-      for (s=0; s<hs; s++) {
-        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + s      ] = recvbuf_l[ll*nz*hs + k*hs + s];
-        state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+s] = recvbuf_r[ll*nz*hs + k*hs + s];
+    for (ll=0; ll<NUM_VARS; ll++) {
+      for (k=0; k<nz; k++) {
+        for (s=0; s<hs; s++) {
+          sendbuf_l[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + hs+s];
+          sendbuf_r[ll*nz*hs + k*hs + s] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+s];
+        }
       }
     }
-  }
 
-  //Wait for sends to finish
-  ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
+    //Fire off the sends
+    ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
+    ierr = MPI_Isend(sendbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
+
+    //Wait for receives to finish
+    ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
+
+    //Unpack the receive buffers
+#pragma omp parallel for collapse(3)
+    for (ll=0; ll<NUM_VARS; ll++) {
+      for (k=0; k<nz; k++) {
+        for (s=0; s<hs; s++) {
+          state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + s      ] = recvbuf_l[ll*nz*hs + k*hs + s];
+          state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs+s] = recvbuf_r[ll*nz*hs + k*hs + s];
+        }
+      }
+    }
+
+    //Wait for sends to finish
+    ierr = MPI_Waitall(2,req_s,MPI_STATUSES_IGNORE);
+  }
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
