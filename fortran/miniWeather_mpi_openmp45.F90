@@ -118,7 +118,7 @@ program miniweather
   call reductions(mass0,te0)
 
   !Output the initial state
-  call output(state,etime)
+  if (output_freq >= 0) call output(state,etime)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! MAIN TIME STEP LOOP
@@ -138,7 +138,7 @@ program miniweather
     etime = etime + dt
     output_counter = output_counter + dt
     !If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) then
+    if (output_freq >= 0 .and. output_counter >= output_freq) then
       output_counter = output_counter - output_freq
       call output(state,etime)
     endif
@@ -398,6 +398,7 @@ contains
     real(rp) :: z
 
     if (nranks == 1) then
+
       !$omp target teams distribute parallel do simd collapse(2)  depend(inout:asyncid) nowait
       do ll = 1 , NUM_VARS
         do k = 1 , nz
@@ -407,49 +408,51 @@ contains
           state(nx+2,k,ll) = state(2   ,k,ll)
         enddo
       enddo
-      return
+
+    else
+
+      !Prepost receives
+      call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
+      call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
+
+      !Pack the send buffers
+      !$omp target teams distribute parallel do simd collapse(3)  depend(inout:asyncid) nowait
+      do ll = 1 , NUM_VARS
+        do k = 1 , nz
+          do s = 1 , hs
+            sendbuf_l(s,k,ll) = state(s      ,k,ll)
+            sendbuf_r(s,k,ll) = state(nx-hs+s,k,ll)
+          enddo
+        enddo
+      enddo
+
+      !$omp target update from(sendbuf_l,sendbuf_r) depend(inout:asyncid) nowait
+      !$omp taskwait
+
+      !Fire off the sends
+      call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
+      call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
+
+      !Wait for receives to finish
+      call mpi_waitall(2,req_r,status,ierr)
+
+      !$omp target update to(recvbuf_l,recvbuf_r) depend(inout:asyncid) nowait
+
+      !Unpack the receive buffers
+      !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
+      do ll = 1 , NUM_VARS
+        do k = 1 , nz
+          do s = 1 , hs
+            state(-hs+s,k,ll) = recvbuf_l(s,k,ll)
+            state(nx+s ,k,ll) = recvbuf_r(s,k,ll)
+          enddo
+        enddo
+      enddo
+
+      !Wait for sends to finish
+      call mpi_waitall(2,req_s,status,ierr)
+
     endif
-
-    !Prepost receives
-    call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
-    call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
-
-    !Pack the send buffers
-    !$omp target teams distribute parallel do simd collapse(3)  depend(inout:asyncid) nowait
-    do ll = 1 , NUM_VARS
-      do k = 1 , nz
-        do s = 1 , hs
-          sendbuf_l(s,k,ll) = state(s      ,k,ll)
-          sendbuf_r(s,k,ll) = state(nx-hs+s,k,ll)
-        enddo
-      enddo
-    enddo
-
-    !$omp target update from(sendbuf_l,sendbuf_r) depend(inout:asyncid) nowait
-    !$omp taskwait
-
-    !Fire off the sends
-    call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
-    call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
-
-    !Wait for receives to finish
-    call mpi_waitall(2,req_r,status,ierr)
-
-    !$omp target update to(recvbuf_l,recvbuf_r) depend(inout:asyncid) nowait
-
-    !Unpack the receive buffers
-    !$omp target teams distribute parallel do simd collapse(3) depend(inout:asyncid) nowait
-    do ll = 1 , NUM_VARS
-      do k = 1 , nz
-        do s = 1 , hs
-          state(-hs+s,k,ll) = recvbuf_l(s,k,ll)
-          state(nx+s ,k,ll) = recvbuf_r(s,k,ll)
-        enddo
-      enddo
-    enddo
-
-    !Wait for sends to finish
-    call mpi_waitall(2,req_s,status,ierr)
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
@@ -777,10 +780,13 @@ contains
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
   subroutine output(state,etime)
+#ifndef NO_OUTPUT
     use pnetcdf
+#endif
     implicit none
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
+#ifndef NO_OUTPUT
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
     integer :: i,k
     integer, save :: num_out = 0
@@ -883,20 +889,25 @@ contains
     deallocate(uwnd )
     deallocate(wwnd )
     deallocate(theta)
+#endif
   end subroutine output
 
 
   !Error reporting routine for the PNetCDF I/O
   subroutine ncwrap( ierr , line )
+#ifndef NO_OUTPUT
     use pnetcdf
+#endif
     implicit none
     integer, intent(in) :: ierr
     integer, intent(in) :: line
+#ifndef NO_OUTPUT
     if (ierr /= nf_noerr) then
       write(*,*) 'NetCDF Error at line: ', line
       write(*,*) nfmpi_strerror(ierr)
       stop
     endif
+#endif
   end subroutine ncwrap
 
 

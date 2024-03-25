@@ -111,7 +111,7 @@ program miniweather
   call reductions(mass0,te0)
 
   !Output the initial state
-  call output(state,etime)
+  if (output_freq >= 0) call output(state,etime)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! MAIN TIME STEP LOOP
@@ -130,7 +130,7 @@ program miniweather
     etime = etime + dt
     output_counter = output_counter + dt
     !If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) then
+    if (output_freq >= 0 .and. output_counter >= output_freq) then
       output_counter = output_counter - output_freq
       call output(state,etime)
     endif
@@ -735,11 +735,14 @@ contains
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
   subroutine output(state,etime)
+#ifndef NO_OUPUT
     use pnetcdf
+#endif
     use mpi
     implicit none
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
+#ifndef NO_OUPUT
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
     integer :: i,k
     integer, save :: num_out = 0
@@ -838,20 +841,25 @@ contains
     deallocate(uwnd )
     deallocate(wwnd )
     deallocate(theta)
+#endif
   end subroutine output
 
 
   !Error reporting routine for the PNetCDF I/O
   subroutine ncwrap( ierr , line )
+#ifndef NO_OUPUT
     use pnetcdf
+#endif
     implicit none
     integer, intent(in) :: ierr
     integer, intent(in) :: line
+#ifndef NO_OUPUT
     if (ierr /= nf_noerr) then
       write(*,*) 'NetCDF Error at line: ', line
       write(*,*) nf90mpi_strerror(ierr)
       stop
     endif
+#endif
   end subroutine ncwrap
 
 

@@ -116,7 +116,7 @@ program miniweather
   call reductions(mass0,te0)
 
   !Output the initial state
-  call output(state,etime)
+  if (output_freq >= 0) call output(state,etime)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! MAIN TIME STEP LOOP
@@ -136,7 +136,7 @@ program miniweather
     etime = etime + dt
     output_counter = output_counter + dt
     !If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) then
+    if (output_freq >= 0 .and. output_counter >= output_freq) then
       output_counter = output_counter - output_freq
       call output(state,etime)
     endif
@@ -234,7 +234,7 @@ contains
     endif
 
     !Apply the tendencies to the fluid state
-    !$acc parallel loop collapse(3) async
+    !$acc parallel loop gang vector collapse(3) async
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -281,11 +281,13 @@ contains
     !Compute the hyperviscosity coefficient
     hv_coef = -hv_beta * dx / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$acc parallel loop collapse(2) private(stencil,vals,d3_vals) async
+    !$acc parallel loop gang vector collapse(2) private(stencil,vals,d3_vals) async
     do k = 1 , nz
       do i = 1 , nx+1
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+        !$acc loop seq
         do ll = 1 , NUM_VARS
+          !$acc loop seq
           do s = 1 , sten_size
             stencil(s) = state(i-hs-1+s,k,ll)
           enddo
@@ -311,7 +313,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$acc parallel loop collapse(3) async
+    !$acc parallel loop gang vector collapse(3) async
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -337,11 +339,13 @@ contains
     !Compute the hyperviscosity coefficient
     hv_coef = -hv_beta * dz / (16*dt)
     !Compute fluxes in the x-direction for each cell
-    !$acc parallel loop collapse(2) private(stencil,vals,d3_vals) async
+    !$acc parallel loop gang vector collapse(2) private(stencil,vals,d3_vals) async
     do k = 1 , nz+1
       do i = 1 , nx
         !Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+        !$acc loop seq
         do ll = 1 , NUM_VARS
+          !$acc loop seq
           do s = 1 , sten_size
             stencil(s) = state(i,k-hs-1+s,ll)
           enddo
@@ -372,7 +376,7 @@ contains
     enddo
 
     !Use the fluxes to compute tendencies for each cell
-    !$acc parallel loop collapse(3) async
+    !$acc parallel loop gang vector collapse(3) async
     do ll = 1 , NUM_VARS
       do k = 1 , nz
         do i = 1 , nx
@@ -394,7 +398,8 @@ contains
     real(rp) :: z
 
     if (nranks == 1) then
-      !$acc parallel loop collapse(2) async
+
+      !$acc parallel loop gang vector collapse(2) async
       do ll = 1 , NUM_VARS
         do k = 1 , nz
           state(-1  ,k,ll) = state(nx-1,k,ll)
@@ -403,53 +408,55 @@ contains
           state(nx+2,k,ll) = state(2   ,k,ll)
         enddo
       enddo
-      return
+
+    else
+
+      !Prepost receives
+      call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
+      call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
+
+      !Pack the send buffers
+      !$acc parallel loop gang vector collapse(3) async
+      do ll = 1 , NUM_VARS
+        do k = 1 , nz
+          do s = 1 , hs
+            sendbuf_l(s,k,ll) = state(s      ,k,ll)
+            sendbuf_r(s,k,ll) = state(nx-hs+s,k,ll)
+          enddo
+        enddo
+      enddo
+
+      !$acc update host(sendbuf_l,sendbuf_r) async
+      !$acc wait
+
+      !Fire off the sends
+      call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
+      call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
+
+      !Wait for receives to finish
+      call mpi_waitall(2,req_r,status,ierr)
+
+      !$acc update device(recvbuf_l,recvbuf_r) async
+
+      !Unpack the receive buffers
+      !$acc parallel loop collapse(3) async
+      do ll = 1 , NUM_VARS
+        do k = 1 , nz
+          do s = 1 , hs
+            state(-hs+s,k,ll) = recvbuf_l(s,k,ll)
+            state(nx+s ,k,ll) = recvbuf_r(s,k,ll)
+          enddo
+        enddo
+      enddo
+
+      !Wait for sends to finish
+      call mpi_waitall(2,req_s,status,ierr)
+
     endif
-
-    !Prepost receives
-    call mpi_irecv(recvbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,0,MPI_COMM_WORLD,req_r(1),ierr)
-    call mpi_irecv(recvbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,1,MPI_COMM_WORLD,req_r(2),ierr)
-
-    !Pack the send buffers
-    !$acc parallel loop collapse(3) async
-    do ll = 1 , NUM_VARS
-      do k = 1 , nz
-        do s = 1 , hs
-          sendbuf_l(s,k,ll) = state(s      ,k,ll)
-          sendbuf_r(s,k,ll) = state(nx-hs+s,k,ll)
-        enddo
-      enddo
-    enddo
-
-    !$acc update host(sendbuf_l,sendbuf_r) async
-    !$acc wait
-
-    !Fire off the sends
-    call mpi_isend(sendbuf_l,hs*nz*NUM_VARS,mpi_type, left_rank,1,MPI_COMM_WORLD,req_s(1),ierr)
-    call mpi_isend(sendbuf_r,hs*nz*NUM_VARS,mpi_type,right_rank,0,MPI_COMM_WORLD,req_s(2),ierr)
-
-    !Wait for receives to finish
-    call mpi_waitall(2,req_r,status,ierr)
-
-    !$acc update device(recvbuf_l,recvbuf_r) async
-
-    !Unpack the receive buffers
-    !$acc parallel loop collapse(3) async
-    do ll = 1 , NUM_VARS
-      do k = 1 , nz
-        do s = 1 , hs
-          state(-hs+s,k,ll) = recvbuf_l(s,k,ll)
-          state(nx+s ,k,ll) = recvbuf_r(s,k,ll)
-        enddo
-      enddo
-    enddo
-
-    !Wait for sends to finish
-    call mpi_waitall(2,req_s,status,ierr)
 
     if (data_spec_int == DATA_SPEC_INJECTION) then
       if (myrank == 0) then
-        !$acc parallel loop async
+        !$acc parallel loop gang vector async
         do k = 1 , nz
           z = (k_beg-1 + k-0.5_rp)*dz
           if (abs(z-3*zlen/4) <= zlen/16) then
@@ -468,7 +475,7 @@ contains
     implicit none
     real(rp), intent(inout) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     integer :: i, ll
-    !$acc parallel loop collapse(2) async
+    !$acc parallel loop gang vector collapse(2) async
     do ll = 1 , NUM_VARS
       do i = 1-hs,nx+hs
         if (ll == ID_WMOM) then
@@ -773,11 +780,14 @@ contains
   !The file I/O uses parallel-netcdf, the only external library required for this mini-app.
   !If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
   subroutine output(state,etime)
+#ifndef NO_OUTPUT
     use pnetcdf
+#endif
     use mpi
     implicit none
     real(rp), intent(in) :: state(1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
     real(rp), intent(in) :: etime
+#ifndef NO_OUTPUT
     integer :: ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid
     integer :: i,k
     integer, save :: num_out = 0
@@ -880,20 +890,25 @@ contains
     deallocate(uwnd )
     deallocate(wwnd )
     deallocate(theta)
+#endif
   end subroutine output
 
 
   !Error reporting routine for the PNetCDF I/O
   subroutine ncwrap( ierr , line )
+#ifndef NO_OUTPUT
     use pnetcdf
+#endif
     implicit none
     integer, intent(in) :: ierr
     integer, intent(in) :: line
+#ifndef NO_OUTPUT
     if (ierr /= nf_noerr) then
       write(*,*) 'NetCDF Error at line: ', line
       write(*,*) nf90mpi_strerror(ierr)
       stop
     endif
+#endif
   end subroutine ncwrap
 
 
@@ -906,7 +921,7 @@ contains
     real(rp) :: glob(2)
     mass = 0
     te   = 0
-    !$acc parallel loop collapse(2) reduction(+:mass,te)
+    !$acc parallel loop gang vector collapse(2) reduction(+:mass,te)
     do k = 1 , nz
       do i = 1 , nx
         r  =   state(i,k,ID_DENS) + hy_dens_cell(k)             ! Density
