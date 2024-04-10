@@ -14,6 +14,7 @@
 #include "pnetcdf.h"
 #include <ctime>
 #include <chrono>
+#include <random>
 
 // We're going to define all arrays on the host because this doesn't use parallel_for
 typedef yakl::Array<real  ,1,yakl::memDevice> real1d;
@@ -55,6 +56,21 @@ struct Fixed_data {
   realConst1d hy_pressure_int;     //hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
 };
 
+struct CollisionConfig {
+  real th1_xc ;
+  real th1_zc ;
+  real th1_mag;
+  real th1_xr ;
+  real th1_zr ;
+  real th2_xc ;
+  real th2_zc ;
+  real th2_mag;
+  real th2_xr ;
+  real th2_zr ;
+};
+
+CollisionConfig collision_config;
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // Variables that are dynamics over the course of the simulation
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -66,11 +82,11 @@ YAKL_INLINE void injection            ( real x , real z , real &r , real &u , re
 YAKL_INLINE void density_current      ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void gravity_waves        ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
 YAKL_INLINE void thermal              ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
-YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht );
+YAKL_INLINE void collision            ( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht , CollisionConfig const &collision_config );
 YAKL_INLINE void hydro_const_theta    ( real z                    , real &r , real &t );
 YAKL_INLINE void hydro_const_bvfreq   ( real z , real bv_freq0    , real &r , real &t );
 YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , real z0 , real xrad , real zrad );
-void output               ( realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data );
+void output               ( std::string fname , realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data );
 void ncwrap               ( int ierr , int line );
 void perform_timestep     ( real3d const &state , real dt , int &direction_switch , Fixed_data const &fixed_data );
 void semi_discrete_step   ( realConst3d state_init , real3d const &state_forcing , real3d const &state_out , real dt , int dir , Fixed_data const &fixed_data );
@@ -87,7 +103,8 @@ void reductions           ( realConst3d state , double &mass , double &te , Fixe
 int main(int argc, char **argv) {
   MPI_Init(&argc,&argv);
   yakl::init();
-  {
+  for (int iter=0; iter < 10000; iter++) {
+    std::string fname = std::string("output_")+std::to_string(iter)+std::string(".nc");
     Fixed_data fixed_data;
     real3d state;
     real dt;                    //Model time step (seconds)
@@ -107,7 +124,7 @@ int main(int argc, char **argv) {
 
     //Output the initial state
     if (output_freq >= 0) {
-      output(state,etime,num_out,fixed_data);
+      output(fname,state,etime,num_out,fixed_data);
     }
 
     int direction_switch = 1;  // Tells dimensionally split which order to take x,z solves
@@ -132,23 +149,25 @@ int main(int argc, char **argv) {
       //If it's time for output, reset the counter, and do output
       if (output_freq >= 0 && output_counter >= output_freq) {
         output_counter = output_counter - output_freq;
-        output(state,etime,num_out,fixed_data);
+        output(fname,state,etime,num_out,fixed_data);
       }
     }
     yakl::fence();
     auto t2 = std::chrono::steady_clock::now();
     if (mainproc) {
-      std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
+      std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec" << std::endl;
     }
 
     //Final reductions for mass, kinetic energy, and total energy
     double mass, te;
     reductions(state,mass,te,fixed_data);
 
+    #ifndef NO_INFORM
     if (mainproc) {
       printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
       printf( "d_te:   %le\n" , (te   - te0  )/te0   );
     }
+    #endif
 
     finalize();
   }
@@ -541,11 +560,13 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   dt = min(dx,dz) / max_speed * cfl;
 
   //If I'm the main process in MPI, display some grid information
+  #ifndef NO_INFORM
   if (mainproc) {
     printf( "nx_glob, nz_glob: %d %d\n", nx_glob, nz_glob);
     printf( "dx,dz: %lf %lf\n",dx,dz);
     printf( "dt: %lf\n",dt);
   }
+  #endif
   //Want to make sure this info is displayed before further output
   ierr = MPI_Barrier(MPI_COMM_WORLD);
 
@@ -561,6 +582,21 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   qweights(0) = 0.277777777777777777777777777779;
   qweights(1) = 0.444444444444444444444444444444;
   qweights(2) = 0.277777777777777777777777777779;
+
+  std::mt19937 mt(std::time(nullptr));
+  std::uniform_real_distribution<double> dist(0.0, 1.0);
+  collision_config.th1_xc  = dist(mt)*xlen;
+  collision_config.th1_zc  = dist(mt)*zlen;
+  collision_config.th1_mag = dist(mt)*20;
+  collision_config.th1_xr  = dist(mt)*0.5*xlen;
+  collision_config.th1_zr  = dist(mt)*0.5*zlen;
+  collision_config.th2_xc  = dist(mt)*xlen;
+  collision_config.th2_zc  = dist(mt)*zlen;
+  collision_config.th2_mag = dist(mt)*20;
+  collision_config.th2_xr  = dist(mt)*0.5*xlen;
+  collision_config.th2_zr  = dist(mt)*0.5*zlen;
+
+  YAKL_SCOPE(collision_config,::collision_config);
 
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
@@ -581,7 +617,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
         real r, u, w, t, hr, ht;
 
         //Set the fluid state based on the user's specification
-        if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht); }
+        if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (x,z,r,u,w,t,hr,ht,collision_config); }
         if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (x,z,r,u,w,t,hr,ht); }
         if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(x,z,r,u,w,t,hr,ht); }
@@ -613,7 +649,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
       real z = (k_beg + k-hs+0.5)*dz;
       real r, u, w, t, hr, ht;
       //Set the fluid state based on the user's specification
-      if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
+      if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht,collision_config); }
       if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
       if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
@@ -628,7 +664,7 @@ void init( real3d &state , real &dt , Fixed_data &fixed_data ) {
   parallel_for( nz+1 , YAKL_LAMBDA (int k) {
     real z = (k_beg + k)*dz;
     real r, u, w, t, hr, ht;
-    if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
+    if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht,collision_config); }
     if (data_spec_int == DATA_SPEC_THERMAL        ) { thermal        (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_GRAVITY_WAVES  ) { gravity_waves  (0.,z,r,u,w,t,hr,ht); }
     if (data_spec_int == DATA_SPEC_DENSITY_CURRENT) { density_current(0.,z,r,u,w,t,hr,ht); }
@@ -704,14 +740,24 @@ YAKL_INLINE void thermal( real x , real z , real &r , real &u , real &w , real &
 //x and z are input coordinates at which to sample
 //r,u,w,t are output density, u-wind, w-wind, and potential temperature at that location
 //hr and ht are output background hydrostatic density and potential temperature at that location
-YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht ) {
+YAKL_INLINE void collision( real x , real z , real &r , real &u , real &w , real &t , real &hr , real &ht , CollisionConfig const &collision_config) {
+  real th1_xc  = collision_config.th1_xc ;
+  real th1_zc  = collision_config.th1_zc ;
+  real th1_mag = collision_config.th1_mag;
+  real th1_xr  = collision_config.th1_xr ;
+  real th1_zr  = collision_config.th1_zr ;
+  real th2_xc  = collision_config.th2_xc ;
+  real th2_zc  = collision_config.th2_zc ;
+  real th2_mag = collision_config.th2_mag;
+  real th2_xr  = collision_config.th2_xr ;
+  real th2_zr  = collision_config.th2_zr ;
   hydro_const_theta(z,hr,ht);
   r = 0.;
   t = 0.;
   u = 0.;
   w = 0.;
-  t = t + sample_ellipse_cosine(x,z, 20.,xlen/2,2000.,2000.,2000.);
-  t = t + sample_ellipse_cosine(x,z,-20.,xlen/2,8000.,2000.,2000.);
+  t = t + sample_ellipse_cosine(x,z, th1_mag,th1_xc,th1_zc,th1_xr,th1_zr);
+  t = t + sample_ellipse_cosine(x,z,-th2_mag,th2_xc,th2_zc,th2_xr,th2_zr);
 }
 
 
@@ -763,20 +809,28 @@ YAKL_INLINE real sample_ellipse_cosine( real x , real z , real amp , real x0 , r
 //Output the fluid state (state) to a NetCDF file at a given elapsed model time (etime)
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
-void output( realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data ) {
+void output( std::string fname , realConst3d state , real etime , int &num_out , Fixed_data const &fixed_data ) {
   auto &nx                 = fixed_data.nx                ;
   auto &nz                 = fixed_data.nz                ;
   auto &i_beg              = fixed_data.i_beg             ;
   auto &k_beg              = fixed_data.k_beg             ;
-  auto &mainproc         = fixed_data.mainproc        ;
+  auto &mainproc           = fixed_data.mainproc          ;
   auto &hy_dens_cell       = fixed_data.hy_dens_cell      ;
   auto &hy_dens_theta_cell = fixed_data.hy_dens_theta_cell;
+
+  MPI_Info info;
+  MPI_Info_create(&info);
+  MPI_Info_set(info, "romio_no_indep_rw",    "true");
+  MPI_Info_set(info, "nc_header_align_size", "1048576");
+  MPI_Info_set(info, "nc_var_align_size",    "1048576");
 
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int hy_dens_varid, hy_theta_varid;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   //Inform the user
+  #ifndef NO_INFORM
   if (mainproc) { printf("*** OUTPUT ***\n"); }
+  #endif
   //Allocate some (big) temp arrays
   doub2d dens ( "dens"     , nz,nx );
   doub2d uwnd ( "uwnd"     , nz,nx );
@@ -786,7 +840,7 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
   //If the elapsed time is zero, create the file. Otherwise, open the file
   if (etime == 0) {
     //Create the file
-    ncwrap( ncmpi_create( MPI_COMM_WORLD , "output.nc" , NC_CLOBBER , MPI_INFO_NULL , &ncid ) , __LINE__ );
+    ncwrap( ncmpi_create( MPI_COMM_WORLD , fname.c_str() , NC_CLOBBER , info , &ncid ) , __LINE__ );
     //Create the dimensions
     ncwrap( ncmpi_def_dim( ncid , "t" , (MPI_Offset) NC_UNLIMITED , &t_dimid ) , __LINE__ );
     ncwrap( ncmpi_def_dim( ncid , "x" , (MPI_Offset) nx_glob      , &x_dimid ) , __LINE__ );
@@ -806,7 +860,7 @@ void output( realConst3d state , real etime , int &num_out , Fixed_data const &f
     ncwrap( ncmpi_enddef( ncid ) , __LINE__ );
   } else {
     //Open the file
-    ncwrap( ncmpi_open( MPI_COMM_WORLD , "output.nc" , NC_WRITE , MPI_INFO_NULL , &ncid ) , __LINE__ );
+    ncwrap( ncmpi_open( MPI_COMM_WORLD , fname.c_str() , NC_WRITE , info , &ncid ) , __LINE__ );
     //Get the variable IDs
     ncwrap( ncmpi_inq_varid( ncid , "dens"  ,  &dens_varid ) , __LINE__ );
     ncwrap( ncmpi_inq_varid( ncid , "uwnd"  ,  &uwnd_varid ) , __LINE__ );

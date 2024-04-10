@@ -18,9 +18,9 @@ cmake -DCMAKE_CXX_COMPILER=CC                       \
       -DCMAKE_C_COMPILER=cc                         \
       -DCMAKE_Fortran_COMPILER=ftn                  \
       -DYAKL_ARCH="HIP"                             \
-      -DYAKL_HIP_FLAGS="-DHAVE_MPI -DNO_INFORM -DGPU_AWARE_MPI -O3 -ffast-math -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -I${PNETCDF_DIR}/include" \
+      -DYAKL_HIP_FLAGS="-DHAVE_MPI -DNO_INFORM -DGPU_AWARE_MPI -O3 -ffast-math -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -Wno-unused-result -Wno-macro-redefined" \
       -DCMAKE_EXE_LINKER_FLAGS="--rocm-path=${ROCM_PATH} -L${ROCM_PATH}/lib -lamdhip64" \
-      -DLDFLAGS="-L${PNETCDF_DIR}/lib -lpnetcdf" \
+      -DLDFLAGS="" \
       -DNX=1024                                     \
       -DNZ=512                                      \
       -DSIM_TIME=100                               \

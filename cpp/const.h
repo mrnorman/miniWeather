@@ -53,7 +53,7 @@ constexpr int DATA_SPEC_INJECTION       = 6;
 //So, you'll want to have nx_glob be twice as large as nz_glob
 int  constexpr nx_glob = 256;        // Number of total cells in the x-direction
 int  constexpr nz_glob = 256;        // Number of total cells in the z-direction
-real constexpr sim_time = 400;       // How many seconds to run the simulation
+real constexpr sim_time = 500;       // How many seconds to run the simulation
 real constexpr output_freq = 0.5;    // How frequently to output data to file (in seconds)
 int  constexpr data_spec_int = DATA_SPEC_COLLISION; // How to initialize the data
 ///////////////////////////////////////////////////////////////////////////////////////
