@@ -467,7 +467,7 @@ void set_halo_values_z( double *state ) {
   /////////////////////////////////////////////////
   // TODO: THREAD ME
   /////////////////////////////////////////////////
-  std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(NUM_VARS*nx+2*hs),[=,nz=nz,nx=nx,hy_dens_cell=hy_dens_cell](int idx){
+  std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(NUM_VARS*(nx+2*hs)),[=,nz=nz,nx=nx,hy_dens_cell=hy_dens_cell](int idx){
     auto [i,ll] = idx2d(idx,(nx+2*hs));
     if (ll == ID_WMOM) {
       state[ll*(nz+2*hs)*(nx+2*hs) + (0      )*(nx+2*hs) + i] = 0.;
