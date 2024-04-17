@@ -2,15 +2,11 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 // miniWeather
 // Author: Matt Norman <normanmr@ornl.gov>  , Oak Ridge National Laboratory
+//         Jeff Larkin <jlarkin@nvidia.com> , NVIDIA Corporation
 // This code simulates dry, stratified, compressible, non-hydrostatic fluid flows
 // For documentation, please see the attached documentation in the "documentation" folder
 //
 //////////////////////////////////////////////////////////////////////////////////////////
-#define _NX 200
-#define _NZ 100
-#define _SIM_TIME 100
-#define _OUT_FREQ 200
-#define _DATA_SPEC DATA_SPEC_INJECTION
 
 #include <stdlib.h>
 #include <math.h>
