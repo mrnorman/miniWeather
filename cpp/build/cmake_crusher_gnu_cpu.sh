@@ -2,7 +2,7 @@
 
 source ${MODULESHOME}/init/bash
 module reset
-module load PrgEnv-amd amd/6.0.0 cray-parallel-netcdf
+module load PrgEnv-gnu gcc/12.2.0 cray-parallel-netcdf
 
 export TEST_MPI_COMMAND="srun -n 1 --gpus-per-task 1 -c 1"
 unset MPICH_GPU_SUPPORT_ENABLED
