@@ -291,30 +291,30 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(nz*(nx+1)),[=,nx=nx,nz=nz,hy_dens_cell=hy_dens_cell,hy_dens_theta_cell=hy_dens_theta_cell](int idx){
     auto [i,k] = idx2d(idx,nx+1);
     double stencil[4], d3_vals[NUM_VARS],vals[NUM_VARS];
-      //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-      for (int ll=0; ll<NUM_VARS; ll++) {
-        for (int s=0; s < sten_size; s++) {
-          int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
-          stencil[s] = state[inds];
-        }
-        //Fourth-order-accurate interpolation of the state
-        vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-        //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-        d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
+    //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int s=0; s < sten_size; s++) {
+        int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
+        stencil[s] = state[inds];
       }
+      //Fourth-order-accurate interpolation of the state
+      vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
+      //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
+      d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
+    }
 
-      //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-      double r = vals[ID_DENS] + hy_dens_cell[k+hs];
-      double u = vals[ID_UMOM] / r;
-      double w = vals[ID_WMOM] / r;
-      double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
-      double p = C0*pow((r*t),gamm);
+    //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+    double r = vals[ID_DENS] + hy_dens_cell[k+hs];
+    double u = vals[ID_UMOM] / r;
+    double w = vals[ID_WMOM] / r;
+    double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
+    double p = C0*pow((r*t),gamm);
 
-      //Compute the flux vector
-      flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
-      flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
-      flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
-      flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
+    //Compute the flux vector
+    flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
+    flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
+    flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
+    flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
   });
 
   /////////////////////////////////////////////////

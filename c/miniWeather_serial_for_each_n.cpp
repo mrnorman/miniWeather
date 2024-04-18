@@ -85,7 +85,7 @@ int    nx, nz;                //Number of local grid cells in the x- and z- dime
 int    i_beg, k_beg;          //beginning index in the x- and z-directions for this MPI task
 int    nranks, myrank;        //Number of MPI ranks and my rank id
 int    left_rank, right_rank; //MPI Rank IDs that exist to my left and right in the global domain
-int    mainproc;              //Am I the main process (rank == 0)?
+int    mainproc;            //Am I the main process (rank == 0)?
 double *hy_dens_cell;         //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
 double *hy_dens_theta_cell;   //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
 double *hy_dens_int;          //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)

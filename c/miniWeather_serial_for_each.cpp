@@ -85,7 +85,7 @@ int    nx, nz;                //Number of local grid cells in the x- and z- dime
 int    i_beg, k_beg;          //beginning index in the x- and z-directions for this MPI task
 int    nranks, myrank;        //Number of MPI ranks and my rank id
 int    left_rank, right_rank; //MPI Rank IDs that exist to my left and right in the global domain
-int    mainproc;              //Am I the main process (rank == 0)?
+int    mainproc;            //Am I the main process (rank == 0)?
 double *hy_dens_cell;         //hydrostatic density (vert cell avgs).   Dimensions: (1-hs:nz+hs)
 double *hy_dens_theta_cell;   //hydrostatic rho*t (vert cell avgs).     Dimensions: (1-hs:nz+hs)
 double *hy_dens_int;          //hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
@@ -289,30 +289,30 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   std::for_each(std::execution::par_unseq,bounds1.begin(),bounds1.end(),[=,nx=nx,nz=nz,hy_dens_cell=hy_dens_cell,hy_dens_theta_cell=hy_dens_theta_cell](int idx){
     auto [i,k] = idx2d(idx,nx+1);
     double stencil[4], d3_vals[NUM_VARS],vals[NUM_VARS];
-     //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
-     for (int ll=0; ll<NUM_VARS; ll++) {
-       for (int s=0; s < sten_size; s++) {
-         int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
-         stencil[s] = state[inds];
-       }
-       //Fourth-order-accurate interpolation of the state
-       vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
-       //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
-       d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
-     }
+    //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
+    for (int ll=0; ll<NUM_VARS; ll++) {
+      for (int s=0; s < sten_size; s++) {
+        int inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+s;
+        stencil[s] = state[inds];
+      }
+      //Fourth-order-accurate interpolation of the state
+      vals[ll] = -stencil[0]/12 + 7*stencil[1]/12 + 7*stencil[2]/12 - stencil[3]/12;
+      //First-order-accurate interpolation of the third spatial derivative of the state (for artificial viscosity)
+      d3_vals[ll] = -stencil[0] + 3*stencil[1] - 3*stencil[2] + stencil[3];
+    }
 
-     //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
-     double r = vals[ID_DENS] + hy_dens_cell[k+hs];
-     double u = vals[ID_UMOM] / r;
-     double w = vals[ID_WMOM] / r;
-     double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
-     double p = C0*pow((r*t),gamm);
+    //Compute density, u-wind, w-wind, potential temperature, and pressure (r,u,w,t,p respectively)
+    double r = vals[ID_DENS] + hy_dens_cell[k+hs];
+    double u = vals[ID_UMOM] / r;
+    double w = vals[ID_WMOM] / r;
+    double t = ( vals[ID_RHOT] + hy_dens_theta_cell[k+hs] ) / r;
+    double p = C0*pow((r*t),gamm);
 
-     //Compute the flux vector
-     flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
-     flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
-     flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
-     flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
+    //Compute the flux vector
+    flux[ID_DENS*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u     - hv_coef*d3_vals[ID_DENS];
+    flux[ID_UMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*u+p - hv_coef*d3_vals[ID_UMOM];
+    flux[ID_WMOM*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*w   - hv_coef*d3_vals[ID_WMOM];
+    flux[ID_RHOT*(nz+1)*(nx+1) + k*(nx+1) + i] = r*u*t   - hv_coef*d3_vals[ID_RHOT];
   });
 
   /////////////////////////////////////////////////
@@ -722,7 +722,7 @@ double sample_ellipse_cosine( double x , double z , double amp , double x0 , dou
 //The file I/O uses parallel-netcdf, the only external library required for this mini-app.
 //If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
 void output( double *state , double etime ) {
-#ifndef NO_PNETCDF	  
+#ifndef NO_PNETCDF
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid, t_varid, dimids[3];
   int i, k, ind_r, ind_u, ind_w, ind_t;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
