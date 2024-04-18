@@ -130,6 +130,50 @@ target_link_libraries(mpi_test "${LDFLAGS}")
 
 add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test 1e-9 4.5e-5 ) 
 
+############################################################
+## Compile the mpi for_each version
+############################################################
+if (NOT ("${STDPAR_FLAGS}" STREQUAL "") )
+  add_executable(mpi_for_each miniWeather_mpi_for_each.cpp)
+  set_target_properties(mpi_for_each PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${STDPAR_FLAGS}")
+  
+  add_executable(mpi_for_each_test miniWeather_mpi_for_each.cpp)
+  set_target_properties(mpi_for_each_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${STDPAR_FLAGS}")
+  
+  if (NOT ("${LDFLAGS}" STREQUAL "") )
+    target_link_libraries(mpi_for_each      "${LDFLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(mpi_for_each_test "${LDFLAGS} ${STDPAR_FLAGS}")
+  endif()
+  if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+    target_link_libraries(mpi_for_each      "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(mpi_for_each_test "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+  endif()
+  
+  add_test(NAME MPI_FOR_EACH_TEST COMMAND ./check_output.sh ./mpi_for_each_test 1e-13 4.5e-5 ) 
+endif()
+
+############################################################
+## Compile the mpi for_each_n version
+############################################################
+if (NOT ("${STDPAR_FLAGS}" STREQUAL "") )
+  add_executable(mpi_for_each_n miniWeather_mpi_for_each_n.cpp)
+  set_target_properties(mpi_for_each_n PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${STDPAR_FLAGS}")
+  
+  add_executable(mpi_for_each_n_test miniWeather_mpi_for_each_n.cpp)
+  set_target_properties(mpi_for_each_n_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${STDPAR_FLAGS}")
+  
+  if (NOT ("${LDFLAGS}" STREQUAL "") )
+    target_link_libraries(mpi_for_each_n      "${LDFLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(mpi_for_each_n_test "${LDFLAGS} ${STDPAR_FLAGS}")
+  endif()
+  if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+    target_link_libraries(mpi_for_each_n      "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(mpi_for_each_n_test "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+  endif()
+  
+  add_test(NAME MPI_FOR_EACH_N_TEST COMMAND ./check_output.sh ./mpi_for_each_n_test 1e-13 4.5e-5 ) 
+endif()
+
 
 ############################################################
 ## YAKL parallel_for Version
