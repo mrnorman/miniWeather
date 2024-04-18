@@ -70,6 +70,51 @@ target_link_libraries(serial_test "${LDFLAGS}")
 
 add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test 1e-9 4.5e-5 )
 
+############################################################
+## Compile the serial for_each version
+############################################################
+if (NOT ("${STDPAR_FLAGS}" STREQUAL "") )
+  add_executable(serial_for_each miniWeather_serial_for_each.cpp)
+  set_target_properties(serial_for_each PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${STDPAR_FLAGS}")
+  
+  add_executable(serial_for_each_test miniWeather_serial_for_each.cpp)
+  set_target_properties(serial_for_each_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${STDPAR_FLAGS}")
+  
+  if (NOT ("${LDFLAGS}" STREQUAL "") )
+    target_link_libraries(serial_for_each      "${LDFLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(serial_for_each_test "${LDFLAGS} ${STDPAR_FLAGS}")
+  endif()
+  if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+    target_link_libraries(serial_for_each      "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(serial_for_each_test "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+  endif()
+  
+  add_test(NAME SERIAL_FOR_EACH_TEST COMMAND ./check_output.sh ./serial_for_each_test 1e-13 4.5e-5 ) 
+endif()
+
+############################################################
+## Compile the serial for_each_n version
+############################################################
+if (NOT ("${STDPAR_FLAGS}" STREQUAL "") )
+  add_executable(serial_for_each_n miniWeather_serial_for_each_n.cpp)
+  set_target_properties(serial_for_each_n PROPERTIES COMPILE_FLAGS "${EXE_DEFS} ${STDPAR_FLAGS}")
+  
+  add_executable(serial_for_each_n_test miniWeather_serial_for_each_n.cpp)
+  set_target_properties(serial_for_each_n_test PROPERTIES COMPILE_FLAGS "${TEST_DEFS} ${STDPAR_FLAGS}")
+  
+  if (NOT ("${LDFLAGS}" STREQUAL "") )
+    target_link_libraries(serial_for_each_n      "${LDFLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(serial_for_each_n_test "${LDFLAGS} ${STDPAR_FLAGS}")
+  endif()
+  if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
+    target_link_libraries(serial_for_each_n      "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+    target_link_libraries(serial_for_each_n_test "${SERIAL_LINK_FLAGS} ${STDPAR_FLAGS}")
+  endif()
+  
+  add_test(NAME SERIAL_FOR_EACH_N_TEST COMMAND ./check_output.sh ./serial_for_each_n_test 1e-13 4.5e-5 ) 
+endif()
+
+
 
 ############################################################
 ## Compile the MPI version
