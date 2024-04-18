@@ -400,6 +400,11 @@ void compute_tendencies_z( real3d_span state , real3d_span flux , real3d_span te
 void set_halo_values_x( real3d_span state ) {
   int ierr;
 
+  auto sendspan_l = real3d_span(sendbuf_l,NUM_VARS,nz,hs);
+  auto sendspan_r = real3d_span(sendbuf_r,NUM_VARS,nz,hs);
+  auto recvspan_l = real3d_span(recvbuf_l,NUM_VARS,nz,hs);
+  auto recvspan_r = real3d_span(recvbuf_r,NUM_VARS,nz,hs);
+
   if (nranks == 1) {
 
     std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(NUM_VARS*nz),[=,nx=nx,nz=nz](int idx){
@@ -421,8 +426,8 @@ void set_halo_values_x( real3d_span state ) {
     //Pack the send buffers
     std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(NUM_VARS*nz*hs),[=,nx=nx,nz=nz,sendbuf_l=sendbuf_l,sendbuf_r=sendbuf_r](int idx){
       auto [s,k,ll] = idx3d(idx,hs,nz);
-      sendbuf_l[ll*nz*hs + k*hs + s] = state(ll, (k+hs), hs+s);
-      sendbuf_r[ll*nz*hs + k*hs + s] = state(ll, (k+hs), nx+s);
+      sendspan_l(ll, k, s) = state(ll, (k+hs), hs+s);
+      sendspan_r(ll, k, s) = state(ll, (k+hs), nx+s);
     });
 
     //Fire off the sends
@@ -435,8 +440,8 @@ void set_halo_values_x( real3d_span state ) {
     //Unpack the receive buffers
     std::for_each_n(std::execution::par_unseq,std::views::iota(0).begin(),(NUM_VARS*nz*hs),[=,nx=nx,nz=nz,recvbuf_l=recvbuf_l,recvbuf_r=recvbuf_r](int idx){
       auto [s,k,ll] = idx3d(idx,hs,nz);
-      state(ll, (k+hs), s      ) = recvbuf_l[ll*nz*hs + k*hs + s];
-      state(ll, (k+hs), nx+hs+s) = recvbuf_r[ll*nz*hs + k*hs + s];
+      state(ll, (k+hs), s      ) = recvspan_l(ll, k, s);
+      state(ll, (k+hs), nx+hs+s) = recvspan_r(ll, k, s);
     });
 
     //Wait for sends to finish
