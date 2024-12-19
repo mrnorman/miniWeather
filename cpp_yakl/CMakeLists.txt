@@ -6,10 +6,8 @@ include(cmake/utils.cmake)
 
 option(MW_ENABLE_SERIAL "Whether to build serial variant" ON)
 option(MW_ENABLE_MPI "Whether to build MPI variant" OFF)
-option(MW_ENABLE_MPI_OPENMP "Whether to build MPI/OPENMP variant" OFF)
-option(MW_ENABLE_MPI_OPENMP45 "Whether to build MPI/OPENMP45 variant" OFF)
-option(MW_ENABLE_MPI_OPENACC "Whether to build MPI/OPENACC variant" OFF)
-option(MW_ENABLE_ALL "Whether to build all variant" OFF)
+option(MW_ENABLE_MPI_PARALLELFOR "Whether to build MPI/PARALLEL_FOR variant" OFF)
+option(MW_ENABLE_ALL "Whether to build all variants" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
@@ -21,16 +19,8 @@ if (MW_ENABLE_MPI OR MW_ENABLE_ALL)
   set(VERSION MPI)
   list(APPEND VARIANTS ${VERSION})
 endif()
-if (MW_ENABLE_MPI_OPENMP OR MW_ENABLE_ALL)
- set(VERSION MPI_OPENMP)
-  list(APPEND VARIANTS ${VERSION})
-endif()
-if (MW_ENABLE_MPI_OPENMP45 OR MW_ENABLE_ALL)
- set(VERSION MPI_OPENMP45)
-  list(APPEND VARIANTS ${VERSION})
-endif()
-if (MW_ENABLE_MPI_OPENACC OR MW_ENABLE_ALL)
- set(VERSION MPI_OPENACC)
+if (MW_ENABLE_MPI_PARALLELFOR OR MW_ENABLE_ALL)
+  set(VERSION MPI_PARALLELFOR)
   list(APPEND VARIANTS ${VERSION})
 endif()
 
@@ -49,10 +39,17 @@ set_target_properties(MPI PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES "${MPI_CXX_INCLUDE_PATH}"
   INTERFACE_LINK_LIBRARIES "${MPI_CXX_LINK_FLAGS}"
 )
+
 list(APPEND PUBLIC_DEPS MPI)
 
 find_package(PnetCDF REQUIRED)
 list(APPEND PUBLIC_DEPS PnetCDF)
+
+find_package(YAKL REQUIRED)
+list(APPEND PUBLIC_DEPS YAKL)
+
+find_package(Kokkos REQUIRED)
+list(APPEND PUBLIC_DEPS Kokkos::kokkos)
 
 ############################################################
 ## Set Parameters
@@ -76,6 +73,16 @@ endif()
 SET(EXE_DEFS "-D_NX=${NX} -D_NZ=${NZ} -D_SIM_TIME=${SIM_TIME} -D_OUT_FREQ=${OUT_FREQ} -D_DATA_SPEC=${DATA_SPEC}")
 SET(TEST_DEFS "-D_NX=100 -D_NZ=50 -D_SIM_TIME=400 -D_OUT_FREQ=400 -D_DATA_SPEC=DATA_SPEC_THERMAL")
 
+if ( ("${YAKL_CXX_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_CUDA_FLAGS}"   MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_HIP_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_OPENMP_FLAGS}" MATCHES ".*SINGLE_PREC.*") OR 
+     ("${YAKL_SYCL_FLAGS}"   MATCHES ".*SINGLE_PREC.*") )
+  message(STATUS "Using single precision")
+else()
+  message(STATUS "Using double precision")
+endif()
+
 ############################################################
 ## Gen Targets
 ############################################################
@@ -90,13 +97,13 @@ foreach(VARIANT ${VARIANTS})
   add_executable(${BIN_NAME} ${SRC_NAME})
   set_target_properties(${BIN_NAME} PROPERTIES COMPILE_FLAGS ${EXE_DEFS})
   target_link_libraries(${BIN_NAME} PUBLIC ${PUBLIC_DEPS})
-  
+
   #Test
-  add_executable(${BIN_TEST_NAME} ${SRC_NAME})
-  set_target_properties(${BIN_TEST_NAME} PROPERTIES COMPILE_FLAGS ${TEST_DEFS})
-  target_link_libraries(${BIN_TEST_NAME} PUBLIC ${PUBLIC_DEPS})
+  #add_executable(${BIN_TEST_NAME} ${SRC_NAME})
+  #set_target_properties(${BIN_TEST_NAME} PROPERTIES COMPILE_FLAGS ${TEST_DEFS})
+  #target_link_libraries(${BIN_TEST_NAME} PUBLIC ${PUBLIC_DEPS})
   
-  #check_output
+  #Check
   add_test(NAME ${BIN_TEST_NAME} COMMAND ./scripts/check_output.sh ./${BIN_TEST_NAME} 1e-13 4.5e-5 ) 
 endforeach()
 

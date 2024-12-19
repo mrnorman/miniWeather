@@ -24,6 +24,7 @@ constexpr double rd        = 287.;                              //Dry air consta
 constexpr double p0        = 1.e5;                              //Standard pressure at the surface in Pascals
 constexpr double C0        = 27.5629410929725921310572974482;   //Constant to translate potential temperature into pressure (P=C0*(rho*theta)**gamma)
 constexpr double gamm      = 1.40027894002789400278940027894;   //gamma=cp/Rd , have to call this gamm because "gamma" is taken (I hate C so much)
+
 //Define domain and stability-related constants
 constexpr double xlen      = 2.e4;    //Length of the domain in the x-direction (meters)
 constexpr double zlen      = 1.e4;    //Length of the domain in the z-direction (meters)
@@ -134,6 +135,11 @@ int main(int argc, char **argv) {
 
   init( &argc , &argv );
 
+#pragma acc data copyin(state_tmp[0:(nz+2*hs)*(nx+2*hs)*NUM_VARS],hy_dens_cell[0:nz+2*hs],hy_dens_theta_cell[0:nz+2*hs],hy_dens_int[0:nz+1],hy_dens_theta_int[0:nz+1],hy_pressure_int[0:nz+1]) \
+        create(flux[0:(nz+1)*(nx+1)*NUM_VARS],tend[0:nz*nx*NUM_VARS],sendbuf_l[0:hs*nz*NUM_VARS],sendbuf_r[0:hs*nz*NUM_VARS],recvbuf_l[0:hs*nz*NUM_VARS],recvbuf_r[0:hs*nz*NUM_VARS]) \
+        copy(state[0:(nz+2*hs)*(nx+2*hs)*NUM_VARS])
+{        
+
   //Initial reductions for mass, kinetic energy, and total energy
   reductions(mass0,te0);
 
@@ -143,6 +149,7 @@ int main(int argc, char **argv) {
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
   ////////////////////////////////////////////////////
+#pragma acc wait
   auto t1 = std::chrono::steady_clock::now();
   while (etime < sim_time) {
     //If the time step leads to exceeding the simulation time, shorten it for the last step
@@ -162,6 +169,7 @@ int main(int argc, char **argv) {
       output(state,etime);
     }
   }
+#pragma acc wait
   auto t2 = std::chrono::steady_clock::now();
   if (mainproc) {
     std::cout << "CPU Time: " << std::chrono::duration<double>(t2-t1).count() << " sec\n";
@@ -169,6 +177,7 @@ int main(int argc, char **argv) {
 
   //Final reductions for mass, kinetic energy, and total energy
   reductions(mass,te);
+}
 
   if (mainproc) {
     printf( "d_mass: %le\n" , (mass - mass0)/mass0 );
@@ -229,7 +238,7 @@ void semi_discrete_step( double *state_init , double *state_forcing , double *st
   }
 
   //Apply the tendencies to the fluid state
-#pragma omp parallel for private(inds,indt,x,z,x0,z0,xrad,zrad,amp,dist,wpert,indw) collapse(3)
+#pragma acc parallel loop collapse(3) default(present) async
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -276,7 +285,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dx / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
+#pragma acc parallel loop collapse(2) private(stencil,vals,d3_vals) default(present) async
   for (k=0; k<nz; k++) {
     for (i=0; i<nx+1; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -307,7 +316,7 @@ void compute_tendencies_x( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp parallel for private(indt,indf1,indf2) collapse(3)
+#pragma acc parallel loop collapse(3) default(present) async
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -331,7 +340,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   //Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dz / (16*dt);
   //Compute fluxes in the x-direction for each cell
-#pragma omp parallel for private(inds,stencil,vals,d3_vals,r,u,w,t,p,ll,s) collapse(2)
+#pragma acc parallel loop collapse(2) private(stencil,vals,d3_vals) default(present) async
   for (k=0; k<nz+1; k++) {
     for (i=0; i<nx; i++) {
       //Use fourth-order interpolation from four cell averages to compute the value at the interface in question
@@ -367,7 +376,7 @@ void compute_tendencies_z( double *state , double *flux , double *tend , double 
   }
 
   //Use the fluxes to compute tendencies for each cell
-#pragma omp parallel for private(indt,indf1,indf2,inds) collapse(3)
+#pragma acc parallel loop collapse(3) default(present) async
   for (ll=0; ll<NUM_VARS; ll++) {
     for (k=0; k<nz; k++) {
       for (i=0; i<nx; i++) {
@@ -392,7 +401,7 @@ void set_halo_values_x( double *state ) {
 
   if (nranks == 1) {
 
-#pragma omp parallel for collapse(2)
+#pragma acc parallel loop collapse(2) default(present) async
     for (ll=0; ll<NUM_VARS; ll++) {
       for (k=0; k<nz; k++) {
         state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + 0      ] = state[ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + nx+hs-2];
@@ -411,7 +420,7 @@ void set_halo_values_x( double *state ) {
     ierr = MPI_Irecv(recvbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,1,MPI_COMM_WORLD,&req_r[1]);
 
     //Pack the send buffers
-#pragma omp parallel for collapse(3)
+#pragma acc parallel loop collapse(3) default(present) async
     for (ll=0; ll<NUM_VARS; ll++) {
       for (k=0; k<nz; k++) {
         for (s=0; s<hs; s++) {
@@ -421,6 +430,9 @@ void set_halo_values_x( double *state ) {
       }
     }
 
+#pragma acc update host(sendbuf_l[0:nz*hs*NUM_VARS],sendbuf_r[0:nz*hs*NUM_VARS]) async
+#pragma acc wait
+
     //Fire off the sends
     ierr = MPI_Isend(sendbuf_l,hs*nz*NUM_VARS,MPI_DOUBLE, left_rank,1,MPI_COMM_WORLD,&req_s[0]);
     ierr = MPI_Isend(sendbuf_r,hs*nz*NUM_VARS,MPI_DOUBLE,right_rank,0,MPI_COMM_WORLD,&req_s[1]);
@@ -428,8 +440,10 @@ void set_halo_values_x( double *state ) {
     //Wait for receives to finish
     ierr = MPI_Waitall(2,req_r,MPI_STATUSES_IGNORE);
 
+#pragma acc update device(recvbuf_l[0:nz*hs*NUM_VARS],recvbuf_r[0:nz*hs*NUM_VARS]) async
+
     //Unpack the receive buffers
-#pragma omp parallel for collapse(3)
+#pragma acc parallel loop collapse(3) default(present) async
     for (ll=0; ll<NUM_VARS; ll++) {
       for (k=0; k<nz; k++) {
         for (s=0; s<hs; s++) {
@@ -445,11 +459,11 @@ void set_halo_values_x( double *state ) {
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-#pragma omp parallel for private(z,ind_r,ind_u,ind_t) collapse(2)
+#pragma acc parallel loop collapse(2) default(present) async
       for (k=0; k<nz; k++) {
         for (i=0; i<hs; i++) {
           z = (k_beg + k+0.5)*dz;
-          if (fabs(z-3*zlen/4) <= zlen/16) {
+          if (abs(z-3*zlen/4) <= zlen/16) {
             ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
             ind_u = ID_UMOM*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
             ind_t = ID_RHOT*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i;
@@ -467,7 +481,7 @@ void set_halo_values_x( double *state ) {
 //decomposition in the vertical direction
 void set_halo_values_z( double *state ) {
   int          i, ll;
-#pragma omp parallel for collapse(2)
+#pragma acc parallel loop collapse(2) default(present) async
   for (ll=0; ll<NUM_VARS; ll++) {
     for (i=0; i<nx+2*hs; i++) {
       if (ll == ID_WMOM) {
@@ -553,7 +567,6 @@ void init( int *argc , char ***argv ) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-#pragma omp parallel for private(ll,kk,ii,inds,x,z,r,u,w,t,hr,ht) collapse(2)
   for (k=0; k<nz+2*hs; k++) {
     for (i=0; i<nx+2*hs; i++) {
       //Initialize the state to zero
@@ -593,7 +606,6 @@ void init( int *argc , char ***argv ) {
     }
   }
   //Compute the hydrostatic background state over vertical cell averages
-#pragma omp parallel for private(kk,z,r,u,w,t,hr,ht)
   for (k=0; k<nz+2*hs; k++) {
     hy_dens_cell      [k] = 0.;
     hy_dens_theta_cell[k] = 0.;
@@ -610,7 +622,6 @@ void init( int *argc , char ***argv ) {
     }
   }
   //Compute the hydrostatic background state at vertical cell interfaces
-#pragma omp parallel for private(z,r,u,w,t,hr,ht)
   for (k=0; k<nz+1; k++) {
     z = (k_beg + k)*dz;
     if (data_spec_int == DATA_SPEC_COLLISION      ) { collision      (0.,z,r,u,w,t,hr,ht); }
@@ -751,6 +762,8 @@ void output( double *state , double etime ) {
   //Temporary arrays to hold density, u-wind, w-wind, and potential temperature (theta)
   double *dens, *uwnd, *wwnd, *theta;
   double *etimearr;
+#pragma acc update host(state[0:(nz+2*hs)*(nx+2*hs)*NUM_VARS]) async
+#pragma acc wait
   //Inform the user
   if (mainproc) { printf("*** OUTPUT ***\n"); }
   //Allocate some (big) temp arrays
@@ -790,7 +803,6 @@ void output( double *state , double etime ) {
   }
 
   //Store perturbed values in the temp arrays for output
-#pragma omp parallel for private(ind_r,ind_u,ind_w,ind_t) collapse(2)
   for (k=0; k<nz; k++) {
     for (i=0; i<nx; i++) {
       ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
@@ -872,7 +884,7 @@ void finalize() {
 void reductions( double &mass , double &te ) {
   double mass_loc = 0;
   double te_loc   = 0;
-  #pragma omp parallel for reduction(+:mass_loc,te_loc)
+  #pragma acc parallel loop collapse(2) reduction(+:mass_loc,te_loc) default(present)
   for (int k=0; k<nz; k++) {
     for (int i=0; i<nx; i++) {
       int ind_r = ID_DENS*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
