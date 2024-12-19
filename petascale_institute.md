@@ -234,7 +234,7 @@ aprun -n 1 nvprof --profile-child-processes --print-gpu-summary ./miniWeather_mp
 The PGI compiler allows you to use Managed Memory instead of explicit data statements via the `-ta=nvidia,managed` flag. Try editing the Makefile to use Managed Memory, and see how the performance of the code changes. To do this, change the `ACCFLAGS` in `Makefile.bw` to:
 
 ```
-ACCFLAGS := -ta=tesla,pinned,cc35,managed,ptxinfo -Minfo=accel 
+ACCFLAGS := -ta=tesla,pinned,cc35,managed,ptxinfo -Minfo=accel
 ```
 
 ### Debugging with PGI's PCAST
@@ -242,7 +242,7 @@ ACCFLAGS := -ta=tesla,pinned,cc35,managed,ptxinfo -Minfo=accel
 The PGI compiler also has a neat tool called PCAST, which automatically compares variables from redundatly executed CPU and GPU versions of the OpenACC code every time you move data from GPU memory to CPU memory (e.g., `update host(...)` or `copyout(...)` or the end of a block that has `copy(...)`). You can also control the size of the absolute or relative differences that will trigger terminal output. Change your `ACCFLAGS` in `Makefile.bw` to:
 
 ```
-ACCFLAGS := -ta=tesla,pinned,cc35,autocompare,ptxinfo -Minfo=accel 
+ACCFLAGS := -ta=tesla,pinned,cc35,autocompare,ptxinfo -Minfo=accel
 ```
 
 And recompile the code. For more options regarding the PCAST tool, see: https://www.pgroup.com/blogs/posts/pcast.htm
@@ -269,7 +269,7 @@ Then, add the `-g` option to the `CFLAGS` in `Makefile.bw` so that valgrind can 
 aprun -n 1 valgrind ./miniWeather_mpi
 ```
 
-to see if you're committing any memory sins in your code. Keep in mind, this is for CPU code, not GPU code. In fact, with PGI 18.7, you'll find what appears to be a compiler bug in the C version, where valgrind complains about invalid reads in the main time stepping loop with the PGI compiler but does not with the GNU compiler. 
+to see if you're committing any memory sins in your code. Keep in mind, this is for CPU code, not GPU code. In fact, with PGI 18.7, you'll find what appears to be a compiler bug in the C version, where valgrind complains about invalid reads in the main time stepping loop with the PGI compiler but does not with the GNU compiler.
 
 ## Other Resources
 

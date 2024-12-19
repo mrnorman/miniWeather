@@ -73,10 +73,10 @@ endif()
 SET(EXE_DEFS "-D_NX=${NX} -D_NZ=${NZ} -D_SIM_TIME=${SIM_TIME} -D_OUT_FREQ=${OUT_FREQ} -D_DATA_SPEC=${DATA_SPEC}")
 SET(TEST_DEFS "-D_NX=100 -D_NZ=50 -D_SIM_TIME=400 -D_OUT_FREQ=400 -D_DATA_SPEC=DATA_SPEC_THERMAL")
 
-if ( ("${YAKL_CXX_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
-     ("${YAKL_CUDA_FLAGS}"   MATCHES ".*SINGLE_PREC.*") OR 
-     ("${YAKL_HIP_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR 
-     ("${YAKL_OPENMP_FLAGS}" MATCHES ".*SINGLE_PREC.*") OR 
+if ( ("${YAKL_CXX_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR
+     ("${YAKL_CUDA_FLAGS}"   MATCHES ".*SINGLE_PREC.*") OR
+     ("${YAKL_HIP_FLAGS}"    MATCHES ".*SINGLE_PREC.*") OR
+     ("${YAKL_OPENMP_FLAGS}" MATCHES ".*SINGLE_PREC.*") OR
      ("${YAKL_SYCL_FLAGS}"   MATCHES ".*SINGLE_PREC.*") )
   message(STATUS "Using single precision")
 else()
@@ -102,8 +102,8 @@ foreach(VARIANT ${VARIANTS})
   #add_executable(${BIN_TEST_NAME} ${SRC_NAME})
   #set_target_properties(${BIN_TEST_NAME} PROPERTIES COMPILE_FLAGS ${TEST_DEFS})
   #target_link_libraries(${BIN_TEST_NAME} PUBLIC ${PUBLIC_DEPS})
-  
+
   #Check
-  add_test(NAME ${BIN_TEST_NAME} COMMAND ./scripts/check_output.sh ./${BIN_TEST_NAME} 1e-13 4.5e-5 ) 
+  add_test(NAME ${BIN_TEST_NAME} COMMAND ./scripts/check_output.sh ./${BIN_TEST_NAME} 1e-13 4.5e-5 )
 endforeach()
 

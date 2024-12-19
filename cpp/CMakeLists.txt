@@ -90,13 +90,13 @@ foreach(VARIANT ${VARIANTS})
   add_executable(${BIN_NAME} ${SRC_NAME})
   set_target_properties(${BIN_NAME} PROPERTIES COMPILE_FLAGS ${EXE_DEFS})
   target_link_libraries(${BIN_NAME} PUBLIC ${PUBLIC_DEPS})
-  
+
   #Test
   add_executable(${BIN_TEST_NAME} ${SRC_NAME})
   set_target_properties(${BIN_TEST_NAME} PROPERTIES COMPILE_FLAGS ${TEST_DEFS})
   target_link_libraries(${BIN_TEST_NAME} PUBLIC ${PUBLIC_DEPS})
-  
+
   #check_output
-  add_test(NAME ${BIN_TEST_NAME} COMMAND ./scripts/check_output.sh ./${BIN_TEST_NAME} 1e-13 4.5e-5 ) 
+  add_test(NAME ${BIN_TEST_NAME} COMMAND ./scripts/check_output.sh ./${BIN_TEST_NAME} 1e-13 4.5e-5 )
 endforeach()
 
