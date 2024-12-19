@@ -13,7 +13,7 @@ CLANG_FORMAT_VERSION="$(${CLANG_FORMAT_EXECUTABLE} --version)"
 CLANG_FORMAT_MAJOR_VERSION=$(echo "${CLANG_FORMAT_VERSION}" | sed 's/^[^0-9]*\([0-9]*\).*$/\1/g')
 CLANG_FORMAT_MINOR_VERSION=$(echo "${CLANG_FORMAT_VERSION}" | sed 's/^[^0-9]*[0-9]*\.\([0-9]*\).*$/\1/g')
 
-if [ "${CLANG_FORMAT_MAJOR_VERSION}" -ne 16 ] || [ "${CLANG_FORMAT_MINOR_VERSION}" -ne 0 ]; then
+if [ "${CLANG_FORMAT_MAJOR_VERSION}" -le 16 ]; then
   echo "***   This indent script requires clang-format version 16.0,"
   echo "***   but version ${CLANG_FORMAT_MAJOR_VERSION}.${CLANG_FORMAT_MINOR_VERSION} was found instead."
   exit 1
@@ -21,8 +21,8 @@ fi
 
 BASE_DIR="$(git rev-parse --show-toplevel)"
 cd $BASE_DIR
-if [ ! -f "scripts/apply-clang-format" ]; then
-  echo "***   The indenting script must be executed from within the Kokkos clone!"
+if [ ! -f "common/apply-clang-format" ]; then
+  echo "***   The indenting script must be executed from within the project clone!"
   exit 1
 fi
 
