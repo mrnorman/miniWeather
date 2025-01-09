@@ -562,8 +562,8 @@ void init(exec_place& where, context& ctx, state_t& state, state_t& state_tmp, b
     double qweights[3] = { 0.277777777777777777777777777779E0, 0.444444444444444444444444444444E0,
         0.277777777777777777777777777779E0 };
 
-    auto lqweights = ctx.logical_data(qpoints);
-    auto lqpoints = ctx.logical_data(qweights);
+    auto lqweights = ctx.logical_data(qweights);
+    auto lqpoints = ctx.logical_data(qpoints);
 
     auto dx_ = dx;
     auto dz_ = dz;
