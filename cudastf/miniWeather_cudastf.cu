@@ -120,6 +120,18 @@ struct boundaries_t {
     logical_data<slice<double>> lhy_dens_int;         // hydrostatic density (vert cell interf). Dimensions: (1:nz+1)
     logical_data<slice<double>> lhy_dens_theta_int;   // hydrostatic rho*t (vert cell interf).   Dimensions: (1:nz+1)
     logical_data<slice<double>> lhy_pressure_int;     // hydrostatic press (vert cell interf).   Dimensions: (1:nz+1)
+
+    frozen_logical_data<slice<double>> flhy_dens_cell;
+    frozen_logical_data<slice<double>> flhy_dens_theta_cell;
+    frozen_logical_data<slice<double>> flhy_dens_int;
+    frozen_logical_data<slice<double>> flhy_dens_theta_int;
+    frozen_logical_data<slice<double>> flhy_pressure_int;
+
+    slice<double> hy_dens_cell;
+    slice<double> hy_dens_theta_cell;
+    slice<double> hy_dens_int;
+    slice<double> hy_dens_theta_int;
+    slice<double> hy_pressure_int;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -340,6 +352,8 @@ void compute_tendencies_x(exec_place& where, context& ctx, state_t& state, tend_
     //  double *flux = (double *)malloc((nx + 1) * (nz + 1) * NUM_VARS * sizeof(double));
 
     double dx_ = dx;
+    auto hy_dens_cell = b.hy_dens_cell;
+    auto hy_dens_theta_cell = b.hy_dens_theta_cell;
 
     auto lflux = ctx.logical_data<double>(nx + 1, nz, NUM_VARS);
     lflux.set_symbol("flux_x");
@@ -348,12 +362,11 @@ void compute_tendencies_x(exec_place& where, context& ctx, state_t& state, tend_
     // Compute the hyperviscosity coeficient
     double hv_coef = -hv_beta * dx / (16 * dt);
     // Compute fluxes in the x-direction for each cell
-    ctx.parallel_for(policy(), where, box(nx + 1, nz), state.l.read(), lflux.write(), b.lhy_dens_cell.read(),
-               b.lhy_dens_theta_cell.read())
+    ctx.parallel_for(policy(), where, box(nx + 1, nz), state.l.read(), lflux.write())
                     .set_symbol("comp_tend_x")
                     ->*
-            [=] __host__ __device__(size_t i, size_t k, slice<double, 3> dstate, slice<double, 3> dflux,
-                    slice<double> hy_dens_cell, slice<double> hy_dens_theta_cell) {
+            [=] __host__ __device__(size_t i, size_t k, slice<double, 3> dstate, slice<double, 3> dflux)
+                    {
                 double d3_vals[NUM_VARS], vals[NUM_VARS];
                 // Use fourth-order interpolation from four cell averages to compute the value at the interface in
                 // question
@@ -407,12 +420,14 @@ void compute_tendencies_z(exec_place& where, context& ctx, state_t& state, tend_
     double hv_coef = -hv_beta * dx / (16 * dt);
     // Compute fluxes in the x-direction for each cell
 
-    ctx.parallel_for(policy(), where, box(nx, nz + 1), state.l.read(), lflux.write(), b.lhy_dens_int.read(),
-               b.lhy_dens_theta_int.read(), b.lhy_pressure_int.read())
+    auto hy_dens_int = b.hy_dens_int;
+    auto hy_dens_theta_int = b.hy_dens_theta_int;
+    auto hy_pressure_int = b.hy_pressure_int;
+
+    ctx.parallel_for(policy(), where, box(nx, nz + 1), state.l.read(), lflux.write())
                     .set_symbol("comp_tend_z")
                     ->*
-            [=] __host__ __device__(size_t i, size_t k, slice<double, 3> dstate, slice<double, 3> dflux,
-                    slice<double> hy_dens_int, slice<double> hy_dens_theta_int, slice<double> hy_pressure_int) {
+            [=] __host__ __device__(size_t i, size_t k, slice<double, 3> dstate, slice<double, 3> dflux) {
                 double d3_vals[NUM_VARS], vals[NUM_VARS];
                 // Use fourth-order interpolation from four cell averages to compute the value at the interface in
                 // question
@@ -461,6 +476,9 @@ void set_halo_values_x(exec_place& where, context& ctx, state_t& state, boundari
     int nx_ = nx;
     int k_beg_ = k_beg;
 
+    auto hy_dens_theta_cell = b.hy_dens_theta_cell;
+    auto hy_dens_cell = b.hy_dens_cell;
+
     ctx.parallel_for(policy(), where, box(nz, NUM_VARS), state.l.rw()).set_symbol("set halo x")
                     ->*[=] __host__ __device__(size_t k, size_t ll, slice<double, 3> dstate) {
                             dstate(0, k + hs, ll) = dstate(nx_ + hs - 2, k + hs, ll);
@@ -471,11 +489,10 @@ void set_halo_values_x(exec_place& where, context& ctx, state_t& state, boundari
 
     if (myrank == 0) {
         ctx.parallel_for(
-                   policy(), where, box(nz, hs), state.l.rw(), b.lhy_dens_cell.read(), b.lhy_dens_theta_cell.read())
+                   policy(), where, box(nz, hs), state.l.rw())
                         .set_symbol("set halo x(2)")
                         ->*
-                [=] __host__ __device__(size_t k, size_t i, slice<double, 3> dstate, slice<double> hy_dens_cell,
-                        slice<double> hy_dens_theta_cell) {
+                [=] __host__ __device__(size_t k, size_t i, slice<double, 3> dstate) {
                     double z = ((double) k_beg_ + (double) k + 0.5) * dz_;
                     if (fabs(z - 3.0 * zlen / 4.0) <= zlen / 16.0) {
                         dstate(i, k + hs, ID_UMOM) = (dstate(i, k + hs, ID_DENS) + hy_dens_cell(k + hs)) * 50.;
@@ -643,6 +660,31 @@ void init(exec_place& where, context& ctx, state_t& state, state_t& state_tmp, b
                             hy_dens_theta_int(k) = hr * ht;
                             hy_pressure_int(k) = C0 * pow((hr * ht), gamm);
                         };
+
+    b.flhy_dens_cell = ctx.freeze(b.lhy_dens_cell);
+    b.flhy_dens_theta_cell =  ctx.freeze(b.lhy_dens_theta_cell);
+    b.flhy_dens_int = ctx.freeze(b.lhy_dens_int);
+    b.flhy_dens_theta_int = ctx.freeze(b.lhy_dens_theta_int);
+    b.flhy_pressure_int = ctx.freeze(b.lhy_pressure_int);
+
+    b.flhy_dens_cell.set_automatic_unfreeze();
+    b.flhy_dens_theta_cell.set_automatic_unfreeze();
+    b.flhy_dens_int.set_automatic_unfreeze();
+    b.flhy_dens_theta_int.set_automatic_unfreeze();
+    b.flhy_pressure_int.set_automatic_unfreeze();
+
+    auto dplace = where.is_grid()?
+                      data_place::composite(policy(), where.as_grid())
+                      :where.affine_data_place();
+
+    b.hy_dens_cell = b.flhy_dens_cell.get(dplace).first;
+    b.hy_dens_theta_cell = b.flhy_dens_theta_cell.get(dplace).first;
+    b.hy_dens_int = b.flhy_dens_int.get(dplace).first;
+    b.hy_dens_theta_int = b.flhy_dens_theta_int.get(dplace).first;
+    b.hy_pressure_int = b.flhy_pressure_int.get(dplace).first;
+
+    // Ensure get operations are completed
+    cuda_safe_call(cudaStreamSynchronize(ctx.task_fence()));
 }
 
 // This test case is initially balanced but injects fast, cold air from the left boundary near the model top
@@ -678,8 +720,11 @@ __host__ __device__ void hydro_const_theta(double z, double& r, double& t) {
 // The file I/O uses netcdf, the only external library required for this mini-app.
 // If it's too cumbersome, you can comment the I/O out, but you'll miss out on some potentially cool graphics
 void output(context& ctx, state_t& state, boundaries_t& b, double etime) {
-    ctx.host_launch(state.l.read(), b.lhy_dens_cell.read(), b.lhy_dens_theta_cell.read())
-                    ->*[=](slice<double, 3> hstate, slice<double> hy_dens_cell, slice<double> hy_dens_theta_cell) {
+    auto hy_dens_cell = b.hy_dens_cell;
+    auto hy_dens_theta_cell = b.hy_dens_theta_cell;
+
+    ctx.host_launch(state.l.read())
+                    ->*[=](slice<double, 3> hstate) {
                             int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid, theta_varid,
                                     t_varid, dimids[3];
                             int i, k;
