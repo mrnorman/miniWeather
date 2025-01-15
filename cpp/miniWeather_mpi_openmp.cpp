@@ -32,6 +32,7 @@ constexpr double gamm =
     1.40027894002789400278940027894; // gamma=cp/Rd , have to call this gamm
                                      // because "gamma" is taken (I hate C so
                                      // much)
+
 // Define domain and stability-related constants
 constexpr double xlen = 2.e4; // Length of the domain in the x-direction
                               // (meters)
@@ -127,6 +128,10 @@ double *state_tmp; // Fluid state.             Dimensions:
                    // (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
 double *flux;      // Cell interface fluxes.   Dimensions: (nx+1,nz+1,NUM_VARS)
 double *tend;      // Fluid state tendencies.  Dimensions: (nx,nz,NUM_VARS)
+double *sendbuf_l; // Buffer to send data to the left MPI rank
+double *sendbuf_r; // Buffer to send data to the right MPI rank
+double *recvbuf_l; // Buffer to receive data from the left MPI rank
+double *recvbuf_r; // Buffer to receive data from the right MPI rank
 int num_out = 0;   // The number of outputs performed so far
 int direction_switch = 1;
 double mass0, te0; // Initial domain totals for mass and total energy
@@ -182,7 +187,8 @@ int main(int argc, char **argv) {
   reductions(mass0, te0);
 
   // Output the initial state
-  output(state, etime);
+  if (output_freq >= 0)
+    output(state, etime);
 
   ////////////////////////////////////////////////////
   // MAIN TIME STEP LOOP
@@ -206,7 +212,7 @@ int main(int argc, char **argv) {
     etime = etime + dt;
     output_counter = output_counter + dt;
     // If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) {
+    if (output_freq >= 0 && output_counter >= output_freq) {
       output_counter = output_counter - output_freq;
       output(state, etime);
     }
@@ -285,10 +291,9 @@ void semi_discrete_step(double *state_init, double *state_forcing,
     compute_tendencies_z(state_forcing, flux, tend, dt);
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Apply the tendencies to the fluid state
+#pragma omp parallel for private(inds, indt, x, z, x0, z0, xrad, zrad, amp,    \
+                                     dist, wpert, indw) collapse(3)
   for (ll = 0; ll < NUM_VARS; ll++) {
     for (k = 0; k < nz; k++) {
       for (i = 0; i < nx; i++) {
@@ -340,10 +345,9 @@ void compute_tendencies_x(double *state, double *flux, double *tend,
   double r, u, w, t, p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
   // Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dx / (16 * dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Compute fluxes in the x-direction for each cell
+#pragma omp parallel for private(inds, stencil, vals, d3_vals, r, u, w, t, p,  \
+                                     ll, s) collapse(2)
   for (k = 0; k < nz; k++) {
     for (i = 0; i < nx + 1; i++) {
       // Use fourth-order interpolation from four cell averages to compute the
@@ -383,10 +387,8 @@ void compute_tendencies_x(double *state, double *flux, double *tend,
     }
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Use the fluxes to compute tendencies for each cell
+#pragma omp parallel for private(indt, indf1, indf2) collapse(3)
   for (ll = 0; ll < NUM_VARS; ll++) {
     for (k = 0; k < nz; k++) {
       for (i = 0; i < nx; i++) {
@@ -410,10 +412,9 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
   double r, u, w, t, p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
   // Compute the hyperviscosity coefficient
   hv_coef = -hv_beta * dz / (16 * dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Compute fluxes in the x-direction for each cell
+#pragma omp parallel for private(inds, stencil, vals, d3_vals, r, u, w, t, p,  \
+                                     ll, s) collapse(2)
   for (k = 0; k < nz + 1; k++) {
     for (i = 0; i < nx; i++) {
       // Use fourth-order interpolation from four cell averages to compute the
@@ -458,10 +459,8 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
     }
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Use the fluxes to compute tendencies for each cell
+#pragma omp parallel for private(indt, indf1, indf2, inds) collapse(3)
   for (ll = 0; ll < NUM_VARS; ll++) {
     for (k = 0; k < nz; k++) {
       for (i = 0; i < nx; i++) {
@@ -482,39 +481,83 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
 // Set this MPI task's halo values in the x-direction. This routine will require
 // MPI
 void set_halo_values_x(double *state) {
-  int k, ll, ind_r, ind_u, ind_t, i;
+  int k, ll, ind_r, ind_u, ind_t, i, s, ierr;
   double z;
-  ////////////////////////////////////////////////////////////////////////
-  // TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
-  // (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
-  // (2) receive state(1-hs:0,1:nz,1:NUM_VARS)     from my left  neighbor
-  // (3) give    state(nx-hs+1:nx,1:nz,1:NUM_VARS) to   my right neighbor
-  // (4) receive state(nx+1:nx+hs,1:nz,1:NUM_VARS) from my right neighbor
-  ////////////////////////////////////////////////////////////////////////
 
-  //////////////////////////////////////////////////////
-  // DELETE THE SERIAL CODE BELOW AND REPLACE WITH MPI
-  //////////////////////////////////////////////////////
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (k = 0; k < nz; k++) {
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + 0] =
-          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-                nx + hs - 2];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + 1] =
-          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-                nx + hs - 1];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + nx +
-            hs] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
-                        (k + hs) * (nx + 2 * hs) + hs];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + nx +
-            hs + 1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
-                            (k + hs) * (nx + 2 * hs) + hs + 1];
+  if (nranks == 1) {
+
+#pragma omp parallel for collapse(2)
+    for (ll = 0; ll < NUM_VARS; ll++) {
+      for (k = 0; k < nz; k++) {
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              0] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                         (k + hs) * (nx + 2 * hs) + nx + hs - 2];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                         (k + hs) * (nx + 2 * hs) + nx + hs - 1];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              nx + hs] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                               (k + hs) * (nx + 2 * hs) + hs];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              nx + hs + 1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                                   (k + hs) * (nx + 2 * hs) + hs + 1];
+      }
     }
+
+  } else {
+
+    MPI_Request req_r[2], req_s[2];
+
+    // Prepost receives
+    ierr = MPI_Irecv(recvbuf_l, hs * nz * NUM_VARS, MPI_DOUBLE, left_rank, 0,
+                     MPI_COMM_WORLD, &req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r, hs * nz * NUM_VARS, MPI_DOUBLE, right_rank, 1,
+                     MPI_COMM_WORLD, &req_r[1]);
+
+    // Pack the send buffers
+#pragma omp parallel for collapse(3)
+    for (ll = 0; ll < NUM_VARS; ll++) {
+      for (k = 0; k < nz; k++) {
+        for (s = 0; s < hs; s++) {
+          sendbuf_l[ll * nz * hs + k * hs + s] =
+              state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                    (k + hs) * (nx + 2 * hs) + hs + s];
+          sendbuf_r[ll * nz * hs + k * hs + s] =
+              state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                    (k + hs) * (nx + 2 * hs) + nx + s];
+        }
+      }
+    }
+
+    // Fire off the sends
+    ierr = MPI_Isend(sendbuf_l, hs * nz * NUM_VARS, MPI_DOUBLE, left_rank, 1,
+                     MPI_COMM_WORLD, &req_s[0]);
+    ierr = MPI_Isend(sendbuf_r, hs * nz * NUM_VARS, MPI_DOUBLE, right_rank, 0,
+                     MPI_COMM_WORLD, &req_s[1]);
+
+    // Wait for receives to finish
+    ierr = MPI_Waitall(2, req_r, MPI_STATUSES_IGNORE);
+
+    // Unpack the receive buffers
+#pragma omp parallel for collapse(3)
+    for (ll = 0; ll < NUM_VARS; ll++) {
+      for (k = 0; k < nz; k++) {
+        for (s = 0; s < hs; s++) {
+          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+                s] = recvbuf_l[ll * nz * hs + k * hs + s];
+          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+                nx + hs + s] = recvbuf_r[ll * nz * hs + k * hs + s];
+        }
+      }
+    }
+
+    // Wait for sends to finish
+    ierr = MPI_Waitall(2, req_s, MPI_STATUSES_IGNORE);
   }
-  ////////////////////////////////////////////////////
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
+#pragma omp parallel for private(z, ind_r, ind_u, ind_t) collapse(2)
       for (k = 0; k < nz; k++) {
         for (i = 0; i < hs; i++) {
           z = (k_beg + k + 0.5) * dz;
@@ -539,11 +582,7 @@ void set_halo_values_x(double *state) {
 // because there is no MPI decomposition in the vertical direction
 void set_halo_values_z(double *state) {
   int i, ll;
-  const double mnt_width = xlen / 8;
-  double x, xloc, mnt_deriv;
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
+#pragma omp parallel for collapse(2)
   for (ll = 0; ll < NUM_VARS; ll++) {
     for (i = 0; i < nx + 2 * hs; i++) {
       if (ll == ID_WMOM) {
@@ -593,28 +632,23 @@ void set_halo_values_z(double *state) {
 }
 
 void init(int *argc, char ***argv) {
-  int i, k, ii, kk, ll, ierr, inds;
-  double x, z, r, u, w, t, hr, ht;
+  int i, k, ii, kk, ll, ierr, inds, i_end;
+  double x, z, r, u, w, t, hr, ht, nper;
 
   ierr = MPI_Init(argc, argv);
 
-  /////////////////////////////////////////////////////////////
-  // BEGIN MPI DUMMY SECTION
-  // TODO: (1) GET NUMBER OF MPI RANKS
-  //       (2) GET MY MPI RANK ID (RANKS ARE ZERO-BASED INDEX)
-  //       (3) COMPUTE MY BEGINNING "I" INDEX (1-based index)
-  //       (4) COMPUTE HOW MANY X-DIRECTION CELLS MY RANK HAS
-  //       (5) FIND MY LEFT AND RIGHT NEIGHBORING RANK IDs
-  /////////////////////////////////////////////////////////////
-  nranks = 1;
-  myrank = 0;
-  i_beg = 0;
-  nx = nx_glob;
-  left_rank = 0;
-  right_rank = 0;
-  //////////////////////////////////////////////
-  // END MPI DUMMY SECTION
-  //////////////////////////////////////////////
+  ierr = MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  nper = ((double)nx_glob) / nranks;
+  i_beg = round(nper * (myrank));
+  i_end = round(nper * ((myrank) + 1)) - 1;
+  nx = i_end - i_beg + 1;
+  left_rank = myrank - 1;
+  if (left_rank == -1)
+    left_rank = nranks - 1;
+  right_rank = myrank + 1;
+  if (right_rank == nranks)
+    right_rank = 0;
 
   ////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////
@@ -640,6 +674,10 @@ void init(int *argc, char ***argv) {
   hy_dens_int = (double *)malloc((nz + 1) * sizeof(double));
   hy_dens_theta_int = (double *)malloc((nz + 1) * sizeof(double));
   hy_pressure_int = (double *)malloc((nz + 1) * sizeof(double));
+  sendbuf_l = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  sendbuf_r = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  recvbuf_l = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  recvbuf_r = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
 
   // Define the maximum stable time step based on an assumed maximum wind speed
   dt = dmin(dx, dz) / max_speed * cfl;
@@ -659,6 +697,8 @@ void init(int *argc, char ***argv) {
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
+#pragma omp parallel for private(ll, kk, ii, inds, x, z, r, u, w, t, hr, ht)   \
+    collapse(2)
   for (k = 0; k < nz + 2 * hs; k++) {
     for (i = 0; i < nx + 2 * hs; i++) {
       // Initialize the state to zero
@@ -717,6 +757,7 @@ void init(int *argc, char ***argv) {
     }
   }
   // Compute the hydrostatic background state over vertical cell averages
+#pragma omp parallel for private(kk, z, r, u, w, t, hr, ht)
   for (k = 0; k < nz + 2 * hs; k++) {
     hy_dens_cell[k] = 0.;
     hy_dens_theta_cell[k] = 0.;
@@ -743,6 +784,7 @@ void init(int *argc, char ***argv) {
     }
   }
   // Compute the hydrostatic background state at vertical cell interfaces
+#pragma omp parallel for private(z, r, u, w, t, hr, ht)
   for (k = 0; k < nz + 1; k++) {
     z = (k_beg + k) * dz;
     if (data_spec_int == DATA_SPEC_COLLISION) {
@@ -955,6 +997,7 @@ void output(double *state, double etime) {
   }
 
   // Store perturbed values in the temp arrays for output
+#pragma omp parallel for private(ind_r, ind_u, ind_w, ind_t) collapse(2)
   for (k = 0; k < nz; k++) {
     for (i = 0; i < nx; i++) {
       ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
@@ -1034,14 +1077,19 @@ void finalize() {
   free(hy_dens_int);
   free(hy_dens_theta_int);
   free(hy_pressure_int);
+  free(sendbuf_l);
+  free(sendbuf_r);
+  free(recvbuf_l);
+  free(recvbuf_r);
   ierr = MPI_Finalize();
 }
 
 // Compute reduced quantities for error checking without resorting to the
 // "ncdiff" tool
 void reductions(double &mass, double &te) {
-  mass = 0;
-  te = 0;
+  double mass_loc = 0;
+  double te_loc = 0;
+#pragma omp parallel for reduction(+ : mass_loc, te_loc)
   for (int k = 0; k < nz; k++) {
     for (int i = 0; i < nx; i++) {
       int ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
@@ -1061,13 +1109,13 @@ void reductions(double &mass, double &te) {
       double t = th / pow(p0 / p, rd / cp); // Temperature
       double ke = r * (u * u + w * w);      // Kinetic Energy
       double ie = r * cv * t;               // Internal Energy
-      mass += r * dx * dz;                  // Accumulate domain mass
-      te += (ke + ie) * dx * dz;            // Accumulate domain total energy
+      mass_loc += r * dx * dz;              // Accumulate domain mass
+      te_loc += (ke + ie) * dx * dz;        // Accumulate domain total energy
     }
   }
   double glob[2], loc[2];
-  loc[0] = mass;
-  loc[1] = te;
+  loc[0] = mass_loc;
+  loc[1] = te_loc;
   int ierr = MPI_Allreduce(loc, glob, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   mass = glob[0];
   te = glob[1];

@@ -13,23 +13,16 @@ DATA_SPEC_INJECTION       := 6
 DATA_SPEC := ${DATA_SPEC_COLLISION}
 #DATA_SPEC := ${DATA_SPEC_THERMAL}
 
-ACCEL_TYPE := fortran_openacc
-ACCOUNT := cli133
-WORK_DIR := ${PROJWORK}/${ACCOUNT}/${USER}/juliawork
-DEBUG_DIR := ${WORK_DIR}
+WORK_DIR := .
+DEBUG_DIR := ./debug
 OUT_FILE  := ${WORK_DIR}/output.nc
 
 JULIA := julia --project=.
 
-SRCDIR :=../..
-JLSRC := ${SRCDIR}/cpu/miniWeather_mpi.jl
+JLSRC := miniWeather_mpi.jl
 
 ARGS := -s ${SIM_TIME} -x ${NX} -z ${NZ} -f ${OUT_FREQ} \
 		-d ${DATA_SPEC} -o ${OUT_FILE}
-
-CC := cc
-CXX := CC
-FC := ftn
 
 INCLUDES := -I${OLCF_PARALLEL_NETCDF_ROOT}/include
 LIBS := -L${OLCF_PARALLEL_NETCDF_ROOT}/lib -lpnetcdf

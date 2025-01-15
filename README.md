@@ -59,7 +59,7 @@ Contributors:
 
 The miniWeather code mimics the basic dynamics seen in atmospheric weather and climate. The dynamics themselves are dry compressible, stratified, non-hydrostatic flows dominated by buoyant forces that are relatively small perturbations on a hydrostatic background state. The equations in this code themselves form the backbone of pretty much all fluid dynamics codes, and this particular flavor forms the base of all weather and climate modeling.
 
-With about 500 total lines of code (and only about 200 lines that you care about), it serves as an approachable place to learn parallelization and porting using MPI + X, where X is OpenMP, OpenACC, CUDA, or potentially other approaches to CPU and accelerated parallelization. The code uses periodic boundary conditions in the x-direction and solid wall boundary conditions in the z-direction. 
+With about 500 total lines of code (and only about 200 lines that you care about), it serves as an approachable place to learn parallelization and porting using MPI + X, where X is OpenMP, OpenACC, CUDA, or potentially other approaches to CPU and accelerated parallelization. The code uses periodic boundary conditions in the x-direction and solid wall boundary conditions in the z-direction.
 
 ## Brief Description of the Code
 
@@ -181,7 +181,7 @@ After the `cmake` configure, type `make -j` to build the code, and type `make te
 
 ### C++
 
-For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel_for`. The latter uses a C++ kernel-launching approach, which is essentially CUDA with greater portability for multiple backends. This code also uses `cmake`, and you can use the summit scripts as examples. 
+For the C++ code, there are three configurations: serial, mpi, and mpi+`parallel_for`. The latter uses a C++ kernel-launching approach, which is essentially CUDA with greater portability for multiple backends. This code also uses `cmake`, and you can use the summit scripts as examples.
 
 ## Altering the Code's Configurations
 
@@ -193,7 +193,7 @@ To alter the configuration of the code, you can control the number of cells in t
 * `-DOUT_FREQ=10`: Outputs every 10 seconds model time
 * `-DDATA_SPEC=DATA_SPEC_THERMAL`: Initializes a rising thermal
 
-It's best if you keep `NX` exactly twice the value of `NZ` since the domain is 20km x 10km. 
+It's best if you keep `NX` exactly twice the value of `NZ` since the domain is 20km x 10km.
 
 The data specifications are `DATA_SPEC_COLLISION`, `DATA_SPEC_THERMAL`, `DATA_SPEC_MOUNTAIN`, `DATA_SPEC_DENSITY_CURRENT`, and `DATA_SPEC_INJECTION`, and each are described later on.
 
@@ -211,13 +211,13 @@ Since parameters are set in the code itself, you don't need to pass any paramete
 
 ## Viewing the Output
 
-The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). To me, the easiest way to view the data is to use a tool called “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). To use it, you can simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session. Further, you can call `ncview -frames output.nc`, and it will dump out all of your frames in the native resolution you're viewing the data in, and you you can render a movie with tools like `ffmpeg`. 
+The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). To me, the easiest way to view the data is to use a tool called “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). To use it, you can simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session. Further, you can call `ncview -frames output.nc`, and it will dump out all of your frames in the native resolution you're viewing the data in, and you you can render a movie with tools like `ffmpeg`.
 
 # Parallelization
 
 This code was designed to parallelize with MPI first and then OpenMP, OpenACC, OpenMP offload, or `parallel_for` next, but you can always parallelize with OpenMP or OpenACC without MPI if you want. But it is rewarding to be able to run it on multiple nodes at higher resolution for more and sharper eddies in the dynamics.
 
-As you port the code, you'll want to change relatively little code at a time, re-compile, re-run, and look at the output to see that you're still getting the right answer. There are advantages to using a visual tool to check the answer (e.g., `ncview`), as it can sometimes give you clues as to why you're not getting the right answer. 
+As you port the code, you'll want to change relatively little code at a time, re-compile, re-run, and look at the output to see that you're still getting the right answer. There are advantages to using a visual tool to check the answer (e.g., `ncview`), as it can sometimes give you clues as to why you're not getting the right answer.
 
 Note that you only need to make changes code within the first 450 source lines for C and Fortran, and each loop that needs threading is decorated with a `// THREAD ME` comment. Everything below that is initialization and I/O code that doesn't need to be parallelized (unless you want to) for C and Fortran directives-based approaches.
 
@@ -257,7 +257,7 @@ The second place is in the routine that sets the halo values in the x-direction.
 
 4. Receive the data from your left and right MPI neighbors
 
-5. Unpack the data from your left and right neighbors and place the data into your MPI rank's halo cells. 
+5. Unpack the data from your left and right neighbors and place the data into your MPI rank's halo cells.
 
 Once you complete this, the code will be fully parallelized in MPI. Both of the places you need to add code for MPI are marked in the serial code, and there are some extra hints in the `set_halo_values_x()` routine as well.
 
@@ -343,7 +343,7 @@ In the C code, you'll need to put in manual `copy()`, `copyin()`, and `copyout()
 #pragma acc data copy( varname[ starting_index : size_of_transfer ] )
 ```
 
-So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:n])`. Many would expect it to look like an array slice (e.g., `(0:n-1)`), but it is not. 
+So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:n])`. Many would expect it to look like an array slice (e.g., `(0:n-1)`), but it is not.
 
 Other than this, the approach is the same as with the Fortran case.
 
@@ -425,7 +425,7 @@ inline void applyTendencies(realArr &state2, real const c0, realArr const &state
     state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
                                c1 * state1(l,hs+k,hs+j,hs+i) +
                                ct * dom.dt * tend(l,k,j,i);
-  }); 
+  });
 }
 ```
 
@@ -463,9 +463,9 @@ realArrHost recvbuf_l_cpu;
 realArrHost recvbuf_r_cpu;
 ```
 
-You'll also need to replace the buffers in `MPI_Isend()` and `MPI_Irecv()` with the CPU versions. 
+You'll also need to replace the buffers in `MPI_Isend()` and `MPI_Irecv()` with the CPU versions.
 
-Next, you need to allocate these in `init()` in a similar manner as the existing MPI buffers, but replacing `realArr` with `realArrHost`. 
+Next, you need to allocate these in `init()` in a similar manner as the existing MPI buffers, but replacing `realArr` with `realArrHost`.
 
 Finally, you'll need to manage data movement to and from the CPU in the File I/O and in the MPI message exchanges.
 
@@ -481,7 +481,7 @@ For the MPI buffers, you'll need to use the `Array::deep_copy_to(Array &target)`
 sendbuf_l.deep_copy_to(sendbuf_l_cpu);
 ```
 
-A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
+A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`.
 
 ### Why Doesn't MiniWeather Use CUDA?
 
@@ -491,13 +491,13 @@ Because if you've refactored your code to use kernel launching (i.e., CUDA), you
 
 I chose not to use the mainline C++ portability frameworks for two main reasons.
 
-1. It's easier to compile and managed things with a C++ performance portability layer that's < 3K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL). 
+1. It's easier to compile and managed things with a C++ performance portability layer that's < 3K lines of code long, hence: [YAKL (Yet Another Kernel Launcher)](github.com/mrnorman/YAKL).
 2. Kokkos in particular would not play nicely with the rest of the code in the CMake project. Likely if a Kokkos version is added, it will need to be a completely separate project and directory.
 3. With `YAKL.h` and `Array.h`, you can see for yourself what's going on when we launch kernels using `parallel_for` on different hardware backends.
 
 # Numerical Experiments
 
-A number of numerical experiments are in the code for you to play around with. You can set these by changing the `data_spec_int` variable. 
+A number of numerical experiments are in the code for you to play around with. You can set these by changing the `data_spec_int` variable.
 
 ## Rising Thermal
 
@@ -578,7 +578,7 @@ data_spec_int = DATA_SPEC_INJECTION
 sim_time = 1200
 ```
 
-A narrow jet of fast and slightly cold wind is injected into a balanced, neutral atmosphere at rest from the left domain near the model top. This has nothing to do with atmospheric flows. It's just here for looks. 
+A narrow jet of fast and slightly cold wind is injected into a balanced, neutral atmosphere at rest from the left domain near the model top. This has nothing to do with atmospheric flows. It's just here for looks.
 
 Potential Temperature after 300 seconds:
 
@@ -626,7 +626,7 @@ This equation is solved using dimensional splitting for simplicity and speed. Th
 
 <img src="https://latex.codecogs.com/svg.latex?\dpi{300}&space;\large&space;z:\,\,\,\,\,\,\,\,\,\,\frac{\partial\mathbf{q}}{\partial&space;t}&plus;\frac{\partial\mathbf{h}}{\partial&space;x}=\mathbf{s}" title="\large z:\,\,\,\,\,\,\,\,\,\,\frac{\partial\mathbf{q}}{\partial t}+\frac{\partial\mathbf{h}}{\partial x}=\mathbf{s}" />
 
-Each time step, the order in which the dimensions are solved is reversed, giving second-order accuracy overall. 
+Each time step, the order in which the dimensions are solved is reversed, giving second-order accuracy overall.
 
 ## Finite-Volume Spatial Discretization
 
@@ -712,7 +712,7 @@ The reason you have to go to all of this trouble is because of chaotic amplifica
 
 <details><summary>Click here to expand python script</summary>
  <p>
-  
+
 ```python
 import netCDF4
 import sys
@@ -793,7 +793,7 @@ for v in nc1.variables.keys() :
 
 * Directives-Based Approaches
   * https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate
-  * https://www.openacc.org 
+  * https://www.openacc.org
   * https://www.openacc.org/sites/default/files/inline-files/OpenACC%20API%202.6%20Reference%20Guide.pdf
   * https://www.openmp.org
   * https://www.openmp.org/wp-content/uploads/OpenMP-4.5-1115-CPP-web.pdf

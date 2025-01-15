@@ -59,7 +59,7 @@ if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(serial_test "${SERIAL_LINK_FLAGS}")
 endif()
 
-add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test ${tol} 4.5e-5 ) 
+add_test(NAME SERIAL_TEST COMMAND ./check_output.sh ./serial_test ${tol} 4.5e-5 )
 
 
 ############################################################
@@ -80,7 +80,7 @@ if (NOT ("${MPI_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(mpi_test "${MPI_LINK_FLAGS}")
 endif()
 
-add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test ${tol} 4.5e-5 ) 
+add_test(NAME MPI_TEST COMMAND ./check_output.sh ./mpi_test ${tol} 4.5e-5 )
 
 
 ############################################################
@@ -103,7 +103,7 @@ if (NOT ("${OPENMP_FLAGS}" STREQUAL "") )
   target_link_libraries(openmp      "${OPENMP_LINK_FLAGS}")
   target_link_libraries(openmp_test "${OPENMP_LINK_FLAGS}")
 
-  add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./openmp_test ${tol} 4.5e-5 ) 
+  add_test(NAME OPENMP_TEST COMMAND ./check_output.sh ./openmp_test ${tol} 4.5e-5 )
 endif()
 
 
@@ -127,7 +127,7 @@ if (NOT ("${OPENACC_FLAGS}" STREQUAL "") )
   target_link_libraries(openacc      "${OPENACC_LINK_FLAGS}")
   target_link_libraries(openacc_test "${OPENACC_LINK_FLAGS}")
 
-  add_test(NAME OPENACC_TEST COMMAND ./check_output.sh ./openacc_test ${tol} 4.5e-5 ) 
+  add_test(NAME OPENACC_TEST COMMAND ./check_output.sh ./openacc_test ${tol} 4.5e-5 )
 endif()
 
 
@@ -158,7 +158,7 @@ if (NOT ("${OPENMP45_FLAGS}" STREQUAL "") )
   target_link_libraries(openmp45      "${OPENMP45_LINK_FLAGS}")
   target_link_libraries(openmp45_test "${OPENMP45_LINK_FLAGS}")
 
-  add_test(NAME OPENMP45_TEST COMMAND ./check_output.sh ./openmp45_test ${tol} 4.5e-5 ) 
+  add_test(NAME OPENMP45_TEST COMMAND ./check_output.sh ./openmp45_test ${tol} 4.5e-5 )
 endif()
 
 
@@ -183,7 +183,7 @@ if (NOT ("${DO_CONCURRENT_FLAGS}" STREQUAL "") )
   target_link_libraries(do_concurrent      "${DO_CONCURRENT_LINK_FLAGS}")
   target_link_libraries(do_concurrent_test "${DO_CONCURRENT_LINK_FLAGS}")
 
-  add_test(NAME DO_CONCURRENT_TEST COMMAND ./check_output.sh ./do_concurrent_test ${tol} 4.5e-5 ) 
+  add_test(NAME DO_CONCURRENT_TEST COMMAND ./check_output.sh ./do_concurrent_test ${tol} 4.5e-5 )
 endif()
 
 
@@ -206,7 +206,7 @@ if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(allocate_during_runtime_test "${SERIAL_LINK_FLAGS}")
 endif()
 
-add_test(NAME ALLOCATE_DURING_RUNTIME_TEST COMMAND ./check_output.sh ./allocate_during_runtime_test ${tol} 4.5e-5 ) 
+add_test(NAME ALLOCATE_DURING_RUNTIME_TEST COMMAND ./check_output.sh ./allocate_during_runtime_test ${tol} 4.5e-5 )
 
 
 
@@ -228,7 +228,7 @@ if (NOT ("${SERIAL_LINK_FLAGS}" STREQUAL "") )
   target_link_libraries(allocate_and_assumed_shape_test "${SERIAL_LINK_FLAGS}")
 endif()
 
-add_test(NAME ALLOCATE_AND_ASSUMED_SHAPE_TEST COMMAND ./check_output.sh ./allocate_and_assumed_shape_test ${tol} 4.5e-5 ) 
+add_test(NAME ALLOCATE_AND_ASSUMED_SHAPE_TEST COMMAND ./check_output.sh ./allocate_and_assumed_shape_test ${tol} 4.5e-5 )
 
 
 

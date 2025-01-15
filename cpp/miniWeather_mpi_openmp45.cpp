@@ -32,6 +32,7 @@ constexpr double gamm =
     1.40027894002789400278940027894; // gamma=cp/Rd , have to call this gamm
                                      // because "gamma" is taken (I hate C so
                                      // much)
+
 // Define domain and stability-related constants
 constexpr double xlen = 2.e4; // Length of the domain in the x-direction
                               // (meters)
@@ -73,6 +74,8 @@ constexpr double qpoints[] = {0.112701665379258311482073460022E0,
 constexpr double qweights[] = {0.277777777777777777777777777779E0,
                                0.444444444444444444444444444444E0,
                                0.277777777777777777777777777779E0};
+
+int asyncid = 1;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // BEGIN USER-CONFIGURABLE PARAMETERS
@@ -127,6 +130,10 @@ double *state_tmp; // Fluid state.             Dimensions:
                    // (1-hs:nx+hs,1-hs:nz+hs,NUM_VARS)
 double *flux;      // Cell interface fluxes.   Dimensions: (nx+1,nz+1,NUM_VARS)
 double *tend;      // Fluid state tendencies.  Dimensions: (nx,nz,NUM_VARS)
+double *sendbuf_l; // Buffer to send data to the left MPI rank
+double *sendbuf_r; // Buffer to send data to the right MPI rank
+double *recvbuf_l; // Buffer to receive data from the left MPI rank
+double *recvbuf_r; // Buffer to receive data from the right MPI rank
 int num_out = 0;   // The number of outputs performed so far
 int direction_switch = 1;
 double mass0, te0; // Initial domain totals for mass and total energy
@@ -178,47 +185,64 @@ int main(int argc, char **argv) {
 
   init(&argc, &argv);
 
-  // Initial reductions for mass, kinetic energy, and total energy
-  reductions(mass0, te0);
+#pragma omp target data map(                                                   \
+        to : state_tmp[ : (nz + 2 * hs) * (nx + 2 * hs) * NUM_VARS],           \
+            hy_dens_cell[ : nz + 2 * hs], hy_dens_theta_cell[ : nz + 2 * hs],  \
+            hy_dens_int[ : nz + 1], hy_dens_theta_int[ : nz + 1],              \
+            hy_pressure_int[ : nz + 1])                                        \
+    map(alloc : flux[ : (nz + 1) * (nx + 1) * NUM_VARS],                       \
+            tend[ : nz * nx * NUM_VARS], sendbuf_l[ : hs * nz * NUM_VARS],     \
+            sendbuf_r[ : hs * nz * NUM_VARS],                                  \
+            recvbuf_l[ : hs * nz * NUM_VARS],                                  \
+            recvbuf_r[ : hs * nz * NUM_VARS])                                  \
+    map(tofrom : state[ : (nz + 2 * hs) * (nx + 2 * hs) * NUM_VARS])
+  {
 
-  // Output the initial state
-  output(state, etime);
+    // Initial reductions for mass, kinetic energy, and total energy
+    reductions(mass0, te0);
 
-  ////////////////////////////////////////////////////
-  // MAIN TIME STEP LOOP
-  ////////////////////////////////////////////////////
-  auto t1 = std::chrono::steady_clock::now();
-  while (etime < sim_time) {
-    // If the time step leads to exceeding the simulation time, shorten it for
-    // the last step
-    if (etime + dt > sim_time) {
-      dt = sim_time - etime;
-    }
-    // Perform a single time step
-    perform_timestep(state, state_tmp, flux, tend, dt);
-    // Inform the user
-#ifndef NO_INFORM
-    if (mainproc) {
-      printf("Elapsed Time: %lf / %lf\n", etime, sim_time);
-    }
-#endif
-    // Update the elapsed time and output counter
-    etime = etime + dt;
-    output_counter = output_counter + dt;
-    // If it's time for output, reset the counter, and do output
-    if (output_counter >= output_freq) {
-      output_counter = output_counter - output_freq;
+    // Output the initial state
+    if (output_freq >= 0)
       output(state, etime);
-    }
-  }
-  auto t2 = std::chrono::steady_clock::now();
-  if (mainproc) {
-    std::cout << "CPU Time: " << std::chrono::duration<double>(t2 - t1).count()
-              << " sec\n";
-  }
 
-  // Final reductions for mass, kinetic energy, and total energy
-  reductions(mass, te);
+      ////////////////////////////////////////////////////
+      // MAIN TIME STEP LOOP
+      ////////////////////////////////////////////////////
+#pragma omp taskwait
+    auto t1 = std::chrono::steady_clock::now();
+    while (etime < sim_time) {
+      // If the time step leads to exceeding the simulation time, shorten it for
+      // the last step
+      if (etime + dt > sim_time) {
+        dt = sim_time - etime;
+      }
+      // Perform a single time step
+      perform_timestep(state, state_tmp, flux, tend, dt);
+      // Inform the user
+#ifndef NO_INFORM
+      if (mainproc) {
+        printf("Elapsed Time: %lf / %lf\n", etime, sim_time);
+      }
+#endif
+      // Update the elapsed time and output counter
+      etime = etime + dt;
+      output_counter = output_counter + dt;
+      // If it's time for output, reset the counter, and do output
+      if (output_freq >= 0 && output_counter >= output_freq) {
+        output_counter = output_counter - output_freq;
+        output(state, etime);
+      }
+    }
+#pragma omp taskwait
+    auto t2 = std::chrono::steady_clock::now();
+    if (mainproc) {
+      std::cout << "CPU Time: "
+                << std::chrono::duration<double>(t2 - t1).count() << " sec\n";
+    }
+
+    // Final reductions for mass, kinetic energy, and total energy
+    reductions(mass, te);
+  }
 
   if (mainproc) {
     printf("d_mass: %le\n", (mass - mass0) / mass0);
@@ -271,8 +295,6 @@ void perform_timestep(double *state, double *state_tmp, double *flux,
 void semi_discrete_step(double *state_init, double *state_forcing,
                         double *state_out, double dt, int dir, double *flux,
                         double *tend) {
-  int i, k, ll, inds, indt, indw;
-  double x, z, wpert, dist, x0, z0, xrad, zrad, amp;
   if (dir == DIR_X) {
     // Set the halo values for this MPI task's fluid state in the x-direction
     set_halo_values_x(state_forcing);
@@ -285,30 +307,30 @@ void semi_discrete_step(double *state_init, double *state_forcing,
     compute_tendencies_z(state_forcing, flux, tend, dt);
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Apply the tendencies to the fluid state
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (k = 0; k < nz; k++) {
-      for (i = 0; i < nx; i++) {
+#pragma omp target teams distribute parallel for simd collapse(3)              \
+    depend(inout : asyncid) nowait
+  for (int ll = 0; ll < NUM_VARS; ll++) {
+    for (int k = 0; k < nz; k++) {
+      for (int i = 0; i < nx; i++) {
         if (data_spec_int == DATA_SPEC_GRAVITY_WAVES) {
-          x = (i_beg + i + 0.5) * dx;
-          z = (k_beg + k + 0.5) * dz;
+          const double x = (i_beg + i + 0.5) * dx;
+          const double z = (k_beg + k + 0.5) * dz;
+          double wpert;
           // Using sample_ellipse_cosine requires "acc routine" in OpenACC and
           // "declare target" in OpenMP offload Neither of these are
           // particularly well supported. So I'm manually inlining here wpert =
           // sample_ellipse_cosine( x,z , 0.01 , xlen/8,1000., 500.,500. );
           {
-            x0 = xlen / 8;
-            z0 = 1000;
-            xrad = 500;
-            zrad = 500;
-            amp = 0.01;
+            const double x0 = xlen / 8;
+            const double z0 = 1000;
+            const double xrad = 500;
+            const double zrad = 500;
+            const double amp = 0.01;
             // Compute distance from bubble center
-            dist = sqrt(((x - x0) / xrad) * ((x - x0) / xrad) +
-                        ((z - z0) / zrad) * ((z - z0) / zrad)) *
-                   pi / 2.;
+            const double dist = sqrt(((x - x0) / xrad) * ((x - x0) / xrad) +
+                                     ((z - z0) / zrad) * ((z - z0) / zrad)) *
+                                pi / 2.;
             // If the distance from bubble center is less than the radius,
             // create a cos**2 profile
             if (dist <= pi / 2.) {
@@ -317,12 +339,12 @@ void semi_discrete_step(double *state_init, double *state_forcing,
               wpert = 0.;
             }
           }
-          indw = ID_WMOM * nz * nx + k * nx + i;
+          const int indw = ID_WMOM * nz * nx + k * nx + i;
           tend[indw] += wpert * hy_dens_cell[hs + k];
         }
-        inds = ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-               i + hs;
-        indt = ll * nz * nx + k * nx + i;
+        const int inds = ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                         (k + hs) * (nx + 2 * hs) + i + hs;
+        const int indt = ll * nz * nx + k * nx + i;
         state_out[inds] = state_init[inds] + dt * tend[indt];
       }
     }
@@ -336,22 +358,20 @@ void semi_discrete_step(double *state_init, double *state_forcing,
 // those fluxes
 void compute_tendencies_x(double *state, double *flux, double *tend,
                           double dt) {
-  int i, k, ll, s, inds, indf1, indf2, indt;
-  double r, u, w, t, p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
   // Compute the hyperviscosity coefficient
-  hv_coef = -hv_beta * dx / (16 * dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
+  const double hv_coef = -hv_beta * dx / (16 * dt);
   // Compute fluxes in the x-direction for each cell
-  for (k = 0; k < nz; k++) {
-    for (i = 0; i < nx + 1; i++) {
+#pragma omp target teams distribute parallel for simd collapse(2) private(     \
+        stencil, vals, d3_vals) depend(inout : asyncid) nowait
+  for (int k = 0; k < nz; k++) {
+    for (int i = 0; i < nx + 1; i++) {
       // Use fourth-order interpolation from four cell averages to compute the
       // value at the interface in question
-      for (ll = 0; ll < NUM_VARS; ll++) {
-        for (s = 0; s < sten_size; s++) {
-          inds = ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-                 i + s;
+      for (int ll = 0; ll < NUM_VARS; ll++) {
+        for (int s = 0; s < sten_size; s++) {
+          const int inds = ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                           (k + hs) * (nx + 2 * hs) + i + s;
           stencil[s] = state[inds];
         }
         // Fourth-order-accurate interpolation of the state
@@ -365,11 +385,11 @@ void compute_tendencies_x(double *state, double *flux, double *tend,
 
       // Compute density, u-wind, w-wind, potential temperature, and pressure
       // (r,u,w,t,p respectively)
-      r = vals[ID_DENS] + hy_dens_cell[k + hs];
-      u = vals[ID_UMOM] / r;
-      w = vals[ID_WMOM] / r;
-      t = (vals[ID_RHOT] + hy_dens_theta_cell[k + hs]) / r;
-      p = C0 * pow((r * t), gamm);
+      const double r = vals[ID_DENS] + hy_dens_cell[k + hs];
+      const double u = vals[ID_UMOM] / r;
+      const double w = vals[ID_WMOM] / r;
+      const double t = (vals[ID_RHOT] + hy_dens_theta_cell[k + hs]) / r;
+      const double p = C0 * pow((r * t), gamm);
 
       // Compute the flux vector
       flux[ID_DENS * (nz + 1) * (nx + 1) + k * (nx + 1) + i] =
@@ -383,16 +403,15 @@ void compute_tendencies_x(double *state, double *flux, double *tend,
     }
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Use the fluxes to compute tendencies for each cell
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (k = 0; k < nz; k++) {
-      for (i = 0; i < nx; i++) {
-        indt = ll * nz * nx + k * nx + i;
-        indf1 = ll * (nz + 1) * (nx + 1) + k * (nx + 1) + i;
-        indf2 = ll * (nz + 1) * (nx + 1) + k * (nx + 1) + i + 1;
+#pragma omp target teams distribute parallel for simd collapse(3)              \
+    depend(inout : asyncid) nowait
+  for (int ll = 0; ll < NUM_VARS; ll++) {
+    for (int k = 0; k < nz; k++) {
+      for (int i = 0; i < nx; i++) {
+        const int indt = ll * nz * nx + k * nx + i;
+        const int indf1 = ll * (nz + 1) * (nx + 1) + k * (nx + 1) + i;
+        const int indf2 = ll * (nz + 1) * (nx + 1) + k * (nx + 1) + i + 1;
         tend[indt] = -(flux[indf2] - flux[indf1]) / dx;
       }
     }
@@ -406,22 +425,20 @@ void compute_tendencies_x(double *state, double *flux, double *tend,
 // those fluxes
 void compute_tendencies_z(double *state, double *flux, double *tend,
                           double dt) {
-  int i, k, ll, s, inds, indf1, indf2, indt;
-  double r, u, w, t, p, stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS], hv_coef;
+  double stencil[4], d3_vals[NUM_VARS], vals[NUM_VARS];
   // Compute the hyperviscosity coefficient
-  hv_coef = -hv_beta * dz / (16 * dt);
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
+  const double hv_coef = -hv_beta * dz / (16 * dt);
   // Compute fluxes in the x-direction for each cell
-  for (k = 0; k < nz + 1; k++) {
-    for (i = 0; i < nx; i++) {
+#pragma omp target teams distribute parallel for simd collapse(2) private(     \
+        stencil, vals, d3_vals) depend(inout : asyncid) nowait
+  for (int k = 0; k < nz + 1; k++) {
+    for (int i = 0; i < nx; i++) {
       // Use fourth-order interpolation from four cell averages to compute the
       // value at the interface in question
-      for (ll = 0; ll < NUM_VARS; ll++) {
-        for (s = 0; s < sten_size; s++) {
-          inds = ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + s) * (nx + 2 * hs) +
-                 i + hs;
+      for (int ll = 0; ll < NUM_VARS; ll++) {
+        for (int s = 0; s < sten_size; s++) {
+          const int inds = ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                           (k + s) * (nx + 2 * hs) + i + hs;
           stencil[s] = state[inds];
         }
         // Fourth-order-accurate interpolation of the state
@@ -435,11 +452,11 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
 
       // Compute density, u-wind, w-wind, potential temperature, and pressure
       // (r,u,w,t,p respectively)
-      r = vals[ID_DENS] + hy_dens_int[k];
-      u = vals[ID_UMOM] / r;
-      w = vals[ID_WMOM] / r;
-      t = (vals[ID_RHOT] + hy_dens_theta_int[k]) / r;
-      p = C0 * pow((r * t), gamm) - hy_pressure_int[k];
+      const double r = vals[ID_DENS] + hy_dens_int[k];
+      const double u = vals[ID_UMOM] / r;
+      double w = vals[ID_WMOM] / r;
+      const double t = (vals[ID_RHOT] + hy_dens_theta_int[k]) / r;
+      const double p = C0 * pow((r * t), gamm) - hy_pressure_int[k];
       // Enforce vertical boundary condition and exact mass conservation
       if (k == 0 || k == nz) {
         w = 0;
@@ -458,20 +475,19 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
     }
   }
 
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
   // Use the fluxes to compute tendencies for each cell
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (k = 0; k < nz; k++) {
-      for (i = 0; i < nx; i++) {
-        indt = ll * nz * nx + k * nx + i;
-        indf1 = ll * (nz + 1) * (nx + 1) + (k) * (nx + 1) + i;
-        indf2 = ll * (nz + 1) * (nx + 1) + (k + 1) * (nx + 1) + i;
+#pragma omp target teams distribute parallel for simd collapse(3)              \
+    depend(inout : asyncid) nowait
+  for (int ll = 0; ll < NUM_VARS; ll++) {
+    for (int k = 0; k < nz; k++) {
+      for (int i = 0; i < nx; i++) {
+        const int indt = ll * nz * nx + k * nx + i;
+        const int indf1 = ll * (nz + 1) * (nx + 1) + (k) * (nx + 1) + i;
+        const int indf2 = ll * (nz + 1) * (nx + 1) + (k + 1) * (nx + 1) + i;
         tend[indt] = -(flux[indf2] - flux[indf1]) / dz;
         if (ll == ID_WMOM) {
-          inds = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
-                 (k + hs) * (nx + 2 * hs) + i + hs;
+          const int inds = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
+                           (k + hs) * (nx + 2 * hs) + i + hs;
           tend[indt] = tend[indt] - state[inds] * grav;
         }
       }
@@ -482,49 +498,105 @@ void compute_tendencies_z(double *state, double *flux, double *tend,
 // Set this MPI task's halo values in the x-direction. This routine will require
 // MPI
 void set_halo_values_x(double *state) {
-  int k, ll, ind_r, ind_u, ind_t, i;
-  double z;
-  ////////////////////////////////////////////////////////////////////////
-  // TODO: EXCHANGE HALO VALUES WITH NEIGHBORING MPI TASKS
-  // (1) give    state(1:hs,1:nz,1:NUM_VARS)       to   my left  neighbor
-  // (2) receive state(1-hs:0,1:nz,1:NUM_VARS)     from my left  neighbor
-  // (3) give    state(nx-hs+1:nx,1:nz,1:NUM_VARS) to   my right neighbor
-  // (4) receive state(nx+1:nx+hs,1:nz,1:NUM_VARS) from my right neighbor
-  ////////////////////////////////////////////////////////////////////////
+  int ierr;
 
-  //////////////////////////////////////////////////////
-  // DELETE THE SERIAL CODE BELOW AND REPLACE WITH MPI
-  //////////////////////////////////////////////////////
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (k = 0; k < nz; k++) {
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + 0] =
-          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-                nx + hs - 2];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + 1] =
-          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
-                nx + hs - 1];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + nx +
-            hs] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
-                        (k + hs) * (nx + 2 * hs) + hs];
-      state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) + nx +
-            hs + 1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
-                            (k + hs) * (nx + 2 * hs) + hs + 1];
+  if (nranks == 1) {
+
+#pragma omp target teams distribute parallel for simd collapse(2)              \
+    depend(inout : asyncid) nowait
+    for (int ll = 0; ll < NUM_VARS; ll++) {
+      for (int k = 0; k < nz; k++) {
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              0] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                         (k + hs) * (nx + 2 * hs) + nx + hs - 2];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                         (k + hs) * (nx + 2 * hs) + nx + hs - 1];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              nx + hs] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                               (k + hs) * (nx + 2 * hs) + hs];
+        state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+              nx + hs + 1] = state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                                   (k + hs) * (nx + 2 * hs) + hs + 1];
+      }
     }
+
+  } else {
+
+    MPI_Request req_r[2], req_s[2];
+
+    // Prepost receives
+    ierr = MPI_Irecv(recvbuf_l, hs * nz * NUM_VARS, MPI_DOUBLE, left_rank, 0,
+                     MPI_COMM_WORLD, &req_r[0]);
+    ierr = MPI_Irecv(recvbuf_r, hs * nz * NUM_VARS, MPI_DOUBLE, right_rank, 1,
+                     MPI_COMM_WORLD, &req_r[1]);
+
+    // Pack the send buffers
+#pragma omp target teams distribute parallel for simd collapse(3)              \
+    depend(inout : asyncid) nowait
+    for (int ll = 0; ll < NUM_VARS; ll++) {
+      for (int k = 0; k < nz; k++) {
+        for (int s = 0; s < hs; s++) {
+          sendbuf_l[ll * nz * hs + k * hs + s] =
+              state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                    (k + hs) * (nx + 2 * hs) + hs + s];
+          sendbuf_r[ll * nz * hs + k * hs + s] =
+              state[ll * (nz + 2 * hs) * (nx + 2 * hs) +
+                    (k + hs) * (nx + 2 * hs) + nx + s];
+        }
+      }
+    }
+
+#pragma omp target update from(sendbuf_l[ : nz * hs * NUM_VARS],               \
+                                   sendbuf_r[ : nz * hs * NUM_VARS])           \
+    depend(inout : asyncid) nowait
+#pragma omp taskwait
+
+    // Fire off the sends
+    ierr = MPI_Isend(sendbuf_l, hs * nz * NUM_VARS, MPI_DOUBLE, left_rank, 1,
+                     MPI_COMM_WORLD, &req_s[0]);
+    ierr = MPI_Isend(sendbuf_r, hs * nz * NUM_VARS, MPI_DOUBLE, right_rank, 0,
+                     MPI_COMM_WORLD, &req_s[1]);
+
+    // Wait for receives to finish
+    ierr = MPI_Waitall(2, req_r, MPI_STATUSES_IGNORE);
+
+#pragma omp target update to(recvbuf_l[ : nz * hs * NUM_VARS],                 \
+                                 recvbuf_r[ : nz * hs * NUM_VARS])             \
+    depend(inout : asyncid) nowait
+
+    // Unpack the receive buffers
+#pragma omp target teams distribute parallel for simd collapse(3)              \
+    depend(inout : asyncid) nowait
+    for (int ll = 0; ll < NUM_VARS; ll++) {
+      for (int k = 0; k < nz; k++) {
+        for (int s = 0; s < hs; s++) {
+          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+                s] = recvbuf_l[ll * nz * hs + k * hs + s];
+          state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (k + hs) * (nx + 2 * hs) +
+                nx + hs + s] = recvbuf_r[ll * nz * hs + k * hs + s];
+        }
+      }
+    }
+
+    // Wait for sends to finish
+    ierr = MPI_Waitall(2, req_s, MPI_STATUSES_IGNORE);
   }
-  ////////////////////////////////////////////////////
 
   if (data_spec_int == DATA_SPEC_INJECTION) {
     if (myrank == 0) {
-      for (k = 0; k < nz; k++) {
-        for (i = 0; i < hs; i++) {
-          z = (k_beg + k + 0.5) * dz;
+#pragma omp target teams distribute parallel for simd collapse(2)              \
+    depend(inout : asyncid) nowait
+      for (int k = 0; k < nz; k++) {
+        for (int i = 0; i < hs; i++) {
+          const double z = (k_beg + k + 0.5) * dz;
           if (fabs(z - 3 * zlen / 4) <= zlen / 16) {
-            ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
-                    (k + hs) * (nx + 2 * hs) + i;
-            ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
-                    (k + hs) * (nx + 2 * hs) + i;
-            ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
-                    (k + hs) * (nx + 2 * hs) + i;
+            const int ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
+                              (k + hs) * (nx + 2 * hs) + i;
+            const int ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
+                              (k + hs) * (nx + 2 * hs) + i;
+            const int ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
+                              (k + hs) * (nx + 2 * hs) + i;
             state[ind_u] = (state[ind_r] + hy_dens_cell[k + hs]) * 50.;
             state[ind_t] = (state[ind_r] + hy_dens_cell[k + hs]) * 298. -
                            hy_dens_theta_cell[k + hs];
@@ -538,14 +610,10 @@ void set_halo_values_x(double *state) {
 // Set this MPI task's halo values in the z-direction. This does not require MPI
 // because there is no MPI decomposition in the vertical direction
 void set_halo_values_z(double *state) {
-  int i, ll;
-  const double mnt_width = xlen / 8;
-  double x, xloc, mnt_deriv;
-  /////////////////////////////////////////////////
-  // TODO: THREAD ME
-  /////////////////////////////////////////////////
-  for (ll = 0; ll < NUM_VARS; ll++) {
-    for (i = 0; i < nx + 2 * hs; i++) {
+#pragma omp target teams distribute parallel for simd collapse(2)              \
+    depend(inout : asyncid) nowait
+  for (int ll = 0; ll < NUM_VARS; ll++) {
+    for (int i = 0; i < nx + 2 * hs; i++) {
       if (ll == ID_WMOM) {
         state[ll * (nz + 2 * hs) * (nx + 2 * hs) + (0) * (nx + 2 * hs) + i] =
             0.;
@@ -593,28 +661,20 @@ void set_halo_values_z(double *state) {
 }
 
 void init(int *argc, char ***argv) {
-  int i, k, ii, kk, ll, ierr, inds;
-  double x, z, r, u, w, t, hr, ht;
+  int ierr = MPI_Init(argc, argv);
 
-  ierr = MPI_Init(argc, argv);
-
-  /////////////////////////////////////////////////////////////
-  // BEGIN MPI DUMMY SECTION
-  // TODO: (1) GET NUMBER OF MPI RANKS
-  //       (2) GET MY MPI RANK ID (RANKS ARE ZERO-BASED INDEX)
-  //       (3) COMPUTE MY BEGINNING "I" INDEX (1-based index)
-  //       (4) COMPUTE HOW MANY X-DIRECTION CELLS MY RANK HAS
-  //       (5) FIND MY LEFT AND RIGHT NEIGHBORING RANK IDs
-  /////////////////////////////////////////////////////////////
-  nranks = 1;
-  myrank = 0;
-  i_beg = 0;
-  nx = nx_glob;
-  left_rank = 0;
-  right_rank = 0;
-  //////////////////////////////////////////////
-  // END MPI DUMMY SECTION
-  //////////////////////////////////////////////
+  ierr = MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  const double nper = ((double)nx_glob) / nranks;
+  const int i_beg = round(nper * (myrank));
+  const int i_end = round(nper * ((myrank) + 1)) - 1;
+  nx = i_end - i_beg + 1;
+  left_rank = myrank - 1;
+  if (left_rank == -1)
+    left_rank = nranks - 1;
+  right_rank = myrank + 1;
+  if (right_rank == nranks)
+    right_rank = 0;
 
   ////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////
@@ -640,6 +700,10 @@ void init(int *argc, char ***argv) {
   hy_dens_int = (double *)malloc((nz + 1) * sizeof(double));
   hy_dens_theta_int = (double *)malloc((nz + 1) * sizeof(double));
   hy_pressure_int = (double *)malloc((nz + 1) * sizeof(double));
+  sendbuf_l = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  sendbuf_r = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  recvbuf_l = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
+  recvbuf_r = (double *)malloc(hs * nz * NUM_VARS * sizeof(double));
 
   // Define the maximum stable time step based on an assumed maximum wind speed
   dt = dmin(dx, dz) / max_speed * cfl;
@@ -656,24 +720,29 @@ void init(int *argc, char ***argv) {
   // Want to make sure this info is displayed before further output
   ierr = MPI_Barrier(MPI_COMM_WORLD);
 
+  double r, u, w, t, hr, ht;
+
   //////////////////////////////////////////////////////////////////////////
   // Initialize the cell-averaged fluid state via Gauss-Legendre quadrature
   //////////////////////////////////////////////////////////////////////////
-  for (k = 0; k < nz + 2 * hs; k++) {
-    for (i = 0; i < nx + 2 * hs; i++) {
+  for (int k = 0; k < nz + 2 * hs; k++) {
+    for (int i = 0; i < nx + 2 * hs; i++) {
       // Initialize the state to zero
-      for (ll = 0; ll < NUM_VARS; ll++) {
-        inds = ll * (nz + 2 * hs) * (nx + 2 * hs) + k * (nx + 2 * hs) + i;
+      for (int ll = 0; ll < NUM_VARS; ll++) {
+        const int inds =
+            ll * (nz + 2 * hs) * (nx + 2 * hs) + k * (nx + 2 * hs) + i;
         state[inds] = 0.;
       }
       // Use Gauss-Legendre quadrature to initialize a hydrostatic balance +
       // temperature perturbation
-      for (kk = 0; kk < nqpoints; kk++) {
-        for (ii = 0; ii < nqpoints; ii++) {
+      for (int kk = 0; kk < nqpoints; kk++) {
+        for (int ii = 0; ii < nqpoints; ii++) {
           // Compute the x,z location within the global domain based on cell and
           // quadrature index
-          x = (i_beg + i - hs + 0.5) * dx + (qpoints[ii] - 0.5) * dx;
-          z = (k_beg + k - hs + 0.5) * dz + (qpoints[kk] - 0.5) * dz;
+          const double x =
+              (i_beg + i - hs + 0.5) * dx + (qpoints[ii] - 0.5) * dx;
+          const double z =
+              (k_beg + k - hs + 0.5) * dz + (qpoints[kk] - 0.5) * dz;
 
           // Set the fluid state based on the user's specification
           if (data_spec_int == DATA_SPEC_COLLISION) {
@@ -693,7 +762,7 @@ void init(int *argc, char ***argv) {
           }
 
           // Store into the fluid state array
-          inds =
+          int inds =
               ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) + k * (nx + 2 * hs) + i;
           state[inds] = state[inds] + r * qweights[ii] * qweights[kk];
           inds =
@@ -710,18 +779,19 @@ void init(int *argc, char ***argv) {
                                           qweights[ii] * qweights[kk];
         }
       }
-      for (ll = 0; ll < NUM_VARS; ll++) {
-        inds = ll * (nz + 2 * hs) * (nx + 2 * hs) + k * (nx + 2 * hs) + i;
+      for (int ll = 0; ll < NUM_VARS; ll++) {
+        const int inds =
+            ll * (nz + 2 * hs) * (nx + 2 * hs) + k * (nx + 2 * hs) + i;
         state_tmp[inds] = state[inds];
       }
     }
   }
   // Compute the hydrostatic background state over vertical cell averages
-  for (k = 0; k < nz + 2 * hs; k++) {
+  for (int k = 0; k < nz + 2 * hs; k++) {
     hy_dens_cell[k] = 0.;
     hy_dens_theta_cell[k] = 0.;
-    for (kk = 0; kk < nqpoints; kk++) {
-      z = (k_beg + k - hs + 0.5) * dz;
+    for (int kk = 0; kk < nqpoints; kk++) {
+      const double z = (k_beg + k - hs + 0.5) * dz;
       // Set the fluid state based on the user's specification
       if (data_spec_int == DATA_SPEC_COLLISION) {
         collision(0., z, r, u, w, t, hr, ht);
@@ -743,8 +813,8 @@ void init(int *argc, char ***argv) {
     }
   }
   // Compute the hydrostatic background state at vertical cell interfaces
-  for (k = 0; k < nz + 1; k++) {
-    z = (k_beg + k) * dz;
+  for (int k = 0; k < nz + 1; k++) {
+    const double z = (k_beg + k) * dz;
     if (data_spec_int == DATA_SPEC_COLLISION) {
       collision(0., z, r, u, w, t, hr, ht);
     }
@@ -845,13 +915,12 @@ void collision(double x, double z, double &r, double &u, double &w, double &t,
 void hydro_const_theta(double z, double &r, double &t) {
   const double theta0 = 300.; // Background potential temperature
   const double exner0 = 1.;   // Surface-level Exner pressure
-  double p, exner, rt;
   // Establish hydrostatic balance first using Exner pressure
-  t = theta0;                                // Potential Temperature at z
-  exner = exner0 - grav * z / (cp * theta0); // Exner pressure at z
-  p = p0 * pow(exner, (cp / rd));            // Pressure at z
-  rt = pow((p / C0), (1. / gamm));           // rho*theta at z
-  r = rt / t;                                // Density at z
+  t = theta0; // Potential Temperature at z
+  const double exner = exner0 - grav * z / (cp * theta0); // Exner pressure at z
+  const double p = p0 * pow(exner, (cp / rd));            // Pressure at z
+  const double rt = pow((p / C0), (1. / gamm));           // rho*theta at z
+  r = rt / t;                                             // Density at z
 }
 
 // Establish hydrostatic balance using constant Brunt-Vaisala frequency
@@ -862,13 +931,13 @@ void hydro_const_theta(double z, double &r, double &t) {
 void hydro_const_bvfreq(double z, double bv_freq0, double &r, double &t) {
   const double theta0 = 300.; // Background potential temperature
   const double exner0 = 1.;   // Surface-level Exner pressure
-  double p, exner, rt;
   t = theta0 * exp(bv_freq0 * bv_freq0 / grav * z); // Pot temp at z
-  exner = exner0 - grav * grav / (cp * bv_freq0 * bv_freq0) * (t - theta0) /
-                       (t * theta0); // Exner pressure at z
-  p = p0 * pow(exner, (cp / rd));    // Pressure at z
-  rt = pow((p / C0), (1. / gamm));   // rho*theta at z
-  r = rt / t;                        // Density at z
+  const double exner = exner0 - grav * grav / (cp * bv_freq0 * bv_freq0) *
+                                    (t - theta0) /
+                                    (t * theta0); // Exner pressure at z
+  const double p = p0 * pow(exner, (cp / rd));    // Pressure at z
+  const double rt = pow((p / C0), (1. / gamm));   // rho*theta at z
+  r = rt / t;                                     // Density at z
 }
 
 // Sample from an ellipse of a specified center, radius, and amplitude at a
@@ -897,12 +966,17 @@ double sample_ellipse_cosine(double x, double z, double amp, double x0,
 void output(double *state, double etime) {
   int ncid, t_dimid, x_dimid, z_dimid, dens_varid, uwnd_varid, wwnd_varid,
       theta_varid, t_varid, dimids[3];
-  int i, k, ind_r, ind_u, ind_w, ind_t;
   MPI_Offset st1[1], ct1[1], st3[3], ct3[3];
   // Temporary arrays to hold density, u-wind, w-wind, and potential temperature
   // (theta)
   double *dens, *uwnd, *wwnd, *theta;
   double *etimearr;
+
+#pragma omp target update from(                                                \
+        state[ : (nz + 2 * hs) * (nx + 2 * hs) * NUM_VARS])                    \
+    depend(inout : asyncid) nowait
+#pragma omp taskwait
+
   // Inform the user
   if (mainproc) {
     printf("*** OUTPUT ***\n");
@@ -955,16 +1029,16 @@ void output(double *state, double etime) {
   }
 
   // Store perturbed values in the temp arrays for output
-  for (k = 0; k < nz; k++) {
-    for (i = 0; i < nx; i++) {
-      ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
-              (k + hs) * (nx + 2 * hs) + i + hs;
-      ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
-              (k + hs) * (nx + 2 * hs) + i + hs;
-      ind_w = ID_WMOM * (nz + 2 * hs) * (nx + 2 * hs) +
-              (k + hs) * (nx + 2 * hs) + i + hs;
-      ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
-              (k + hs) * (nx + 2 * hs) + i + hs;
+  for (int k = 0; k < nz; k++) {
+    for (int i = 0; i < nx; i++) {
+      const int ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_w = ID_WMOM * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
       dens[k * nx + i] = state[ind_r];
       uwnd[k * nx + i] = state[ind_u] / (hy_dens_cell[k + hs] + state[ind_r]);
       wwnd[k * nx + i] = state[ind_w] / (hy_dens_cell[k + hs] + state[ind_r]);
@@ -1024,7 +1098,6 @@ void ncwrap(int ierr, int line) {
 }
 
 void finalize() {
-  int ierr;
   free(state);
   free(state_tmp);
   free(flux);
@@ -1034,7 +1107,11 @@ void finalize() {
   free(hy_dens_int);
   free(hy_dens_theta_int);
   free(hy_pressure_int);
-  ierr = MPI_Finalize();
+  free(sendbuf_l);
+  free(sendbuf_r);
+  free(recvbuf_l);
+  free(recvbuf_r);
+  const int ierr = MPI_Finalize();
 }
 
 // Compute reduced quantities for error checking without resorting to the
@@ -1042,27 +1119,29 @@ void finalize() {
 void reductions(double &mass, double &te) {
   mass = 0;
   te = 0;
+#pragma omp target teams distribute parallel for simd collapse(2)              \
+    reduction(+ : mass, te)
   for (int k = 0; k < nz; k++) {
     for (int i = 0; i < nx; i++) {
-      int ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
-                  (k + hs) * (nx + 2 * hs) + i + hs;
-      int ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
-                  (k + hs) * (nx + 2 * hs) + i + hs;
-      int ind_w = ID_WMOM * (nz + 2 * hs) * (nx + 2 * hs) +
-                  (k + hs) * (nx + 2 * hs) + i + hs;
-      int ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
-                  (k + hs) * (nx + 2 * hs) + i + hs;
-      double r = state[ind_r] + hy_dens_cell[hs + k]; // Density
-      double u = state[ind_u] / r;                    // U-wind
-      double w = state[ind_w] / r;                    // W-wind
-      double th = (state[ind_t] + hy_dens_theta_cell[hs + k]) /
-                  r;                        // Potential Temperature (theta)
-      double p = C0 * pow(r * th, gamm);    // Pressure
-      double t = th / pow(p0 / p, rd / cp); // Temperature
-      double ke = r * (u * u + w * w);      // Kinetic Energy
-      double ie = r * cv * t;               // Internal Energy
-      mass += r * dx * dz;                  // Accumulate domain mass
-      te += (ke + ie) * dx * dz;            // Accumulate domain total energy
+      const int ind_r = ID_DENS * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_u = ID_UMOM * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_w = ID_WMOM * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const int ind_t = ID_RHOT * (nz + 2 * hs) * (nx + 2 * hs) +
+                        (k + hs) * (nx + 2 * hs) + i + hs;
+      const double r = state[ind_r] + hy_dens_cell[hs + k]; // Density
+      const double u = state[ind_u] / r;                    // U-wind
+      const double w = state[ind_w] / r;                    // W-wind
+      const double th = (state[ind_t] + hy_dens_theta_cell[hs + k]) /
+                        r;                     // Potential Temperature (theta)
+      const double p = C0 * pow(r * th, gamm); // Pressure
+      const double t = th / pow(p0 / p, rd / cp); // Temperature
+      const double ke = r * (u * u + w * w);      // Kinetic Energy
+      const double ie = r * cv * t;               // Internal Energy
+      mass += r * dx * dz;                        // Accumulate domain mass
+      te += (ke + ie) * dx * dz; // Accumulate domain total energy
     }
   }
   double glob[2], loc[2];
